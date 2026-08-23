@@ -90,8 +90,9 @@ export default function PlansScreen() {
         />
       </Card>
 
-      {(Object.keys(prices).length ? Object.keys(prices) : ["1_month", "2_months", "3_months", "trial"]).map(
-        (key) => (
+      {(Object.keys(prices).length ? Object.keys(prices) : ["1_month", "2_months", "3_months"])
+        .filter((key) => key !== "trial")
+        .map((key) => (
           <Pressable
             key={key}
             onPress={() => setSelectedPlan(key)}

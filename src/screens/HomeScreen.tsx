@@ -9,19 +9,37 @@ import {
   View,
 } from "react-native";
 import * as Haptics from "expo-haptics";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
-import { colors, splitNameFlag } from "../theme";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
-import { showNodeConfig } from "../utils/nodeDebug";
+import * as stats from "../stats";
+import { colors, splitNameFlag, formatBytes } from "../theme";
 
 export default function HomeScreen() {
+  const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes } = useApp();
   const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
+  const [weekStat, setWeekStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
+
+  const loadStats = useCallback(() => {
+    stats.sumDays(1).then(setTodayStat).catch(() => {});
+    stats.sumDays(7).then(setWeekStat).catch(() => {});
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      setError(null);
+      loadStats();
+      if (!vpnRunning) return;
+      const t = setInterval(loadStats, 15000);
+      return () => clearInterval(t);
+    }, [vpnRunning, loadStats])
+  );
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
@@ -105,6 +123,28 @@ export default function HomeScreen() {
           </Text>
         )}
         {!!error && <Text style={styles.error}>{error}</Text>}
+      </View>
+
+      <View style={styles.statsBlock}>
+        <View style={styles.statsLeft}>
+          <Text style={styles.statsLabel}>Сегодня</Text>
+          <Text style={styles.statsTotal}>{formatBytes(todayStat.rx + todayStat.tx)}</Text>
+          <Text style={styles.statsWeek}>7 дней: {formatBytes(weekStat.rx + weekStat.tx)}</Text>
+        </View>
+        <View style={styles.statsDivider} />
+        <View style={{ flex: 1, gap: 6 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 14 }}>↓</Text>
+            <Text style={styles.statsSide}>{formatBytes(todayStat.rx)}</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={{ color: colors.green, fontWeight: "800", fontSize: 14 }}>↑</Text>
+            <Text style={styles.statsSide}>{formatBytes(todayStat.tx)}</Text>
+          </View>
+        </View>
+        <Pressable onPress={() => nav.navigate("Статистика")}>
+          <Text style={styles.statsMore}>Подробнее ›</Text>
+        </Pressable>
       </View>
 
       <Pressable style={styles.serverCard} onPress={() => setPickerOpen(true)}>
@@ -248,7 +288,6 @@ function ServerPicker({
                 <Pressable
                   style={[styles.sheetItem, selected && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
                   onPress={() => onSelect(item.id)}
-                  onLongPress={() => showNodeConfig(item)}
                 >
                   <Text style={{ fontSize: 24 }}>{info.flag}</Text>
                   <View style={{ flex: 1, marginLeft: 12 }}>
@@ -407,6 +446,25 @@ const styles = StyleSheet.create({
   },
   serverName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   serverSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  statsBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 20,
+    marginBottom: 14,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 16,
+    gap: 16,
+  },
+  statsLeft: { alignItems: "flex-start" },
+  statsLabel: { color: colors.textFaint, fontSize: 11 },
+  statsTotal: { color: colors.text, fontSize: 22, fontWeight: "800", marginTop: 2 },
+  statsWeek: { color: colors.textDim, fontSize: 10, marginTop: 3 },
+  statsDivider: { width: 1, height: 40, backgroundColor: colors.border },
+  statsSide: { color: colors.text, fontSize: 13, fontWeight: "600" },
+  statsMore: { color: colors.accent, fontSize: 11, fontWeight: "700" },
   dot: { width: 10, height: 10, borderRadius: 5 },
   chevron: { color: colors.textFaint, fontSize: 22, marginRight: 6 },
   sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },

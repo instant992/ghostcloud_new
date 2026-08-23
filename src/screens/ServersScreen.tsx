@@ -14,7 +14,6 @@ import { useApp } from "../context";
 import { colors, splitNameFlag } from "../theme";
 import { fetchNodes } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
-import { showNodeConfig } from "../utils/nodeDebug";
 
 export default function ServersScreen() {
   const { nodes, unsupportedCount, selectedNodeId, selectNode, reloadNodes, vpnRunning } = useApp();
@@ -49,7 +48,6 @@ export default function ServersScreen() {
     return (
       <Pressable
         onPress={() => selectNode(item.id)}
-        onLongPress={() => showNodeConfig(item)}
         style={[
           styles.item,
           selected && { borderColor: colors.accent, backgroundColor: colors.accentSoft },
