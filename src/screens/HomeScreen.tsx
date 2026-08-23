@@ -36,6 +36,18 @@ export default function HomeScreen() {
   const [allowedCount, setAllowedCount] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
+  const [refreshingNodes, setRefreshingNodes] = useState(false);
+
+  const refreshNodes = async () => {
+    if (refreshingNodes) return;
+    setRefreshingNodes(true);
+    try {
+      await reloadNodes();
+    } catch {}
+    finally {
+      setRefreshingNodes(false);
+    }
+  };
 
   const loadStats = useCallback(() => {
     stats.sumDays(1).then(setTodayStat).catch(() => {});
@@ -280,9 +292,16 @@ export default function HomeScreen() {
           )}
         </View>
         {selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
-        <View style={styles.infoBtn}>
+        <Pressable style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
+          {refreshingNodes ? (
+            <ActivityIndicator size="small" color={colors.accent} />
+          ) : (
+            <Ionicons name="refresh" size={16} color={colors.textDim} />
+          )}
+        </Pressable>
+        <Pressable style={styles.infoBtn} onPress={() => setPickerOpen(true)}>
           <Ionicons name="information-circle-outline" size={20} color={colors.textDim} />
-        </View>
+        </Pressable>
       </Pressable>
 
       <Pressable

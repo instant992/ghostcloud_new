@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { Button, ErrorText, Input, Screen, Subtitle, Title } from "../../components/UI";
+import { Button, ErrorText, Input, PasswordInput, Screen, Subtitle, Title } from "../../components/UI";
 import { useApp } from "../../context";
 import { colors } from "../../theme";
 
@@ -46,7 +46,7 @@ export default function LoginScreen() {
         value={loginStr}
         onChangeText={setLoginStr}
       />
-      <Input placeholder="Пароль" secureTextEntry value={password} onChangeText={setPassword} />
+      <PasswordInput placeholder="Пароль" value={password} onChangeText={setPassword} />
       <ErrorText>{error}</ErrorText>
       <Button title="Войти" onPress={doLogin} loading={loading} />
       <Pressable onPress={() => nav.navigate("ResetPassword")}>

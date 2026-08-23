@@ -11,6 +11,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme";
 
 export function Screen({
@@ -99,6 +100,35 @@ export function Input(props: TextInputProps) {
   );
 }
 
+export function PasswordInput(props: TextInputProps) {
+  const [show, setShow] = React.useState(false);
+  return (
+    <View>
+      <TextInput
+        placeholderTextColor={colors.textFaint}
+        style={styles.input}
+        secureTextEntry={!show}
+        autoCapitalize="none"
+        autoCorrect={false}
+        {...props}
+      />
+      <Pressable
+        onPress={() => setShow((s) => !s)}
+        hitSlop={12}
+        style={styles.eyeBtn}
+        accessibilityRole="button"
+        accessibilityLabel={show ? "Скрыть пароль" : "Показать пароль"}
+      >
+        <Ionicons
+          name={show ? "eye-off-outline" : "eye-outline"}
+          size={22}
+          color={colors.textDim}
+        />
+      </Pressable>
+    </View>
+  );
+}
+
 export function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
   return (
     <View style={styles.row}>
@@ -170,6 +200,13 @@ const styles = StyleSheet.create({
   },
   rowLabel: { color: colors.textDim, fontSize: 14 },
   rowValue: { fontSize: 14, fontWeight: "700", maxWidth: "60%", textAlign: "right" },
+  eyeBtn: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    bottom: 10,
+    justifyContent: "center",
+  },
   errorBox: {
     backgroundColor: colors.red + "18",
     borderColor: colors.red + "44",

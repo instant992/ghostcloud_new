@@ -15,7 +15,6 @@ import TelegramLoginScreen from "./src/screens/auth/TelegramLoginScreen";
 import ResetPasswordScreen from "./src/screens/auth/ResetPasswordScreen";
 
 import HomeScreen from "./src/screens/HomeScreen";
-import ServersScreen from "./src/screens/ServersScreen";
 import PlansScreen from "./src/screens/PlansScreen";
 import StatsScreen from "./src/screens/StatsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
@@ -64,13 +63,6 @@ function MainTabs() {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ focused }) => <TabIcon name={focused ? "home" : "home-outline"} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="Серверы"
-        component={ServersScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon name={focused ? "globe" : "globe-outline"} focused={focused} />,
         }}
       />
       <Tabs.Screen
