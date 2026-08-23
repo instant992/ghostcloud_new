@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Pressable, StatusBar, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -25,6 +25,35 @@ import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
 import { TabIcon } from "./src/components/TabIcon";
+
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: any }
+> {
+  state = { error: null as any };
+  static getDerivedStateFromError(error: any) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      const e = this.state.error;
+      return (
+        <View style={{ flex: 1, backgroundColor: colors.bg, padding: 24, justifyContent: "center" }}>
+          <Text style={{ color: colors.red, fontWeight: "800", fontSize: 16, marginBottom: 12 }}>
+            Ошибка приложения
+          </Text>
+          <Text style={{ color: colors.text, fontSize: 13 }}>
+            {String(e?.message || e)}
+          </Text>
+          <Text style={{ color: colors.textDim, fontSize: 10, marginTop: 12 }}>
+            {String(e?.stack || "").slice(0, 1200)}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const navTheme = {
   ...DefaultTheme,
@@ -170,13 +199,15 @@ export default function App() {
     );
   }
   return (
-    <SafeAreaProvider>
-      <ExpoStatusBar style="light" />
-      <AppProvider>
-        <NavigationContainer theme={navTheme}>
-          <Root />
-        </NavigationContainer>
-      </AppProvider>
-    </SafeAreaProvider>
+    <ErrorBoundary>
+      <SafeAreaProvider>
+        <ExpoStatusBar style="light" />
+        <AppProvider>
+          <NavigationContainer theme={navTheme}>
+            <Root />
+          </NavigationContainer>
+        </AppProvider>
+      </SafeAreaProvider>
+    </ErrorBoundary>
   );
 }

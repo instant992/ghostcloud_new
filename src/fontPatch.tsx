@@ -9,6 +9,14 @@ const OriginalTextInput = (ReactNative as any).TextInput;
 
 const withFont = (style: any) => StyleSheet.compose({ fontFamily: APP_FONT }, style);
 
+function safePatch(name: string, Original: any, Patched: any) {
+  try {
+    (ReactNative as any)[name] = Patched;
+  } catch (e) {
+    // Не удалось пропатчить — шрифт применится только там, где задан явно
+  }
+}
+
 const PatchedText = React.forwardRef<any, any>((props, ref) => (
   <OriginalText {...props} ref={ref} style={withFont(props.style)} />
 ));
@@ -19,5 +27,5 @@ const PatchedTextInput = React.forwardRef<any, any>((props, ref) => (
 ));
 PatchedTextInput.displayName = "TextInput";
 
-(ReactNative as any).Text = PatchedText;
-(ReactNative as any).TextInput = PatchedTextInput;
+safePatch("Text", OriginalText, PatchedText);
+safePatch("TextInput", OriginalTextInput, PatchedTextInput);
