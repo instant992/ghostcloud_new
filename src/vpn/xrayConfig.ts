@@ -12,6 +12,7 @@ export function buildStreamSettings(node: VpnNode): Record<string, any> {
       serverName: node.sni || node.address,
       allowInsecure: false,
       fingerprint: node.fingerprint || "chrome",
+      alpn: node.alpn,
     };
     if (stream.security === "reality") {
       stream.realitySettings = {
@@ -78,11 +79,16 @@ export function buildStreamSettings(node: VpnNode): Record<string, any> {
       break;
     case "xhttp":
     case "splithttp": {
-      const settings = {
+      const settings: Record<string, any> = {
         host: node.host || node.sni || "",
         path: node.path || "/",
         mode: node.mode || (node.typeParam === "splithttp" ? "packet-up" : "auto"),
       };
+      if (node.extra) {
+        try {
+          settings.extra = JSON.parse(node.extra);
+        } catch {}
+      }
       if (stream.network === "xhttp") stream.xhttpSettings = settings;
       else stream.splitHttpSettings = settings;
       break;

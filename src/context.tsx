@@ -129,20 +129,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const reloadNodes = useCallback(async () => {
     const mod = await import("./vpn/manager");
     const api = await import("./api");
-    const { apiServerToNode } = await import("./vpn/serverNodes");
 
     const subResult = await mod.fetchNodes().catch(() => ({ nodes: [], unsupportedCount: 0 }));
-    let apiNodes: VpnNode[] = [];
+    const lteNodes: VpnNode[] = [];
+
+    // Extra-профили (LTE Open): content — URL подписки или сам конфиг
     try {
-      const r = await api.getServers();
-      if (r?.success) {
-        const all = [...(r.wifi || []), ...(r.lte || [])];
-        apiNodes = all.map(apiServerToNode).filter((n) => n.address && n.port);
+      const r = await api.getExtraProfiles();
+      const profiles = Array.isArray(r?.profiles) ? r.profiles : [];
+      for (const p of profiles) {
+        if (!p?.is_active && p.is_active !== undefined) continue;
+        let text = "";
+        if (p.profile_type === "url" && typeof p.content === "string" && p.content.startsWith("http")) {
+          text = await mod.fetchSubscriptionText(p.content);
+        } else if (typeof p.content === "string") {
+          text = p.content;
+        }
+        if (!text) continue;
+        const { nodes: parsed } = await import("./vpn/parse").then((m) => m.parseSubscriptionText(text));
+        for (const n of parsed) lteNodes.push({ ...n, id: `lte-${n.id}`, source: "lte" });
       }
     } catch {}
 
     if (!mounted.current) return;
-    setNodes([...subResult.nodes, ...apiNodes]);
+    setNodes([...subResult.nodes.map((n) => ({ ...n, source: "sub" as const })), ...lteNodes]);
     setUnsupportedCount(subResult.unsupportedCount);
   }, []);
 

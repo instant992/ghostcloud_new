@@ -26,6 +26,8 @@ export type VpnNode = {
   encryption?: string;
   typeParam?: string;
   mode?: string;
+  alpn?: string[];
+  extra?: string;
   source?: "sub" | "wifi" | "lte";
 };
 
@@ -137,6 +139,8 @@ function parseVless(link: string): VpnNode | null {
       encryption: p.encryption,
       typeParam: p.type,
       mode: p.mode,
+      alpn: p.alpn ? p.alpn.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+      extra: p.extra,
       supportedByXray: true,
       raw: link,
     };

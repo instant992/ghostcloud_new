@@ -30,6 +30,13 @@ async function fetchText(url: string, userAgent: string): Promise<string | null>
   }
 }
 
+/** Скачать текст подписки по URL (с HWID-заголовками) */
+export async function fetchSubscriptionText(url: string): Promise<string> {
+  const text = await fetchText(url, V2RAY_UA);
+  if (!text) throw new Error("Подписка недоступна");
+  return text;
+}
+
 function mergeNodes(a: VpnNode[], b: VpnNode[]): VpnNode[] {
   const seen = new Set(a.map((n) => n.id));
   return [...a, ...b.filter((n) => !seen.has(n.id))];

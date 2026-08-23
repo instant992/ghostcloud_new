@@ -202,8 +202,8 @@ export async function supportClose() {
   return request("POST", "/api/auth/mobile/support/close");
 }
 
-// ── Серверы (LTE Open / обычные) ──
+// ── Серверы ──
 
-export async function getServers() {
-  return request("GET", `/api/servers?token=${encodeURIComponent(SERVERS_TOKEN)}`);
+export async function getExtraProfiles() {
+  return request("GET", "/api/extra-profiles", undefined, { auth: false });
 }
