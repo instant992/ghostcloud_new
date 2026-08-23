@@ -1,0 +1,124 @@
+import { requireNativeModule } from "expo-modules-core";
+import { EventEmitter } from "expo-modules-core";
+import { Platform } from "react-native";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const XrayNative: any =
+  Platform.OS === "android"
+    ? (() => {
+        try {
+          return requireNativeModule("XrayCore");
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
+export const xrayAvailable = XrayNative !== null;
+
+const emitter: any = XrayNative ? new EventEmitter(XrayNative) : null;
+
+export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
+  if (!emitter) return () => {};
+  const sub: any = emitter.addListener("onVpnStateChanged", (e: { running: boolean }) =>
+    cb(e.running)
+  );
+  return () => sub.remove();
+}
+
+export async function startVpn(configJson: string): Promise<boolean> {
+  if (!XrayNative) throw new Error("VPN-модуль недоступен (соберите нативное приложение)");
+  return XrayNative.startVpn(configJson);
+}
+
+export function stopVpn(): void {
+  if (!XrayNative) return;
+  XrayNative.stopVpn();
+}
+
+export async function requestVpnPermission(): Promise<boolean> {
+  if (!XrayNative) return false;
+  return XrayNative.requestPermission();
+}
+
+export async function isPrepared(): Promise<boolean> {
+  if (!XrayNative) return false;
+  try {
+    return await XrayNative.isPrepared();
+  } catch {
+    return false;
+  }
+}
+
+export function isVpnRunning(): boolean {
+  if (!XrayNative) return false;
+  try {
+    return XrayNative.isVpnRunning();
+  } catch {
+    return false;
+  }
+}
+
+/** TCP-пинг хоста, возвращает задержку в мс */
+export async function tcpPing(host: string, port: number, timeoutMs = 5000): Promise<number> {
+  if (!XrayNative) throw new Error("модуль недоступен");
+  const res: any = await XrayNative.tcpPing(host, port, timeoutMs);
+  return typeof res === "number" ? res : Number(res || -1);
+}
+
+/** Суммарные байты приложения (tx/rx) с загрузки системы */
+export async function getTrafficSnapshot(): Promise<{ tx: number; rx: number }> {
+  if (!XrayNative) return { tx: 0, rx: 0 };
+  try {
+    const snap = XrayNative.getTrafficSnapshot();
+    return {
+      tx: typeof snap?.tx === "number" ? snap.tx : Number(snap?.tx || 0),
+      rx: typeof snap?.rx === "number" ? snap.rx : Number(snap?.rx || 0),
+    };
+  } catch {
+    return { tx: 0, rx: 0 };
+  }
+}
+
+export function getXrayVersion(): string {
+  if (!XrayNative) return "";
+  try {
+    return XrayNative.xrayVersion() || "";
+  } catch {
+    return "";
+  }
+}
+
+/** configs: [{xrayJson, outboundTag}] — максимум 5 за один вызов */
+export async function pingNodesBatch(
+  outbounds: Array<{ xrayJson: string }>
+): Promise<Array<{ success: boolean; delay: number; error?: string }>> {
+  if (!XrayNative) return [];
+  const results: Array<{ success: boolean; delay: number; error?: string }> = [];
+  for (let i = 0; i < outbounds.length; i += 5) {
+    const chunk = outbounds.slice(i, i + 5).map((c) => ({
+      xrayJson: c.xrayJson,
+      outboundTag: "proxy",
+    }));
+    try {
+      const payload = JSON.stringify({ configs: chunk });
+      const res = XrayNative.pingBatch(payload, 10, "https://cp.cloudflare.com/generate_204");
+      const parsed = JSON.parse(res);
+      if (!parsed?.success) throw new Error(parsed?.error || "ping failed");
+      const items = parsed?.data?.results || [];
+      for (let j = 0; j < chunk.length; j++) {
+        const it = items[j];
+        results.push({
+          success: Boolean(it?.success),
+          delay: typeof it?.delay === "number" ? it.delay : -1,
+          error: it?.error,
+        });
+      }
+    } catch (e: any) {
+      for (let j = 0; j < chunk.length; j++) {
+        results.push({ success: false, delay: -1, error: e?.message || "ping failed" });
+      }
+    }
+  }
+  return results;
+}

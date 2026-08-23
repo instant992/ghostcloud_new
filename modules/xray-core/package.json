@@ -1,0 +1,6 @@
+{
+  "name": "xray-core",
+  "version": "1.0.0",
+  "description": "GhostCloud Xray-core VPN native module",
+  "main": "index.ts"
+}

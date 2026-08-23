@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "GhostCloud",
+    "slug": "ghostcloud",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0F0B1E",
+    "icon": "./assets/icon.png",
+    "updates": {
+      "url": "https://u.expo.dev/610ee1ee-ed79-4bbc-93f4-f14e3e05c3e3"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "android": {
+      "package": "space.ghostcloud.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/monochrome-icon.png",
+        "backgroundColor": "#202020"
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_SPECIAL_USE",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "610ee1ee-ed79-4bbc-93f4-f14e3e05c3e3"
+      }
+    },
+    "owner": "ghost552"
+  }
+}
+
