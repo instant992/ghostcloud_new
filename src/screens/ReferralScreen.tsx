@@ -52,10 +52,6 @@ export default function ReferralScreen() {
   if (!info) return <Screen />;
 
   const nextTier = info.next_tier;
-  const progress =
-    nextTier && nextTier.count > 0
-      ? Math.min(1, (info.confirmed_count || 0) / nextTier.count)
-      : 1;
 
   return (
     <Screen>
@@ -105,10 +101,21 @@ export default function ReferralScreen() {
         {nextTier ? (
           <>
             <View style={styles.progressBg}>
-              <View style={[styles.progressBar, { width: `${Math.round(progress * 100)}%` }]} />
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${
+                      nextTier.needed > 0
+                        ? Math.min(100, Math.round(((nextTier.needed - (nextTier.remaining || 0)) / nextTier.needed) * 100))
+                        : 100
+                    }%`,
+                  },
+                ]}
+              />
             </View>
             <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 6 }}>
-              Ещё {nextTier.count - info.confirmed_count} чел. до скидки {nextTier.discount}%
+              Ещё {nextTier.remaining} чел. до скидки {nextTier.discount}%
             </Text>
           </>
         ) : (

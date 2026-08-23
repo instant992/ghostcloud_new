@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from "react";
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Screen, Subtitle } from "../components/UI";
 import { banDevice, buyDevices, deleteDevice, getDevices, unbanDevice } from "../api";
+import * as deviceNames from "../deviceNames";
 import { colors } from "../theme";
 
 type Device = {
@@ -25,6 +26,9 @@ export default function DevicesScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const [renameTarget, setRenameTarget] = useState<Device | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -53,8 +57,23 @@ export default function DevicesScreen() {
     useCallback(() => {
       load();
       loadBanned();
+      deviceNames.readAll().then(setNames).catch(() => {});
     }, [])
   );
+
+  const saveName = async () => {
+    if (!renameTarget) return;
+    await deviceNames.setName(renameTarget.hwid_full, renameValue).catch(() => {});
+    setNames(await deviceNames.readAll());
+    setRenameTarget(null);
+    setRenameValue("");
+  };
+
+  const displayName = (d: Device): string => {
+    const custom = names[d.hwid_full];
+    if (custom) return custom;
+    return `${d.model !== "—" ? d.model : d.os}${d.os_ver ? ` · ${d.os_ver}` : ""}`;
+  };
 
   const doRefresh = async () => {
     setRefreshing(true);
@@ -179,13 +198,26 @@ export default function DevicesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor={colors.accent} />}
         renderItem={({ item }) => (
           <View style={styles.item}>
+            <Pressable
+              onPress={() => {
+                setRenameTarget(item);
+                setRenameValue(names[item.hwid_full] || "");
+              }}
+              style={{ marginRight: 12 }}
+            >
+              <Text style={{ fontSize: 18 }}>✏️</Text>
+            </Pressable>
             <Text style={{ fontSize: 24 }}>💻</Text>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.itemTitle} numberOfLines={1}>
-                {item.model !== "—" ? item.model : item.os}
-                {item.os_ver ? ` · ${item.os_ver}` : ""}
+                {displayName(item)}
+                {names[item.hwid_full] ? "  ·" : ""}
               </Text>
-              <Text style={styles.itemSub}>HWID: {item.hwid}</Text>
+              <Text style={styles.itemSub} numberOfLines={1}>
+                {names[item.hwid_full]
+                  ? `${item.model !== "—" ? item.model : item.os}${item.os_ver ? ` · ${item.os_ver}` : ""} · HWID: ${item.hwid}`
+                  : `HWID: ${item.hwid}`}
+              </Text>
             </View>
             <Pressable onPress={() => onDelete(item)}>
               <Text style={{ color: colors.textFaint, paddingHorizontal: 8 }}>🗑</Text>
@@ -201,6 +233,41 @@ export default function DevicesScreen() {
           </Text>
         }
       />
+      <Modal visible={!!renameTarget} transparent animationType="fade" onRequestClose={() => setRenameTarget(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setRenameTarget(null)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16, marginBottom: 12 }}>
+              Название устройства
+            </Text>
+            <TextInput
+              style={{
+                backgroundColor: colors.bgSoft,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 10,
+                color: colors.text,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                marginBottom: 14,
+              }}
+              placeholder="Например: Мой телефон"
+              placeholderTextColor={colors.textFaint}
+              value={renameValue}
+              onChangeText={setRenameValue}
+              maxLength={32}
+              autoFocus
+            />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Отмена" variant="ghost" onPress={() => setRenameTarget(null)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button title="Сохранить" onPress={saveName} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
 }
@@ -233,6 +300,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   actionBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 18,
+  },
 });
 
 

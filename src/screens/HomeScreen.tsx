@@ -13,6 +13,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
+import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
 import { colors, splitNameFlag, formatBytes } from "../theme";
 
@@ -156,7 +157,7 @@ export default function HomeScreen() {
                 {selectedInfo.name}
               </Text>
               <Text style={styles.serverSub} numberOfLines={1}>
-                {selectedNode.protocol.toUpperCase()} · {selectedNode.address}
+                {transportLabel(selectedNode)}
               </Text>
             </View>
             <Text style={styles.chevron}>›</Text>
@@ -295,7 +296,7 @@ function ServerPicker({
                       {info.name}
                     </Text>
                     <Text style={styles.sheetItemSub} numberOfLines={1}>
-                      {item.protocol.toUpperCase()} · {item.address}
+                      {transportLabel(item)}
                     </Text>
                     {ping?.status === "done" && !!ping.error && (
                       <Text style={{ color: colors.red, fontSize: 10 }} numberOfLines={1}>

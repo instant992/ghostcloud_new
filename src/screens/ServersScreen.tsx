@@ -14,6 +14,7 @@ import { useApp } from "../context";
 import { colors, splitNameFlag } from "../theme";
 import { fetchNodes } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
+import { transportLabel } from "../utils/transportLabel";
 
 export default function ServersScreen() {
   const { nodes, unsupportedCount, selectedNodeId, selectNode, reloadNodes, vpnRunning } = useApp();
@@ -59,7 +60,7 @@ export default function ServersScreen() {
             {info.name}
           </Text>
           <Text style={styles.sub} numberOfLines={1}>
-            {item.protocol.toUpperCase()} · {item.address}
+            {transportLabel(item)}
           </Text>
           {ping?.status === "done" && !!ping.error && (
             <Text style={styles.pingError} numberOfLines={1}>
