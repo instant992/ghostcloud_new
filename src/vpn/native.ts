@@ -16,6 +16,12 @@ const XrayNative: any =
 
 export const xrayAvailable = XrayNative !== null;
 
+export type AppInfo = {
+  packageName: string;
+  appName: string;
+  system: boolean;
+};
+
 const emitter: any = XrayNative ? new EventEmitter(XrayNative) : null;
 
 export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
@@ -26,9 +32,33 @@ export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
   return () => sub.remove();
 }
 
-export async function startVpn(configJson: string): Promise<boolean> {
+export async function startVpn(
+  configJson: string,
+  allowedApps: string[] = [],
+  disallowedApps: string[] = []
+): Promise<boolean> {
   if (!XrayNative) throw new Error("VPN-модуль недоступен (соберите нативное приложение)");
-  return XrayNative.startVpn(configJson);
+  return XrayNative.startVpn(
+    configJson,
+    allowedApps.length ? allowedApps.join(",") : null,
+    disallowedApps.length ? disallowedApps.join(",") : null
+  );
+}
+
+/** Установленные приложения: [{packageName, appName, system}] */
+export async function getInstalledApps(includeSystem: boolean): Promise<AppInfo[]> {
+  if (!XrayNative) return [];
+  try {
+    const res = await XrayNative.getInstalledApps(includeSystem);
+    if (!Array.isArray(res)) return [];
+    return res.map((a: any) => ({
+      packageName: String(a?.packageName || ""),
+      appName: String(a?.appName || a?.packageName || ""),
+      system: Boolean(a?.system),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 export function stopVpn(): void {

@@ -43,7 +43,7 @@ class XrayCoreModule : Module() {
       }
     }
 
-    AsyncFunction("startVpn") { configJson: String, promise: Promise ->
+    AsyncFunction("startVpn") { configJson: String, allowedJson: String?, disallowedJson: String?, promise: Promise ->
       if (XrayVpnService.isRunning.get()) {
         promise.reject("ERR_RUNNING", "VPN уже запущен", null)
         return@AsyncFunction
@@ -52,6 +52,8 @@ class XrayCoreModule : Module() {
       val intent = Intent(context, XrayVpnService::class.java).apply {
         action = XrayVpnService.ACTION_START
         putExtra("config", configJson)
+        if (!allowedJson.isNullOrBlank()) putExtra("allowed", allowedJson)
+        if (!disallowedJson.isNullOrBlank()) putExtra("disallowed", disallowedJson)
       }
       try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -62,6 +64,36 @@ class XrayCoreModule : Module() {
       } catch (e: Throwable) {
         XrayVpnService.pendingPromise = null
         promise.reject("ERR_START", e.message ?: "Не удалось запустить VPN-сервис", e)
+      }
+    }
+
+    AsyncFunction("getInstalledApps") { includeSystem: Boolean, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-apps-list") {
+        try {
+          val pm = context.packageManager
+          val self = context.packageName
+          val apps = mutableListOf<Map<String, Any>>()
+          for (info in pm.getInstalledPackages(0)) {
+            val pkg = info.packageName
+            if (pkg == self) continue
+            val ai = info.applicationInfo ?: continue
+            val isSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 ||
+              (ai.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
+            if (!includeSystem && isSystem) continue
+            if (pm.getLaunchIntentForPackage(pkg) == null) continue
+            apps.add(
+              mapOf(
+                "packageName" to pkg,
+                "appName" to (ai.loadLabel(pm)?.toString() ?: pkg),
+                "system" to isSystem
+              )
+            )
+          }
+          apps.sortBy { (it["appName"] as String).lowercase() }
+          promise.resolve(apps)
+        } catch (e: Throwable) {
+          promise.reject("ERR_APPS", e.message ?: "Не удалось получить список приложений", e)
+        }
       }
     }
 

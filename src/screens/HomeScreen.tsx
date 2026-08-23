@@ -7,7 +7,9 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import * as Haptics from "expo-haptics";
@@ -16,6 +18,8 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
+import * as appFilterMod from "../vpn/appFilter";
+import { getInstalledApps, type AppInfo } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
 import { colors, splitNameFlag, formatBytes } from "../theme";
@@ -27,6 +31,9 @@ export default function HomeScreen() {
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [appsOpen, setAppsOpen] = useState(false);
+  const [allowedCount, setAllowedCount] = useState(0);
+  const [blockedCount, setBlockedCount] = useState(0);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
   const [weekStat, setWeekStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
 
@@ -39,6 +46,10 @@ export default function HomeScreen() {
     useCallback(() => {
       setError(null);
       loadStats();
+      appFilterMod.loadFilter().then((f) => {
+        setAllowedCount(f.allowed.length);
+        setBlockedCount(f.blocked.length);
+      }).catch(() => {});
       if (!vpnRunning) return;
       const t = setInterval(loadStats, 15000);
       return () => clearInterval(t);
@@ -197,6 +208,21 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
+      <Pressable style={styles.appsCard} onPress={() => setAppsOpen(true)}>
+        <Ionicons name="apps" size={26} color={colors.accent} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.serverName}>Приложения</Text>
+          <Text style={styles.serverSub} numberOfLines={1}>
+            {allowedCount > 0
+              ? `Через VPN: ${allowedCount} · белый список`
+              : blockedCount > 0
+                ? `Мимо VPN: ${blockedCount}`
+                : "Все приложения через VPN"}
+          </Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </Pressable>
+
       <Pressable style={styles.serverCard} onPress={() => setPickerOpen(true)}>
         {selectedNode && selectedInfo ? (
           <>
@@ -219,6 +245,15 @@ export default function HomeScreen() {
           </View>
         )}
       </Pressable>
+
+      <AppFilterModal
+        visible={appsOpen}
+        onClose={() => setAppsOpen(false)}
+        onChange={(allowed, blocked) => {
+          setAllowedCount(allowed.length);
+          setBlockedCount(blocked.length);
+        }}
+      />
 
       <ServerPicker
         visible={pickerOpen}
@@ -254,6 +289,202 @@ export default function HomeScreen() {
       />
     </View>
   );
+}
+
+type AppTab = "allow" | "block";
+
+function AppFilterModal({
+  visible,
+  onClose,
+  onChange,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onChange: (allowed: string[], blocked: string[]) => void;
+}) {
+  const [tab, setTab] = useState<AppTab>("block");
+  const [includeSystem, setIncludeSystem] = useState(false);
+  const [search, setSearch] = useState("");
+  const [apps, setApps] = useState<AppInfo[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [allowed, setAllowed] = useState<string[]>([]);
+  const [blocked, setBlocked] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!visible) return;
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([appFilterMod.loadFilter(), getInstalledApps(includeSystem)])
+      .then(([f, list]) => {
+        if (cancelled) return;
+        setAllowed(f.allowed);
+        setBlocked(f.blocked);
+        setApps(list);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, includeSystem]);
+
+  const toggleApp = (pkg: string) => {
+    const inAllowed = allowed.includes(pkg);
+    const inBlocked = blocked.includes(pkg);
+    let nextAllowed = allowed;
+    let nextBlocked = blocked;
+    if (tab === "allow") {
+      nextAllowed = inAllowed ? allowed.filter((p) => p !== pkg) : [...allowed, pkg];
+      if (!inAllowed) nextBlocked = blocked.filter((p) => p !== pkg);
+    } else {
+      nextBlocked = inBlocked ? blocked.filter((p) => p !== pkg) : [...blocked, pkg];
+      if (!inBlocked) nextAllowed = allowed.filter((p) => p !== pkg);
+    }
+    setAllowed(nextAllowed);
+    setBlocked(nextBlocked);
+    appFilterMod.saveAllowed(nextAllowed).catch(() => {});
+    appFilterMod.saveBlocked(nextBlocked).catch(() => {});
+    onChange(nextAllowed, nextBlocked);
+    Haptics.selectionAsync().catch(() => {});
+  };
+
+  const q = search.trim().toLowerCase();
+  const shown = apps.filter(
+    (a) =>
+      !q ||
+      a.appName.toLowerCase().includes(q) ||
+      a.packageName.toLowerCase().includes(q)
+  );
+
+  const whitelistMode = allowed.length > 0;
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={styles.appsScreen}>
+        <View style={styles.appsHeader}>
+          <Pressable onPress={onClose} hitSlop={10}>
+            <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700" }}>Готово</Text>
+          </Pressable>
+          <Text style={styles.appsTitle}>Приложения</Text>
+          <View style={{ width: 50 }} />
+        </View>
+
+        <View style={styles.tabsRow}>
+          {(
+            [
+              ["allow", `Через VPN (${allowed.length})`],
+              ["block", `Мимо VPN (${blocked.length})`],
+            ] as Array<[AppTab, string]>
+          ).map(([key, label]) => (
+            <Pressable
+              key={key}
+              style={[styles.appsTabBtn, tab === key && styles.appsTabBtnOn]}
+              onPress={() => setTab(key)}
+            >
+              <Text
+                style={{
+                  color: tab === key ? "#fff" : colors.textDim,
+                  fontWeight: "700",
+                  fontSize: 13,
+                }}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <View style={styles.systemRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>
+              Системные приложения
+            </Text>
+            <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 2 }}>
+              Показывать службы Android в списке
+            </Text>
+          </View>
+          <Switch
+            value={includeSystem}
+            onValueChange={setIncludeSystem}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor="#fff"
+          />
+        </View>
+
+        <TextInput
+          style={styles.appsSearch}
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Поиск приложений…"
+          placeholderTextColor={colors.textFaint}
+          autoCapitalize="none"
+        />
+
+        <Text style={appsHintStyle(whitelistMode)}>
+          {whitelistMode
+            ? "Белый список: через VPN идут только приложения из «Через VPN», список «Мимо» не действует"
+            : "Все приложения идут через VPN, кроме выбранных в «Мимо VPN». Изменения применяются при подключении"}
+        </Text>
+
+        {loading && apps.length === 0 ? (
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : (
+          <FlatList
+            data={shown}
+            keyExtractor={(item) => item.packageName}
+            contentContainerStyle={{ paddingBottom: 30 }}
+            renderItem={({ item }) => {
+              const inList =
+                tab === "allow" ? allowed.includes(item.packageName) : blocked.includes(item.packageName);
+              return (
+                <Pressable style={styles.appRow} onPress={() => toggleApp(item.packageName)}>
+                  <View style={[styles.appAvatar, { backgroundColor: colors.accentSoft }]}>
+                    <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 16 }}>
+                      {(item.appName[0] || "?").toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }} numberOfLines={1}>
+                      {item.appName}
+                    </Text>
+                    <Text style={{ color: colors.textFaint, fontSize: 11 }} numberOfLines={1}>
+                      {item.packageName}
+                    </Text>
+                  </View>
+                  {item.system && (
+                    <View style={styles.sysTag}>
+                      <Text style={{ color: colors.textFaint, fontSize: 10 }}>SYS</Text>
+                    </View>
+                  )}
+                  <Ionicons
+                    name={inList ? (tab === "allow" ? "checkmark-circle" : "remove-circle") : "ellipse-outline"}
+                    size={24}
+                    color={
+                      inList
+                        ? tab === "allow"
+                          ? colors.green
+                          : colors.red
+                        : colors.textFaint
+                    }
+                  />
+                </Pressable>
+              );
+            }}
+          />
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+function appsHintStyle(whitelistMode: boolean) {
+  return [
+    styles.appsHint,
+    { color: whitelistMode ? colors.accent : colors.textFaint },
+  ];
 }
 
 function ServerPicker({
@@ -480,6 +711,82 @@ const styles = StyleSheet.create({
   },
   serverName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   serverSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  appsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginHorizontal: 20,
+    marginBottom: 14,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 16,
+  },
+  appsScreen: { flex: 1, backgroundColor: colors.bg, paddingTop: 54, paddingHorizontal: 16 },
+  appsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  appsTitle: { color: colors.text, fontSize: 17, fontWeight: "800" },
+  tabsRow: {
+    flexDirection: "row",
+    backgroundColor: colors.bgSoft,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+    marginBottom: 12,
+  },
+  systemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+  },
+  appsSearch: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: colors.text,
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  appsHint: {
+    fontSize: 11,
+    textAlign: "center",
+    marginBottom: 8,
+    paddingHorizontal: 8,
+  },
+  appRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+  },
+  appAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sysTag: {
+    backgroundColor: colors.bgSoft,
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    marginRight: 2,
+  },
   statsBlock: {
     flexDirection: "row",
     alignItems: "center",
@@ -538,6 +845,13 @@ const styles = StyleSheet.create({
   },
   tabBtnOn: { backgroundColor: colors.accentDeep },
   tabText: { color: colors.textDim, fontWeight: "700", fontSize: 13 },
+  appsTabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  appsTabBtnOn: { backgroundColor: colors.accent },
   expiredNote: {
     color: colors.orange,
     fontSize: 12,

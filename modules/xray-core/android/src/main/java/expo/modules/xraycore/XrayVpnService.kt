@@ -57,7 +57,11 @@ class XrayVpnService : VpnService() {
         val config = intent?.getStringExtra("config")
         if (config != null) {
           startForegroundSilently()
-          startVpnCore(config)
+          startVpnCore(
+            config,
+            intent.getStringExtra("allowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList(),
+            intent.getStringExtra("disallowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+          )
         } else if (isRunning.get()) {
           startForegroundSilently()
         } else {
@@ -68,9 +72,9 @@ class XrayVpnService : VpnService() {
     return START_STICKY
   }
 
-  private fun startVpnCore(configJson: String) {
+  private fun startVpnCore(configJson: String, allowedPkgs: List<String>, disallowedPkgs: List<String>) {
     try {
-      val pfd = Builder()
+      val builder = Builder()
         .setSession("GhostCloud")
         .setMtu(1500)
         .addAddress("26.26.26.1", 32)
@@ -79,6 +83,27 @@ class XrayVpnService : VpnService() {
         .addRoute("0.0.0.0", 0)
         .addRoute("::", 0)
         .addDisallowedApplication(packageName)
+
+      // Android поддерживает либо белый список (allowed), либо чёрный (disallowed).
+      // Если заполнен список «через VPN» — работаем в режиме белого списка.
+      if (allowedPkgs.isNotEmpty()) {
+        for (pkg in allowedPkgs) {
+          try {
+            builder.addAllowedApplication(pkg)
+          } catch (_: Throwable) {
+          }
+        }
+      } else {
+        for (pkg in disallowedPkgs) {
+          if (pkg == packageName) continue
+          try {
+            builder.addDisallowedApplication(pkg)
+          } catch (_: Throwable) {
+          }
+        }
+      }
+
+      val pfd = builder
         .setBlocking(false)
         .establish()
 

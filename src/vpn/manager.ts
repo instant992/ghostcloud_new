@@ -2,6 +2,7 @@ import { deviceHeaders, loadSession } from "../storage";
 import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "./parse";
 import type { VpnNode } from "./parse";
 import { buildXrayConfig } from "./xrayConfig";
+import { loadFilter } from "./appFilter";
 import {
   isVpnRunning,
   onVpnStateChanged,
@@ -112,7 +113,11 @@ export async function connect(node: VpnNode): Promise<void> {
     await new Promise((r) => setTimeout(r, 800));
   }
   const config = buildXrayConfig(node, null);
-  await startVpn(config);
+  const filter = await loadFilter();
+  // Если заполнен белый список — блок-лист игнорируется (ограничение Android)
+  const allowed = filter.allowed;
+  const blocked = allowed.length ? [] : filter.blocked;
+  await startVpn(config, allowed, blocked);
 }
 
 export async function disconnect(): Promise<void> {
