@@ -5,7 +5,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
-import { useFonts } from "expo-font";
 import { APP_FONT } from "./src/fontPatch";
 import { AppProvider, useApp } from "./src/context";
 import { colors } from "./src/theme";
@@ -186,18 +185,6 @@ function Root() {
 }
 
 export default function App() {
-  const [fontsLoaded] = useFonts({
-    [APP_FONT]: require("./assets/fonts/Huninn-Regular.ttf"),
-  });
-  if (!fontsLoaded) {
-    return (
-      <SafeAreaProvider>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      </SafeAreaProvider>
-    );
-  }
   return (
     <ErrorBoundary>
       <SafeAreaProvider>

@@ -2,7 +2,7 @@ import React from "react";
 import { StyleSheet } from "react-native";
 import * as ReactNative from "react-native";
 
-export const APP_FONT = "Huninn";
+export const APP_FONT = "Huninn-Regular";
 
 const OriginalText = (ReactNative as any).Text;
 const OriginalTextInput = (ReactNative as any).TextInput;
