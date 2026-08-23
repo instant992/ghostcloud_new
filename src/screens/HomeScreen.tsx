@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Circle } from "react-native-svg";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
@@ -35,11 +36,9 @@ export default function HomeScreen() {
   const [allowedCount, setAllowedCount] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
-  const [weekStat, setWeekStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
 
   const loadStats = useCallback(() => {
     stats.sumDays(1).then(setTodayStat).catch(() => {});
-    stats.sumDays(7).then(setWeekStat).catch(() => {});
   }, []);
 
   useFocusEffect(
@@ -94,6 +93,24 @@ export default function HomeScreen() {
     };
   }, [vpnRunning, pulse1, pulse2]);
 
+  // Медленное вращение колец из частиц
+  const spin1 = useRef(new Animated.Value(0)).current;
+  const spin2 = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const mk = (val: Animated.Value, dur: number) =>
+      Animated.loop(
+        Animated.timing(val, { toValue: 360, duration: dur, easing: Easing.linear, useNativeDriver: true })
+      );
+    const a1 = mk(spin1, 80000);
+    const a2 = mk(spin2, 110000);
+    a1.start();
+    a2.start();
+    return () => {
+      a1.stop();
+      a2.stop();
+    };
+  }, [spin1, spin2]);
+
   useFocusEffect(
     useCallback(() => {
       setError(null);
@@ -133,15 +150,72 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.brand}>GhostCloud</Text>
-        <Text style={[styles.planTag, { color: me?.expire_at ? colors.green : colors.textFaint }]}>
-          {me?.plan || ""}
-        </Text>
+        <View style={styles.headerLeft}>
+          <View style={[styles.shieldBadge, connected && styles.shieldBadgeOn]}>
+            <Ionicons
+              name="shield-checkmark"
+              size={16}
+              color={connected ? colors.green : colors.textDim}
+            />
+          </View>
+          <View>
+            <Text style={styles.statusLabel}>Статус подключения</Text>
+            <Text
+              style={[styles.statusValue, { color: connected ? colors.green : colors.text }]}
+            >
+              {statusText}
+            </Text>
+          </View>
+        </View>
+        <View style={styles.headerRight}>
+          <Pressable style={styles.proPill} onPress={() => nav.navigate("Тарифы")}>
+            <Text style={styles.proPillText}>{me?.plan || "PRO"}</Text>
+          </Pressable>
+          <Pressable style={styles.crownBtn} onPress={() => nav.navigate("Тарифы")}>
+            <Ionicons name="diamond" size={17} color="#FFD166" />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.powerArea}>
         <Pressable onPress={toggle} disabled={busy} style={styles.pressable}>
           <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.orbit,
+              styles.orbitOuter,
+              {
+                opacity: connected ? 1 : 0.55,
+                transform: [
+                  {
+                    rotate: spin1.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "360deg"] }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <ParticleRing size={304} color={colors.accent} />
+          </Animated.View>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.orbit,
+              styles.orbitInner,
+              {
+                opacity: connected ? 0.95 : 0.45,
+                transform: [
+                  {
+                    rotate: spin2.interpolate({ inputRange: [0, 360], outputRange: ["0deg", "-360deg"] }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <ParticleRing size={256} color="#C4B5FD" />
+          </Animated.View>
+          <View pointerEvents="none" style={[styles.halo, connected && styles.haloOn]} />
+          <Animated.View
+            pointerEvents="none"
             style={[
               styles.ring3,
               connected && styles.ringOn3,
@@ -154,6 +228,7 @@ export default function HomeScreen() {
             ]}
           />
           <Animated.View
+            pointerEvents="none"
             style={[
               styles.ring2,
               connected && styles.ringOn2,
@@ -175,9 +250,6 @@ export default function HomeScreen() {
             <PowerIcon on={connected} />
           </View>
         </Pressable>
-        <Text style={[styles.status, { color: connected ? colors.green : colors.textDim }]}>
-          {statusText}
-        </Text>
         {!!connected && (
           <Text style={styles.timer}>
             {formatTimer(seconds)}
@@ -186,30 +258,68 @@ export default function HomeScreen() {
         {!!error && <Text style={styles.error}>{error}</Text>}
       </View>
 
-      <View style={styles.statsBlock}>
-        <View style={styles.statsLeft}>
-          <Text style={styles.statsLabel}>Сегодня</Text>
-          <Text style={styles.statsTotal}>{formatBytes(todayStat.rx + todayStat.tx)}</Text>
-          <Text style={styles.statsWeek}>7 дней: {formatBytes(weekStat.rx + weekStat.tx)}</Text>
+      <Pressable style={styles.serverCard} onPress={() => setPickerOpen(true)}>
+        <View style={styles.serverIcon}>
+          <Ionicons name="flash" size={20} color={colors.accent} />
         </View>
-        <View style={styles.statsDivider} />
-        <View style={{ flex: 1, gap: 6 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 14 }}>↓</Text>
-            <Text style={styles.statsSide}>{formatBytes(todayStat.rx)}</Text>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={{ color: colors.green, fontWeight: "800", fontSize: 14 }}>↑</Text>
-            <Text style={styles.statsSide}>{formatBytes(todayStat.tx)}</Text>
-          </View>
+        <View style={{ flex: 1 }}>
+          {selectedNode && selectedInfo ? (
+            <>
+              <Text style={styles.serverName} numberOfLines={1}>
+                {selectedInfo.name}
+              </Text>
+              <Text style={styles.serverSub} numberOfLines={1}>
+                {transportLabel(selectedNode)}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.serverName}>Сервер не выбран</Text>
+              <Text style={styles.serverSub}>Нажмите, чтобы выбрать локацию</Text>
+            </>
+          )}
         </View>
-        <Pressable onPress={() => nav.navigate("Статистика")}>
-          <Text style={styles.statsMore}>Подробнее ›</Text>
+        {selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
+        <View style={styles.infoBtn}>
+          <Ionicons name="information-circle-outline" size={20} color={colors.textDim} />
+        </View>
+      </Pressable>
+
+      <Pressable
+        style={[styles.connectPill, busy && { opacity: 0.7 }]}
+        onPress={toggle}
+        disabled={busy}
+      >
+        <Text style={styles.connectPillText}>
+          {busy ? "Подключение…" : connected ? "Отключить" : "Подключить"}
+        </Text>
+      </Pressable>
+
+      <View style={styles.statsRow}>
+        <Pressable style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+          <View style={[styles.statIcon, { backgroundColor: "rgba(52,211,153,0.12)" }]}>
+            <Ionicons name="arrow-up" size={15} color={colors.green} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.statLabel}>Upload</Text>
+            <Text style={styles.statValue}>{formatBytes(todayStat.tx)}</Text>
+          </View>
+        </Pressable>
+        <Pressable style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+          <View style={[styles.statIcon, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="arrow-down" size={15} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.statLabel}>Download</Text>
+            <Text style={styles.statValue}>{formatBytes(todayStat.rx)}</Text>
+          </View>
         </Pressable>
       </View>
 
       <Pressable style={styles.appsCard} onPress={() => setAppsOpen(true)}>
-        <Ionicons name="apps" size={26} color={colors.accent} />
+        <View style={styles.serverIcon}>
+          <Ionicons name="apps" size={20} color={colors.accent} />
+        </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.serverName}>Приложения</Text>
           <Text style={styles.serverSub} numberOfLines={1}>
@@ -220,30 +330,7 @@ export default function HomeScreen() {
                 : "Все приложения через VPN"}
           </Text>
         </View>
-        <Text style={styles.chevron}>›</Text>
-      </Pressable>
-
-      <Pressable style={styles.serverCard} onPress={() => setPickerOpen(true)}>
-        {selectedNode && selectedInfo ? (
-          <>
-            <Text style={{ fontSize: 30 }}>{selectedInfo.flag}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.serverName} numberOfLines={1}>
-                {selectedInfo.name}
-              </Text>
-              <Text style={styles.serverSub} numberOfLines={1}>
-                {transportLabel(selectedNode)}
-              </Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-            <View style={[styles.dot, { backgroundColor: connected ? colors.green : colors.textFaint }]} />
-          </>
-        ) : (
-          <View style={{ flex: 1 }}>
-            <Text style={styles.serverName}>Сервер не выбран</Text>
-            <Text style={styles.serverSub}>Нажмите, чтобы выбрать локацию</Text>
-          </View>
-        )}
+        <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
       </Pressable>
 
       <AppFilterModal
@@ -642,6 +729,39 @@ function PowerIcon({ on }: { on: boolean }) {
   );
 }
 
+/** Кольцо из частиц вокруг кнопки питания.
+ *  Детерминированный псевдослучайный сид — частицы не «прыгают» при ре-рендере. */
+function ParticleRing({ size, color }: { size: number; color: string }) {
+  const particles = useMemo(() => {
+    let seed = 1337;
+    const rnd = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    };
+    const count = 130;
+    const rInner = size * 0.375;
+    const rOuter = size * 0.5;
+    return Array.from({ length: count }, (_, i) => {
+      const angle = (i / count) * Math.PI * 2 + (rnd() - 0.5) * 0.32;
+      const radius = rInner + (rOuter - rInner) * Math.pow(rnd(), 0.6);
+      return {
+        x: size / 2 + Math.cos(angle) * radius,
+        y: size / 2 + Math.sin(angle) * radius,
+        r: 0.7 + rnd() * 1.5,
+        opacity: 0.12 + rnd() * 0.6,
+      };
+    });
+  }, [size]);
+
+  return (
+    <Svg width={size} height={size}>
+      {particles.map((p, i) => (
+        <Circle key={i} cx={p.x} cy={p.y} r={p.r} fill={color} opacity={p.opacity} />
+      ))}
+    </Svg>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
@@ -651,10 +771,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 60,
   },
-  brand: { color: colors.text, fontSize: 20, fontWeight: "800" },
-  planTag: { fontSize: 13, fontWeight: "700" },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  shieldBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shieldBadgeOn: {
+    backgroundColor: "rgba(52,211,153,0.12)",
+    borderColor: "rgba(52,211,153,0.35)",
+  },
+  statusLabel: { color: colors.textFaint, fontSize: 11 },
+  statusValue: { fontSize: 14, fontWeight: "800", marginTop: 1 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  proPill: {
+    backgroundColor: colors.accentDeep,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  proPillText: { color: "#fff", fontSize: 12, fontWeight: "800", letterSpacing: 1 },
+  crownBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   powerArea: { flex: 1, alignItems: "center", justifyContent: "center" },
-  pressable: { width: 240, height: 240, alignItems: "center", justifyContent: "center" },
+  pressable: { width: 304, height: 304, alignItems: "center", justifyContent: "center" },
+  orbit: { position: "absolute" },
+  orbitOuter: { left: 0, top: 0 },
+  orbitInner: { left: 24, top: 24 },
+  halo: {
+    position: "absolute",
+    width: 216,
+    height: 216,
+    left: 44,
+    top: 44,
+    borderRadius: 108,
+    backgroundColor: "rgba(124,58,237,0.10)",
+  },
+  haloOn: { backgroundColor: "rgba(124,58,237,0.18)" },
   ring2: {
     position: "absolute",
     width: 200,
@@ -694,9 +860,53 @@ const styles = StyleSheet.create({
     shadowRadius: 40,
     elevation: 16,
   },
-  status: { marginTop: 26, fontSize: 17, fontWeight: "800" },
   timer: { marginTop: 4, fontSize: 14, color: colors.textDim, letterSpacing: 2 },
   error: { marginTop: 8, fontSize: 12, color: colors.red, textAlign: "center", paddingHorizontal: 30 },
+  serverIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  connectPill: {
+    marginHorizontal: 20,
+    marginBottom: 14,
+    backgroundColor: colors.accentDeep,
+    borderRadius: 28,
+    paddingVertical: 15,
+    alignItems: "center",
+  },
+  connectPillText: { color: "#fff", fontSize: 15, fontWeight: "800" },
+  statsRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 14,
+  },
+  statCard: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  statIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statValue: { color: colors.text, fontSize: 14, fontWeight: "800", marginTop: 1 },
   serverCard: {
     margin: 20,
     marginBottom: 90,
@@ -706,8 +916,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 18,
+    borderRadius: 22,
     padding: 16,
+  },
+  infoBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   serverName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   serverSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
@@ -787,27 +1007,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginRight: 2,
   },
-  statsBlock: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 20,
-    marginBottom: 14,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 18,
-    padding: 16,
-    gap: 16,
-  },
-  statsLeft: { alignItems: "flex-start" },
-  statsLabel: { color: colors.textFaint, fontSize: 11 },
-  statsTotal: { color: colors.text, fontSize: 22, fontWeight: "800", marginTop: 2 },
-  statsWeek: { color: colors.textDim, fontSize: 10, marginTop: 3 },
-  statsDivider: { width: 1, height: 40, backgroundColor: colors.border },
-  statsSide: { color: colors.text, fontSize: 13, fontWeight: "600" },
-  statsMore: { color: colors.accent, fontSize: 11, fontWeight: "700" },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  chevron: { color: colors.textFaint, fontSize: 22, marginRight: 6 },
+  statLabel: { color: colors.textFaint, fontSize: 10 },
   sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
   sheet: {
     backgroundColor: colors.card,

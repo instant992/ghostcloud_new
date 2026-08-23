@@ -11,7 +11,7 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { colors, radius } from "../theme";
+import { colors } from "../theme";
 
 export function Screen({
   children,
@@ -124,14 +124,14 @@ const styles = StyleSheet.create({
   subtitle: { color: colors.textDim, fontSize: 14, marginBottom: 20 },
   card: {
     backgroundColor: colors.card,
-    borderRadius: radius.md,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 16,
     marginBottom: 12,
   },
   btn: {
-    borderRadius: radius.sm + 2,
+    borderRadius: 28,
     paddingVertical: 15,
     alignItems: "center",
     justifyContent: "center",
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   input: {
     backgroundColor: colors.bgSoft,
-    borderRadius: radius.sm,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     color: colors.text,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.red + "18",
     borderColor: colors.red + "44",
     borderWidth: 1,
-    borderRadius: radius.sm,
+    borderRadius: 14,
     padding: 12,
     marginTop: 4,
     marginBottom: 8,
