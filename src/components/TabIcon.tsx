@@ -1,5 +1,5 @@
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../theme";
 
@@ -12,19 +12,43 @@ export function TabIcon({
   focused: boolean;
   label?: string;
 }) {
+  const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: focused ? 1 : 0,
+      duration: 260,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [focused, anim]);
+
+  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
+  const labelOpacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
+  const labelHeight = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 16] });
+
   return (
     <View style={styles.wrap}>
-      <View style={[styles.badge, focused ? styles.badgeOn : styles.badgeOff]}>
+      <Animated.View
+        style={[
+          styles.badge,
+          focused ? styles.badgeOn : styles.badgeOff,
+          { transform: [{ scale }] },
+        ]}
+      >
         <Ionicons
           name={name as any}
           size={23}
           color={focused ? "#fff" : colors.textDim}
         />
-      </View>
-      {!!label && focused && (
-        <Text style={styles.label} numberOfLines={1}>
+      </Animated.View>
+      {!!label && (
+        <Animated.Text
+          style={[styles.label, { opacity: labelOpacity, height: labelHeight }]}
+          numberOfLines={1}
+        >
           {label}
-        </Text>
+        </Animated.Text>
       )}
     </View>
   );
@@ -53,6 +77,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 10,
     fontWeight: "600",
-    marginTop: 4,
+    marginTop: 3,
   },
 });

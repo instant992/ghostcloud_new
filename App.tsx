@@ -106,10 +106,10 @@ function CustomTabBar({ state, navigation }: any) {
 const tabStyles = StyleSheet.create({
   bar: {
     flexDirection: "row",
-    backgroundColor: colors.card,
+    backgroundColor: "transparent",
     justifyContent: "center",
     alignItems: "center",
-    gap: 30,
+    gap: 14,
     paddingTop: 10,
   },
 });

@@ -33,7 +33,7 @@ export default function LoginScreen() {
     <Screen>
       <View style={styles.brand}>
         <Image
-          source={require("../../../assets/icon.png")}
+          source={{ uri: "app_icon" }}
           style={styles.logo}
           resizeMode="cover"
         />

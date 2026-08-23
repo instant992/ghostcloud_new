@@ -170,7 +170,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Image
-            source={require("../../assets/icon.png")}
+            source={{ uri: "app_icon" }}
             style={styles.appBadge}
             resizeMode="cover"
           />
