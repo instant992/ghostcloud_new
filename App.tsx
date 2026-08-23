@@ -49,9 +49,9 @@ function MainTabs() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 76,
+          height: 84,
           paddingBottom: 16,
-          paddingTop: 10,
+          paddingTop: 8,
         },
         tabBarShowLabel: false,
         tabBarActiveTintColor: colors.accent,
@@ -62,28 +62,36 @@ function MainTabs() {
         name="Главная"
         component={HomeScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name={focused ? "home" : "home-outline"} focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? "home" : "home-outline"} focused={focused} label="Главная" />
+          ),
         }}
       />
       <Tabs.Screen
         name="Статистика"
         component={StatsScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name={focused ? "stats-chart" : "stats-chart-outline"} focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? "stats-chart" : "stats-chart-outline"} focused={focused} label="Статистика" />
+          ),
         }}
       />
       <Tabs.Screen
         name="Тарифы"
         component={PlansScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name={focused ? "card" : "card-outline"} focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? "card" : "card-outline"} focused={focused} label="Тарифы" />
+          ),
         }}
       />
       <Tabs.Screen
         name="Профиль"
         component={ProfileScreen}
         options={{
-          tabBarIcon: ({ focused }) => <TabIcon name={focused ? "person" : "person-outline"} focused={focused} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? "person" : "person-outline"} focused={focused} label="Профиль" />
+          ),
         }}
       />
     </Tabs.Navigator>
