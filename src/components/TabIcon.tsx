@@ -5,11 +5,11 @@ import { colors } from "../theme";
 
 export function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   return (
-    <View style={[styles.badge, focused && styles.badgeOn]}>
+    <View style={[styles.badge, focused ? styles.badgeOn : styles.badgeOff]}>
       <Ionicons
         name={name as any}
-        size={19}
-        color={focused ? "#fff" : colors.textFaint}
+        size={20}
+        color={focused ? "#fff" : colors.textDim}
       />
     </View>
   );
@@ -17,13 +17,20 @@ export function TabIcon({ name, focused }: { name: string; focused: boolean }) {
 
 const styles = StyleSheet.create({
   badge: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
+  badgeOff: {
+    backgroundColor: colors.cardLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   badgeOn: {
     backgroundColor: colors.accentDeep,
+    borderWidth: 1,
+    borderColor: colors.accent,
   },
 });

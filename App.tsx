@@ -49,13 +49,13 @@ function MainTabs() {
           backgroundColor: colors.card,
           borderTopColor: colors.border,
           borderTopWidth: 1,
-          height: 88,
-          paddingBottom: 24,
-          paddingTop: 6,
+          height: 76,
+          paddingBottom: 16,
+          paddingTop: 10,
         },
+        tabBarShowLabel: false,
         tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textFaint,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarInactiveTintColor: colors.textDim,
       }}
     >
       <Tabs.Screen

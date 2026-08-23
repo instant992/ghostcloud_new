@@ -156,37 +156,37 @@ export default function HomeScreen() {
   };
 
   const connected = vpnRunning;
-  const statusText = busy ? "Подключение…" : connected ? "Защищено" : "Не подключено";
   const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
+  const clientName = me?.display_name || me?.login || "Клиент";
+  const daysLeft = useMemo(() => {
+    if (!me?.expire_at) return 0;
+    const d = new Date(String(me.expire_at)).getTime();
+    if (Number.isNaN(d)) return 0;
+    return Math.max(0, Math.ceil((d - Date.now()) / 86400000));
+  }, [me]);
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={[styles.shieldBadge, connected && styles.shieldBadgeOn]}>
-            <Ionicons
-              name="shield-checkmark"
-              size={16}
-              color={connected ? colors.green : colors.textDim}
-            />
+          <View style={styles.appBadge}>
+            <Text style={styles.appBadgeText}>👻</Text>
           </View>
-          <View>
-            <Text style={styles.statusLabel}>Статус подключения</Text>
-            <Text
-              style={[styles.statusValue, { color: connected ? colors.green : colors.text }]}
-            >
-              {statusText}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.clientName} numberOfLines={1}>
+              {clientName}
             </Text>
+            <Text style={styles.clientSub}>GhostCloud VPN</Text>
           </View>
         </View>
-        <View style={styles.headerRight}>
-          <Pressable style={styles.proPill} onPress={() => nav.navigate("Тарифы")}>
-            <Text style={styles.proPillText}>{me?.plan || "PRO"}</Text>
-          </Pressable>
-          <Pressable style={styles.crownBtn} onPress={() => nav.navigate("Тарифы")}>
-            <Ionicons name="diamond" size={17} color="#FFD166" />
-          </Pressable>
-        </View>
+        <Pressable style={styles.subPill} onPress={() => nav.navigate("Тарифы")}>
+          <Text style={styles.subPillDays}>
+            {daysLeft} {pluralDays(daysLeft)}
+          </Text>
+          <Text style={styles.subPillBalance}>
+            Баланс: {((me?.balance || 0) / 100).toFixed(0)} ₽
+          </Text>
+        </Pressable>
       </View>
 
       <View style={styles.powerArea}>
@@ -299,9 +299,6 @@ export default function HomeScreen() {
             <Ionicons name="refresh" size={16} color={colors.textDim} />
           )}
         </Pressable>
-        <Pressable style={styles.infoBtn} onPress={() => setPickerOpen(true)}>
-          <Ionicons name="information-circle-outline" size={20} color={colors.textDim} />
-        </Pressable>
       </Pressable>
 
       <Pressable
@@ -320,7 +317,7 @@ export default function HomeScreen() {
             <Ionicons name="arrow-up" size={15} color={colors.green} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.statLabel}>Upload</Text>
+            <Text style={styles.statLabel}>Отправлено</Text>
             <Text style={styles.statValue}>{formatBytes(todayStat.tx)}</Text>
           </View>
         </Pressable>
@@ -329,7 +326,7 @@ export default function HomeScreen() {
             <Ionicons name="arrow-down" size={15} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.statLabel}>Download</Text>
+            <Text style={styles.statLabel}>Получено</Text>
             <Text style={styles.statValue}>{formatBytes(todayStat.rx)}</Text>
           </View>
         </Pressable>
@@ -737,6 +734,14 @@ function formatTimer(total: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+function pluralDays(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "день";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "дня";
+  return "дней";
+}
+
 function PowerIcon({ on }: { on: boolean }) {
   return (
     <Ionicons
@@ -791,40 +796,28 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
-  shieldBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  appBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  shieldBadgeOn: {
-    backgroundColor: "rgba(52,211,153,0.12)",
-    borderColor: "rgba(52,211,153,0.35)",
-  },
-  statusLabel: { color: colors.textFaint, fontSize: 11 },
-  statusValue: { fontSize: 14, fontWeight: "800", marginTop: 1 },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
-  proPill: {
+  appBadgeText: { fontSize: 20 },
+  clientName: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  clientSub: { color: colors.textFaint, fontSize: 11, marginTop: 1 },
+  subPill: {
     backgroundColor: colors.accentDeep,
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  proPillText: { color: "#fff", fontSize: 12, fontWeight: "800", letterSpacing: 1 },
-  crownBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     alignItems: "center",
-    justifyContent: "center",
   },
+  subPillDays: { color: "#fff", fontSize: 13, fontWeight: "800" },
+  subPillBalance: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginTop: 1 },
   powerArea: { flex: 1, alignItems: "center", justifyContent: "center" },
   pressable: { width: 304, height: 304, alignItems: "center", justifyContent: "center" },
   orbit: { position: "absolute" },
