@@ -442,7 +442,7 @@ function AppFilterModal({
               return (
                 <Pressable style={styles.appRow} onPress={() => toggleApp(item.packageName)}>
                   <View style={[styles.appAvatar, { backgroundColor: colors.accentSoft }]}>
-                    <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 16 }}>
+                    <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 12 }}>
                       {(item.appName[0] || "?").toUpperCase()}
                     </Text>
                   </View>
@@ -634,7 +634,7 @@ function formatTimer(total: number): string {
 function PowerIcon({ on }: { on: boolean }) {
   return (
     <Ionicons
-      name="power"
+      name={on ? "pause" : "power"}
       size={64}
       color="#fff"
       style={{ marginTop: -6 }}
@@ -774,9 +774,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   appAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },

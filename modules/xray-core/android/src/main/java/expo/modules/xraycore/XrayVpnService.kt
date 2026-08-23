@@ -82,23 +82,28 @@ class XrayVpnService : VpnService() {
         .addDnsServer("10.111.222.3")
         .addRoute("0.0.0.0", 0)
         .addRoute("::", 0)
-        .addDisallowedApplication(packageName)
 
-      // Android поддерживает либо белый список (allowed), либо чёрный (disallowed).
-      // Если заполнен список «через VPN» — работаем в режиме белого списка.
+      // Android поддерживает либо белый список (allowed), либо чёрный (disallowed),
+      // смешивать их нельзя — иначе establish упадёт или списки игнорируются.
+      // В белом списке само приложение не участвует и отдельное исключение не нужно.
       if (allowedPkgs.isNotEmpty()) {
+        android.util.Log.i("GhostCloud", "VPN whitelist: $allowedPkgs")
         for (pkg in allowedPkgs) {
           try {
             builder.addAllowedApplication(pkg)
-          } catch (_: Throwable) {
+          } catch (e: Throwable) {
+            android.util.Log.e("GhostCloud", "addAllowed failed: $pkg", e)
           }
         }
       } else {
+        builder.addDisallowedApplication(packageName)
+        android.util.Log.i("GhostCloud", "VPN blacklist: $disallowedPkgs")
         for (pkg in disallowedPkgs) {
           if (pkg == packageName) continue
           try {
             builder.addDisallowedApplication(pkg)
-          } catch (_: Throwable) {
+          } catch (e: Throwable) {
+            android.util.Log.e("GhostCloud", "addDisallowed failed: $pkg", e)
           }
         }
       }
