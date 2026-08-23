@@ -1,10 +1,12 @@
 import React from "react";
-import { ActivityIndicator, StatusBar, View } from "react-native";
+import { ActivityIndicator, Pressable, StatusBar, StyleSheet, View } from "react-native";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import { useFonts } from "expo-font";
+import { APP_FONT } from "./src/fontPatch";
 import { AppProvider, useApp } from "./src/context";
 import { colors } from "./src/theme";
 
@@ -40,60 +42,62 @@ const navTheme = {
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
 
+const TAB_META: Record<string, { icon: string; outline: string; label: string }> = {
+  Главная: { icon: "home", outline: "home-outline", label: "Главная" },
+  Статистика: { icon: "stats-chart", outline: "stats-chart-outline", label: "Статистика" },
+  Тарифы: { icon: "card", outline: "card-outline", label: "Тарифы" },
+  Профиль: { icon: "person", outline: "person-outline", label: "Профиль" },
+};
+
+function CustomTabBar({ state, navigation }: any) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[tabStyles.bar, { paddingBottom: 12 + insets.bottom }]}>
+      {state.routes.map((route: any, index: number) => {
+        const meta = TAB_META[route.name];
+        if (!meta) return null;
+        const focused = state.index === index;
+        return (
+          <Pressable
+            key={route.key}
+            hitSlop={8}
+            onPress={() => navigation.navigate(route.name)}
+          >
+            <TabIcon
+              name={focused ? meta.icon : meta.outline}
+              focused={focused}
+              label={meta.label}
+            />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+const tabStyles = StyleSheet.create({
+  bar: {
+    flexDirection: "row",
+    backgroundColor: colors.card,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 30,
+    paddingTop: 10,
+  },
+});
+
 function MainTabs() {
   return (
     <Tabs.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 84,
-          paddingBottom: 16,
-          paddingTop: 8,
-        },
-        tabBarShowLabel: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textDim,
       }}
+      tabBar={(props) => <CustomTabBar {...props} />}
     >
-      <Tabs.Screen
-        name="Главная"
-        component={HomeScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? "home" : "home-outline"} focused={focused} label="Главная" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="Статистика"
-        component={StatsScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? "stats-chart" : "stats-chart-outline"} focused={focused} label="Статистика" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="Тарифы"
-        component={PlansScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? "card" : "card-outline"} focused={focused} label="Тарифы" />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="Профиль"
-        component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? "person" : "person-outline"} focused={focused} label="Профиль" />
-          ),
-        }}
-      />
+      <Tabs.Screen name="Главная" component={HomeScreen} />
+      <Tabs.Screen name="Статистика" component={StatsScreen} />
+      <Tabs.Screen name="Тарифы" component={PlansScreen} />
+      <Tabs.Screen name="Профиль" component={ProfileScreen} />
     </Tabs.Navigator>
   );
 }
@@ -153,6 +157,18 @@ function Root() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    [APP_FONT]: require("./assets/fonts/Huninn-Regular.ttf"),
+  });
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
   return (
     <SafeAreaProvider>
       <ExpoStatusBar style="light" />

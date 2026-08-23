@@ -1,0 +1,23 @@
+import React from "react";
+import { StyleSheet } from "react-native";
+import * as ReactNative from "react-native";
+
+export const APP_FONT = "Huninn";
+
+const OriginalText = (ReactNative as any).Text;
+const OriginalTextInput = (ReactNative as any).TextInput;
+
+const withFont = (style: any) => StyleSheet.compose({ fontFamily: APP_FONT }, style);
+
+const PatchedText = React.forwardRef<any, any>((props, ref) => (
+  <OriginalText {...props} ref={ref} style={withFont(props.style)} />
+));
+PatchedText.displayName = "Text";
+
+const PatchedTextInput = React.forwardRef<any, any>((props, ref) => (
+  <OriginalTextInput {...props} ref={ref} style={withFont(props.style)} />
+));
+PatchedTextInput.displayName = "TextInput";
+
+(ReactNative as any).Text = PatchedText;
+(ReactNative as any).TextInput = PatchedTextInput;

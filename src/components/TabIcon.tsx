@@ -17,21 +17,25 @@ export function TabIcon({
       <View style={[styles.badge, focused ? styles.badgeOn : styles.badgeOff]}>
         <Ionicons
           name={name as any}
-          size={20}
+          size={23}
           color={focused ? "#fff" : colors.textDim}
         />
       </View>
-      {!!label && focused && <Text style={styles.label}>{label}</Text>}
+      {!!label && focused && (
+        <Text style={styles.label} numberOfLines={1}>
+          {label}
+        </Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: "center", justifyContent: "center" },
+  wrap: { alignItems: "center", justifyContent: "center", minWidth: 64 },
   badge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -49,6 +53,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 10,
     fontWeight: "600",
-    marginTop: 3,
+    marginTop: 4,
   },
 });

@@ -4,6 +4,7 @@ import {
   Animated,
   Easing,
   FlatList,
+  Image,
   Modal,
   Pressable,
   StyleSheet,
@@ -157,7 +158,6 @@ export default function HomeScreen() {
 
   const connected = vpnRunning;
   const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
-  const clientName = me?.display_name || me?.login || "Клиент";
   const daysLeft = useMemo(() => {
     if (!me?.expire_at) return 0;
     const d = new Date(String(me.expire_at)).getTime();
@@ -169,14 +169,15 @@ export default function HomeScreen() {
     <View style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.appBadge}>
-            <Text style={styles.appBadgeText}>👻</Text>
-          </View>
+          <Image
+            source={require("../../assets/icon.png")}
+            style={styles.appBadge}
+            resizeMode="cover"
+          />
           <View style={{ flex: 1 }}>
             <Text style={styles.clientName} numberOfLines={1}>
-              {clientName}
+              GhostCloud
             </Text>
-            <Text style={styles.clientSub}>GhostCloud VPN</Text>
           </View>
         </View>
         <Pressable style={styles.subPill} onPress={() => nav.navigate("Тарифы")}>
@@ -797,18 +798,11 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   appBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 30,
+    height: 30,
+    borderRadius: 9,
   },
-  appBadgeText: { fontSize: 20 },
   clientName: { color: colors.text, fontSize: 15, fontWeight: "800" },
-  clientSub: { color: colors.textFaint, fontSize: 11, marginTop: 1 },
   subPill: {
     backgroundColor: colors.accentDeep,
     borderRadius: 20,

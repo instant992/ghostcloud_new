@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Button, ErrorText, Input, PasswordInput, Screen, Subtitle, Title } from "../../components/UI";
 import { useApp } from "../../context";
@@ -32,9 +32,11 @@ export default function LoginScreen() {
   return (
     <Screen>
       <View style={styles.brand}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>👻</Text>
-        </View>
+        <Image
+          source={require("../../../assets/icon.png")}
+          style={styles.logo}
+          resizeMode="cover"
+        />
         <Text style={styles.brandName}>GhostCloud</Text>
       </View>
       <Title>Вход</Title>
@@ -64,15 +66,11 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   brand: { alignItems: "center", marginTop: 30, marginBottom: 30 },
   logo: {
-    width: 84,
-    height: 84,
-    borderRadius: 24,
-    backgroundColor: "rgba(124,58,237,0.22)",
-    alignItems: "center",
-    justifyContent: "center",
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     marginBottom: 12,
   },
-  logoText: { fontSize: 40 },
   brandName: {
     fontSize: 28,
     fontWeight: "800",
