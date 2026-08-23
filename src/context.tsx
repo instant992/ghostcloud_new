@@ -22,6 +22,7 @@ export type MeInfo = {
   device_count?: number;
   device_limit?: number;
   telegram_linked?: boolean;
+  avatar_url?: string;
   subscription_url?: string;
   hy2_subscription_url?: string | null;
   combined_subscription_url?: string | null;
@@ -61,6 +62,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [vpnRunning, setVpnRunning] = useState(false);
   const mounted = useRef(true);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const selectedNodeIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedNodeIdRef.current = selectedNodeId;
+  }, [selectedNodeId]);
 
   useEffect(() => {
     mounted.current = true;
@@ -93,7 +99,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (dTx > 0 || dRx > 0) {
             last = cur;
             const stats = await import("./stats");
-            await stats.addDelta(dRx, dTx);
+            await stats.addDelta(dRx, dTx, selectedNodeIdRef.current);
           }
         } catch {}
       }, 3000);

@@ -2,15 +2,18 @@ import React, { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title } from "../components/UI";
-import { colors, formatBytes } from "../theme";
+import { useApp } from "../context";
+import { colors, splitNameFlag, formatBytes } from "../theme";
 import * as stats from "../stats";
 
 type Period = 1 | 7 | 30;
 
 export default function StatsScreen() {
+  const { nodes } = useApp();
   const [period, setPeriod] = useState<Period>(1);
   const [total, setTotal] = useState<stats.DayStat>({ rx: 0, tx: 0 });
   const [chart, setChart] = useState<Array<{ date: string; stat: stats.DayStat }>>([]);
+  const [byNode, setByNode] = useState<Array<{ nodeId: string; rx: number; tx: number }>>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -18,6 +21,7 @@ export default function StatsScreen() {
         setTotal(await stats.sumDays(period));
         const raw14 = await stats.lastNDays(14);
         setChart(raw14);
+        setByNode(await stats.nodeSums(period));
       })();
     }, [period])
   );
@@ -26,6 +30,12 @@ export default function StatsScreen() {
     ...chart.map((c) => c.stat.rx + c.stat.tx),
     1
   );
+
+  const nodeName = (id: string): string => {
+    const n = nodes.find((x) => x.id === id);
+    if (!n) return id;
+    return splitNameFlag(n.name).name;
+  };
 
   return (
     <Screen style={{ paddingTop: 64 }}>
@@ -89,6 +99,37 @@ export default function StatsScreen() {
         </View>
       </View>
 
+      <Text style={styles.chartTitle}>По серверам</Text>
+      <View style={styles.chartCard}>
+        {byNode.length === 0 ? (
+          <Text style={{ color: colors.textFaint, fontSize: 13, textAlign: "center", paddingVertical: 10 }}>
+            Пока нет данных — трафик считается во время подключения
+          </Text>
+        ) : (
+          byNode.map((n) => {
+            const sum = n.rx + n.tx;
+            const share = total.rx + total.tx > 0 ? sum / (total.rx + total.tx) : 0;
+            const info = nodes.find((x) => x.id === n.nodeId);
+            return (
+              <View key={n.nodeId} style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
+                  <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600", flex: 1, marginRight: 8 }} numberOfLines={1}>
+                    {(info && splitNameFlag(info.name).flag) + " " + nodeName(n.nodeId)}
+                  </Text>
+                  <Text style={{ color: colors.textDim, fontSize: 12 }}>{formatBytes(sum)}</Text>
+                </View>
+                <View style={styles.progressBg}>
+                  <View style={[styles.progressBar, { width: `${Math.round(share * 100)}%` }]} />
+                </View>
+                <Text style={{ color: colors.textFaint, fontSize: 9, marginTop: 3 }}>
+                  ↓ {formatBytes(n.rx)} · ↑ {formatBytes(n.tx)}
+                </Text>
+              </View>
+            );
+          })
+        )}
+      </View>
+
       <Text style={styles.note}>
         Трафик считается системным счётчиком приложения во время активного VPN-подключения.
       </Text>
@@ -146,5 +187,12 @@ const styles = StyleSheet.create({
   },
   barLabel: { color: colors.textFaint, fontSize: 9 },
   barValue: { color: colors.textDim, fontSize: 8, marginBottom: 3, textAlign: "center" },
+  progressBg: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.bgSoft,
+    overflow: "hidden",
+  },
+  progressBar: { height: "100%", backgroundColor: colors.accent, borderRadius: 3 },
   note: { color: colors.textFaint, fontSize: 11, textAlign: "center" },
 });

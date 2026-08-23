@@ -2,7 +2,7 @@
   "expo": {
     "name": "GhostCloud",
     "slug": "ghostcloud",
-    "version": "1.0.0",
+    "version": "1.1.2",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0F0B1E",

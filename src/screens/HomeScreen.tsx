@@ -1,6 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   FlatList,
   Modal,
   Pressable,
@@ -9,6 +11,7 @@ import {
   View,
 } from "react-native";
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
@@ -55,6 +58,30 @@ export default function HomeScreen() {
     const t = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(t);
   }, [vpnRunning]);
+
+  // Плавная пульсация кругов при подключении
+  const pulse1 = useRef(new Animated.Value(0)).current;
+  const pulse2 = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!vpnRunning) return;
+    const mk = (val: Animated.Value, dur: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(val, { toValue: 1, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(val, { toValue: 0, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        ])
+      );
+    const a1 = mk(pulse1, 1200);
+    const a2 = mk(pulse2, 1600);
+    a1.start();
+    a2.start();
+    return () => {
+      a1.stop();
+      a2.stop();
+      pulse1.setValue(0);
+      pulse2.setValue(0);
+    };
+  }, [vpnRunning, pulse1, pulse2]);
 
   useFocusEffect(
     useCallback(() => {
@@ -103,8 +130,30 @@ export default function HomeScreen() {
 
       <View style={styles.powerArea}>
         <Pressable onPress={toggle} disabled={busy} style={styles.pressable}>
-          <View style={[styles.ring3, connected && styles.ringOn3]} />
-          <View style={[styles.ring2, connected && styles.ringOn2]} />
+          <Animated.View
+            style={[
+              styles.ring3,
+              connected && styles.ringOn3,
+              {
+                transform: [
+                  { scale: pulse1.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) },
+                ],
+                opacity: pulse1.interpolate({ inputRange: [0, 1], outputRange: [connected ? 1 : 0, 0.35] }),
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.ring2,
+              connected && styles.ringOn2,
+              {
+                transform: [
+                  { scale: pulse2.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) },
+                ],
+                opacity: pulse2.interpolate({ inputRange: [0, 1], outputRange: [connected ? 1 : 0, 0.3] }),
+              },
+            ]}
+          />
           <View
             style={[
               styles.button,
@@ -353,10 +402,12 @@ function formatTimer(total: number): string {
 
 function PowerIcon({ on }: { on: boolean }) {
   return (
-    <View style={{ alignItems: "center" }}>
-      <View style={styles.powerLine} />
-      <View style={styles.powerArc} />
-    </View>
+    <Ionicons
+      name="power"
+      size={64}
+      color="#fff"
+      style={{ marginTop: -6 }}
+    />
   );
 }
 
@@ -412,24 +463,6 @@ const styles = StyleSheet.create({
     shadowRadius: 40,
     elevation: 16,
   },
-  powerLine: {
-    position: "absolute",
-    top: -14,
-    width: 6,
-    height: 44,
-    borderRadius: 3,
-    backgroundColor: "#fff",
-  },
-  powerArc:
-    ({
-      width: 74,
-      height: 74,
-      borderRadius: 40,
-      borderWidth: 7,
-      borderColor: "#fff",
-      borderTopColor: "transparent",
-      transform: [{ rotate: "-45deg" }],
-    } as const),
   status: { marginTop: 26, fontSize: 17, fontWeight: "800" },
   timer: { marginTop: 4, fontSize: 14, color: colors.textDim, letterSpacing: 2 },
   error: { marginTop: 8, fontSize: 12, color: colors.red, textAlign: "center", paddingHorizontal: 30 },

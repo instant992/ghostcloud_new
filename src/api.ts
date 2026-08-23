@@ -83,6 +83,28 @@ export async function updateDisplayName(displayName: string) {
   return request("PUT", "/api/auth/mobile/display-name", { display_name: displayName });
 }
 
+export async function updateLogin(login: string) {
+  return request("PUT", "/api/auth/mobile/login", { login });
+}
+
+export async function uploadAvatar(uri: string): Promise<any> {
+  const session = await loadSession();
+  const form = new FormData();
+  form.append("avatar", { uri, name: "avatar.jpg", type: "image/jpeg" } as any);
+  const headers: Record<string, string> = {};
+  if (session?.subUrl) headers["X-Sub-Url"] = session.subUrl;
+  const res = await fetch(`${BASE_URL}/api/auth/mobile/avatar`, {
+    method: "POST",
+    headers,
+    body: form,
+  });
+  try {
+    return await res.json();
+  } catch {
+    return { success: false, error: `Ошибка ${res.status}` };
+  }
+}
+
 export async function getDevices() {
   return request("GET", "/api/auth/mobile/devices");
 }
