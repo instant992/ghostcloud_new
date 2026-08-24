@@ -21,3 +21,4 @@ core-src/
 
 android/build_out.txt
 android/tidy_out.txt
+tsc_out.txt
