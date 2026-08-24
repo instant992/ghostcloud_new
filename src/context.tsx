@@ -200,10 +200,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (!mounted.current) return;
     const allNodes = [...subResult.nodes.map((n) => ({ ...n, source: "sub" as const })), ...lteNodes];
-    setNodes(allNodes);
-    setUnsupportedCount(subResult.unsupportedCount);
-    // кэш для офлайн-запуска
+    // Если сеть недоступна и пришёл пустой список — не затираем сохранённый кэш
+    setNodes((prev) => (allNodes.length === 0 && prev.length > 0 ? prev : allNodes));
     if (allNodes.length > 0) {
+      setUnsupportedCount(subResult.unsupportedCount);
+      // кэш для офлайн-запуска
       writeNodesCache(allNodes, subResult.unsupportedCount);
     }
   }, []);

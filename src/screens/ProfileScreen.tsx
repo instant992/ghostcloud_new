@@ -47,9 +47,9 @@ function SponsorHeart({ size = 20 }: { size?: number }) {
           width: size * 1.5,
           height: size * 1.5,
           borderRadius: size,
-          backgroundColor: "rgba(255,140,90,0.4)",
-          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1.7] }) }],
-          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }),
+          backgroundColor: "rgba(255,140,90,0.3)",
+          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.5] }) }],
+          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }),
         }}
       />
       <Animated.Image
