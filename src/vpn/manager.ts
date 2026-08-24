@@ -1,7 +1,9 @@
 import { deviceHeaders, loadSession } from "../storage";
+import { getSelectedCore } from "../settings";
 import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "./parse";
 import type { VpnNode } from "./parse";
 import { buildXrayConfig } from "./xrayConfig";
+import { buildSingBoxConfig } from "./singboxConfig";
 import { loadFilter } from "./appFilter";
 import {
   isVpnRunning,
@@ -9,6 +11,7 @@ import {
   requestVpnPermission,
   isPrepared,
   startVpn,
+  startCoreVpn,
   stopVpn,
 } from "./native";
 
@@ -112,11 +115,22 @@ export async function connect(node: VpnNode): Promise<void> {
     await stopVpn();
     await new Promise((r) => setTimeout(r, 800));
   }
-  const config = buildXrayConfig(node, null);
   const filter = await loadFilter();
   // Если заполнен белый список — блок-лист игнорируется (ограничение Android)
   const allowed = filter.allowed;
   const blocked = allowed.length ? [] : filter.blocked;
+
+  const core = getSelectedCore();
+  if (core === "sing-box") {
+    const config = buildSingBoxConfig(node);
+    await startCoreVpn("libsingbox.so", config, allowed, blocked);
+    return;
+  }
+  // mihomo будет подключён позже; пока всё остальное — через Xray
+  if (!node.supportedByXray && core === "xray") {
+    throw new Error("Hysteria2 доступен только на ядре sing-box — выберите его в настройках");
+  }
+  const config = buildXrayConfig(node, null);
   await startVpn(config, allowed, blocked);
 }
 

@@ -11,6 +11,30 @@ import * as api from "./api";
 import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session } from "./storage";
 import { VpnNode } from "./vpn/parse";
 import { isVpnRunning, onVpnStateChanged } from "./vpn/manager";
+import * as FileSystem from "expo-file-system/legacy";
+
+const NODES_CACHE_FILE = "nodes_cache.json";
+
+async function readNodesCache(): Promise<{ nodes: VpnNode[]; unsupportedCount: number } | null> {
+  try {
+    const uri = `${FileSystem.cacheDirectory}${NODES_CACHE_FILE}`;
+    const info = await FileSystem.getInfoAsync(uri);
+    if (!info.exists) return null;
+    const raw = await FileSystem.readAsStringAsync(uri);
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed?.nodes)) return null;
+    return { nodes: parsed.nodes, unsupportedCount: Number(parsed.unsupportedCount) || 0 };
+  } catch {
+    return null;
+  }
+}
+
+async function writeNodesCache(nodes: VpnNode[], unsupportedCount: number) {
+  try {
+    const uri = `${FileSystem.cacheDirectory}${NODES_CACHE_FILE}`;
+    await FileSystem.writeAsStringAsync(uri, JSON.stringify({ ts: Date.now(), nodes, unsupportedCount }));
+  } catch {}
+}
 
 export type MeInfo = {
   login?: string;
@@ -26,6 +50,9 @@ export type MeInfo = {
   subscription_url?: string;
   hy2_subscription_url?: string | null;
   combined_subscription_url?: string | null;
+  is_sponsor?: boolean;
+  sponsor_device_bonus_claimed?: boolean;
+  is_donor_eligible?: boolean;
 };
 
 type AppState = {
@@ -158,8 +185,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {}
 
     if (!mounted.current) return;
-    setNodes([...subResult.nodes.map((n) => ({ ...n, source: "sub" as const })), ...lteNodes]);
+    const allNodes = [...subResult.nodes.map((n) => ({ ...n, source: "sub" as const })), ...lteNodes];
+    setNodes(allNodes);
     setUnsupportedCount(subResult.unsupportedCount);
+    // кэш для офлайн-запуска
+    if (allNodes.length > 0) {
+      writeNodesCache(allNodes, subResult.unsupportedCount);
+    }
   }, []);
 
   useEffect(() => {
@@ -168,6 +200,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!mounted.current) return;
       setSession(s);
       if (s) {
+        // Сначала показываем кэш — список серверов доступен сразу и работает офлайн
+        const cached = await readNodesCache();
+        if (cached && cached.nodes.length > 0 && mounted.current) {
+          setNodes(cached.nodes);
+          setUnsupportedCount(cached.unsupportedCount);
+        }
         try {
           await refreshMe();
         } catch {}

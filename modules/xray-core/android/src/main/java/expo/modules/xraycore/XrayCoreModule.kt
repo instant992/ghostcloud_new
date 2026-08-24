@@ -22,10 +22,14 @@ class XrayCoreModule : Module() {
       XrayVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
       }
+      CoreVpnService.stateListener = { running ->
+        sendEvent("onVpnStateChanged", mapOf("running" to running))
+      }
     }
 
     OnDestroy {
       XrayVpnService.stateListener = null
+      CoreVpnService.stateListener = null
     }
 
     AsyncFunction("requestPermission") { promise: Promise ->
@@ -105,7 +109,84 @@ class XrayCoreModule : Module() {
     }
 
     Function("isVpnRunning") {
-      XrayVpnService.isRunning.get()
+      XrayVpnService.isRunning.get() || CoreVpnService.isRunning.get()
+    }
+
+    // ---- Синхронные настройки (SharedPreferences) ----
+
+    Function("getSetting") { key: String ->
+      val prefs = context.getSharedPreferences("gc_settings", android.content.Context.MODE_PRIVATE)
+      prefs.getString(key, null)
+    }
+
+    Function("setSetting") { key: String, value: String ->
+      val prefs = context.getSharedPreferences("gc_settings", android.content.Context.MODE_PRIVATE)
+      prefs.edit().putString(key, value).apply()
+    }
+
+    // ---- Внешние ядра (sing-box) ----
+
+    AsyncFunction("startCoreVpn") { coreName: String, configJson: String, allowedJson: String?, disallowedJson: String?, promise: Promise ->
+      if (XrayVpnService.isRunning.get()) {
+        promise.reject("ERR_RUNNING", "Сначала остановите VPN на ядре Xray", null)
+        return@AsyncFunction
+      }
+      if (CoreVpnService.isRunning.get()) {
+        promise.reject("ERR_RUNNING", "VPN уже запущен", null)
+        return@AsyncFunction
+      }
+      val binary = CoreVpnService.coreBinaryPath(context, coreName)
+      if (!binary.exists()) {
+        promise.reject("ERR_NO_CORE", "Ядро $coreName не установлено", null)
+        return@AsyncFunction
+      }
+      CoreVpnService.pendingPromise = promise
+      val intent = Intent(context, CoreVpnService::class.java).apply {
+        action = CoreVpnService.ACTION_START
+        putExtra("core", coreName)
+        putExtra("config", configJson)
+        if (!allowedJson.isNullOrBlank()) putExtra("allowed", allowedJson)
+        if (!disallowedJson.isNullOrBlank()) putExtra("disallowed", disallowedJson)
+      }
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          context.startForegroundService(intent)
+        } else {
+          context.startService(intent)
+        }
+      } catch (e: Throwable) {
+        CoreVpnService.pendingPromise = null
+        promise.reject("ERR_START", e.message ?: "Не удалось запустить VPN-сервис", e)
+      }
+    }
+
+    Function("stopCoreVpn") {
+      val intent = Intent(context, CoreVpnService::class.java).apply {
+        action = CoreVpnService.ACTION_STOP
+      }
+      context.startService(intent)
+    }
+
+    Function("isCoreRunning") {
+      CoreVpnService.isRunning.get()
+    }
+
+    AsyncFunction("getCoreVersion") { coreName: String, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-core-version") {
+        try {
+          val binary = CoreVpnService.coreBinaryPath(context, coreName)
+          if (!binary.exists()) {
+            promise.resolve("")
+            return@thread
+          }
+          val proc = ProcessBuilder(binary.absolutePath, "version").start()
+          val output = proc.inputStream.bufferedReader().use { it.readLine() ?: "" }
+          proc.waitFor()
+          promise.resolve(output.trim())
+        } catch (e: Throwable) {
+          promise.resolve("")
+        }
+      }
     }
 
     AsyncFunction("tcpPing") { host: String, port: Int, timeoutMs: Int, promise: Promise ->

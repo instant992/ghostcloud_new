@@ -229,3 +229,21 @@ export async function supportClose() {
 export async function getExtraProfiles() {
   return request("GET", "/api/extra-profiles", undefined, { auth: false });
 }
+
+// ─── Спонсоры ───
+
+export async function claimSponsorDevice() {
+  return request("POST", "/api/auth/mobile/sponsor/claim-device");
+}
+
+export async function getGiftKeyStatus() {
+  return request("GET", "/api/auth/mobile/gift-key/status");
+}
+
+export async function generateGiftKey() {
+  return request("POST", "/api/auth/mobile/gift-key/generate");
+}
+
+export async function getSponsorNewsMirror() {
+  return request("GET", "/api/auth/mobile/news-mirror");
+}

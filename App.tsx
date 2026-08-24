@@ -19,6 +19,7 @@ import HomeScreen from "./src/screens/HomeScreen";
 import PlansScreen from "./src/screens/PlansScreen";
 import StatsScreen from "./src/screens/StatsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
+import SettingsScreen from "./src/screens/SettingsScreen";
 import DevicesScreen from "./src/screens/DevicesScreen";
 import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
@@ -75,6 +76,7 @@ const TAB_META: Record<string, { icon: string; outline: string; label: string }>
   Статистика: { icon: "stats-chart", outline: "stats-chart-outline", label: "Статистика" },
   Тарифы: { icon: "card", outline: "card-outline", label: "Тарифы" },
   Профиль: { icon: "person", outline: "person-outline", label: "Профиль" },
+  Настройки: { icon: "settings", outline: "settings-outline", label: "Настройки" },
 };
 
 function CustomTabBar({ state, navigation }: any) {
@@ -126,6 +128,7 @@ function MainTabs() {
       <Tabs.Screen name="Статистика" component={StatsScreen} />
       <Tabs.Screen name="Тарифы" component={PlansScreen} />
       <Tabs.Screen name="Профиль" component={ProfileScreen} />
+      <Tabs.Screen name="Настройки" component={SettingsScreen} />
     </Tabs.Navigator>
   );
 }

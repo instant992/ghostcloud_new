@@ -1,4 +1,6 @@
-export const colors = {
+import { getThemeName } from "./settings";
+
+const darkColors = {
   bg: "#0F0B1E",
   bgSoft: "#160F2B",
   card: "#1C1433",
@@ -15,6 +17,31 @@ export const colors = {
   orange: "#FBBF24",
   gradient: ["#7C3AED", "#A855F7"] as const,
 };
+
+const lightColors = {
+  bg: "#F4F2FA",
+  bgSoft: "#EAE6F5",
+  card: "#FFFFFF",
+  cardLight: "#F3EFFB",
+  border: "#E0D9F0",
+  text: "#171226",
+  textDim: "#5E5578",
+  textFaint: "#9A92B0",
+  accent: "#9333EA",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(147,51,234,0.10)",
+  green: "#059669",
+  red: "#DC2626",
+  orange: "#D97706",
+  gradient: ["#7C3AED", "#A855F7"] as const,
+};
+
+export const colors: any = { ...(getThemeName() === "light" ? lightColors : darkColors) };
+
+/** Перекрашивает объект colors (применяется при перезагрузке JS-бандла) */
+export function applyTheme(name: "dark" | "light") {
+  Object.assign(colors, name === "light" ? lightColors : darkColors);
+}
 
 export const spacing = {
   xs: 6,

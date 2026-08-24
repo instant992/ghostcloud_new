@@ -64,6 +64,7 @@ export async function getInstalledApps(includeSystem: boolean): Promise<AppInfo[
 export function stopVpn(): void {
   if (!XrayNative) return;
   XrayNative.stopVpn();
+  XrayNative.stopCoreVpn();
 }
 
 export async function requestVpnPermission(): Promise<boolean> {
@@ -83,10 +84,31 @@ export async function isPrepared(): Promise<boolean> {
 export function isVpnRunning(): boolean {
   if (!XrayNative) return false;
   try {
-    return XrayNative.isVpnRunning();
+    return XrayNative.isVpnRunning() || XrayNative.isCoreRunning();
   } catch {
     return false;
   }
+}
+
+/** Запуск VPN через внешнее ядро (sing-box), исполняемый файл из nativeLibraryDir */
+export async function startCoreVpn(
+  coreName: string,
+  configJson: string,
+  allowedApps: string[] = [],
+  disallowedApps: string[] = []
+): Promise<boolean> {
+  if (!XrayNative) throw new Error("VPN-модуль недоступен");
+  return XrayNative.startCoreVpn(
+    coreName,
+    configJson,
+    allowedApps.length ? allowedApps.join(",") : null,
+    disallowedApps.length ? disallowedApps.join(",") : null
+  );
+}
+
+export function getCoreVersion(coreName: string): Promise<string> {
+  if (!XrayNative) return Promise.resolve("");
+  return XrayNative.getCoreVersion(coreName).catch(() => "");
 }
 
 /** TCP-пинг хоста, возвращает задержку в мс */

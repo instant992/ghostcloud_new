@@ -3,11 +3,16 @@ import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } fro
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
+import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, Screen, Title } from "../components/UI";
 import { useApp } from "../context";
 import {
   BASE_URL,
   BOT_USERNAME,
+  claimSponsorDevice,
+  generateGiftKey,
+  getGiftKeyStatus,
+  getSponsorNewsMirror,
   resetPassword,
   telegramLink,
   telegramUnlink,
@@ -112,6 +117,70 @@ export default function ProfileScreen() {
     } catch {}
   };
 
+  const [giftBusy, setGiftBusy] = useState(false);
+  const [giftKey, setGiftKey] = useState<string | null>(null);
+
+  const isSponsor = me?.is_sponsor === true;
+
+  const claimDeviceBonus = async () => {
+    setBusy(true);
+    try {
+      const r = await claimSponsorDevice();
+      if (!r?.success) throw new Error(r?.error || "Не удалось получить бонус");
+      await refreshMe();
+      Alert.alert("Готово", `Лимит устройств увеличен до ${r?.new_limit ?? "—"}`);
+    } catch (e: any) {
+      Alert.alert("Ошибка", e?.message || "Не удалось получить бонус");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadGiftKey = async () => {
+    setGiftBusy(true);
+    try {
+      const r = await generateGiftKey();
+      if (!r?.success) throw new Error(r?.error || "Не удалось создать ключ");
+      setGiftKey(r.trial_key);
+      Alert.alert("Готово", "Ключ доступа создан — отправьте его другу");
+    } catch (e: any) {
+      const msg = String(e?.message || "");
+      if (/30|лимит|позже/i.test(msg)) {
+        Alert.alert("Ограничение", "Ключ можно создавать не чаще раза в 30 дней");
+      } else {
+        Alert.alert("Ошибка", msg || "Не удалось создать ключ");
+      }
+    } finally {
+      setGiftBusy(false);
+    }
+  };
+
+  const copyGiftKey = async () => {
+    let key = giftKey;
+    if (!key) {
+      try {
+        const r = await getGiftKeyStatus();
+        key = r?.active_key?.token ? `${BASE_URL}/gift/${r.active_key.token}` : null;
+      } catch {}
+    }
+    if (!key) {
+      Alert.alert("Нет ключа", "Сначала создайте ключ доступа");
+      return;
+    }
+    await Clipboard.setStringAsync(key);
+    Alert.alert("Скопировано", "Ключ в буфере обмена");
+  };
+
+  const openNewsMirror = async () => {
+    try {
+      const r = await getSponsorNewsMirror();
+      if (!r?.success || !r?.url) throw new Error(r?.error || "Зеркало не настроено");
+      await WebBrowser.openBrowserAsync(r.url);
+    } catch (e: any) {
+      Alert.alert("Недоступно", e?.message || "Зеркало новостей не настроено");
+    }
+  };
+
   return (
     <Screen style={{ paddingTop: 64 }}>
       <Title>Профиль</Title>
@@ -144,7 +213,58 @@ export default function ProfileScreen() {
             {me?.plan || "Без подписки"}
           </Text>
         </View>
+        {isSponsor && (
+          <View
+            style={{
+              marginTop: 8,
+              backgroundColor: "rgba(255,209,102,0.14)",
+              paddingHorizontal: 14,
+              paddingVertical: 6,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: "rgba(255,209,102,0.4)",
+            }}
+          >
+            <Text style={{ color: "#FFD166", fontWeight: "800", fontSize: 12 }}>
+              ⭐ СПОНСОР
+            </Text>
+          </View>
+        )}
       </Card>
+
+      {isSponsor ? (
+        <Card>
+          <Text style={styles.sectionTitle}>Спонсорские привилегии</Text>
+          <Row
+            label="Бонусное устройство (+1)"
+            value={me?.sponsor_device_bonus_claimed ? "получен" : "доступен"}
+            valueColor={me?.sponsor_device_bonus_claimed ? colors.textDim : colors.green}
+          />
+          {!me?.sponsor_device_bonus_claimed && (
+            <Button title="Забрать +1 устройство" loading={busy} onPress={claimDeviceBonus} />
+          )}
+          <Button
+            title={giftKey ? "Создать новый ключ" : "Ключ доступа для друга"}
+            variant="ghost"
+            loading={giftBusy}
+            onPress={loadGiftKey}
+          />
+          <Button title="Скопировать ключ" variant="ghost" onPress={copyGiftKey} />
+          <Button title="Зеркало новостей" variant="ghost" onPress={openNewsMirror} />
+          <Text style={styles.perksHint}>
+            Спонсорский статус — навсегда. Ключ даёт другу сутки доступа, создавать его можно раз в 30 дней.
+          </Text>
+        </Card>
+      ) : (
+        <Card>
+          <Text style={styles.sectionTitle}>🌟 Стать спонсором</Text>
+          <Text style={styles.perksHint}>
+            Разовое пополнение от 444 ₽ даёт постоянный спонсорский статус: доступ к спонсорским серверам,
+            бонусное устройство, ключ доступа для друга и зеркало новостей.
+          </Text>
+          <Button title="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
+        </Card>
+      )}
 
       <Card>
         <Row label="Баланс" value={`${((me?.balance || 0) / 100).toFixed(0)} ₽`} valueColor={colors.accent} />
@@ -316,6 +436,18 @@ const styles = StyleSheet.create({
   },
   name: { color: colors.text, fontSize: 18, fontWeight: "800" },
   email: { color: colors.textDim, fontSize: 13, marginTop: 2 },
+  sectionTitle: {
+    color: colors.text,
+    fontWeight: "800",
+    fontSize: 15,
+    marginBottom: 10,
+  },
+  perksHint: {
+    color: colors.textDim,
+    fontSize: 12,
+    marginTop: 8,
+    lineHeight: 17,
+  },
 });
 
 
