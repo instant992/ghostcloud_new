@@ -5,7 +5,7 @@ import { Button, Card, ErrorText, Screen, Subtitle, Title } from "../../componen
 import { saveSession } from "../../storage";
 import { qrCreateSession, qrStatus } from "../../api";
 import { useApp } from "../../context";
-import { colors } from "../../theme";
+import { colors, useTheme } from "../../theme";
 
 export default function QRLoginScreen() {
   const nav = useNavigation<any>();

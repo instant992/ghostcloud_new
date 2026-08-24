@@ -1,5 +1,28 @@
+import React, { createContext, useContext, useState } from "react";
 import { getThemeName } from "./settings";
 
+export type ThemeName = "default" | "dark" | "light";
+
+/** Основная тема — фирменная тёмная с фиолетовым акцентом */
+const defaultColors = {
+  bg: "#0F0B1E",
+  bgSoft: "#160F2B",
+  card: "#1C1433",
+  cardLight: "#251A42",
+  border: "#2E2150",
+  text: "#FFFFFF",
+  textDim: "#9C93B8",
+  textFaint: "#655A85",
+  accent: "#A855F7",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(168,85,247,0.14)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#7C3AED", "#A855F7"] as const,
+};
+
+/** Чисто тёмная — пока та же палитра, что и основная */
 const darkColors = {
   bg: "#0F0B1E",
   bgSoft: "#160F2B",
@@ -36,11 +59,59 @@ const lightColors = {
   gradient: ["#7C3AED", "#A855F7"] as const,
 };
 
-export const colors: any = { ...(getThemeName() === "light" ? lightColors : darkColors) };
+const PALETTES: Record<ThemeName, typeof defaultColors> = {
+  default: defaultColors,
+  dark: darkColors,
+  light: lightColors,
+};
 
-/** Перекрашивает объект colors (применяется при перезагрузке JS-бандла) */
-export function applyTheme(name: "dark" | "light") {
-  Object.assign(colors, name === "light" ? lightColors : darkColors);
+export const colors: any = { ...PALETTES[getThemeName() as ThemeName] || defaultColors };
+
+/** Перекрашивает объект colors на месте — все экраны перерисуются при следующем рендере */
+export function applyTheme(name: ThemeName) {
+  Object.assign(colors, PALETTES[name] || defaultColors);
+}
+
+export const THEME_LABELS: Record<ThemeName, string> = {
+  default: "Основная",
+  dark: "Тёмная",
+  light: "Светлая",
+};
+
+// ─── Контекст темы: подписка экранов на перерисовку при смене темы ───
+
+const ThemeCtx = createContext<{ name: ThemeName; version: number }>({
+  name: getThemeName() as ThemeName,
+  version: 0,
+});
+
+/** Вызывать в компонентах, чтобы они перерисовывались при смене темы */
+export function useTheme() {
+  return useContext(ThemeCtx);
+}
+
+export function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<{ name: ThemeName; version: number }>(() => ({
+    name: getThemeName() as ThemeName,
+    version: 0,
+  }));
+
+  const change = (name: ThemeName) => {
+    applyTheme(name);
+    setState((s) => ({ name, version: s.version + 1 }));
+  };
+
+  return (
+    <ThemeCtx.Provider value={state}>
+      <ThemeSwitcherContext.Provider value={change}>{children}</ThemeSwitcherContext.Provider>
+    </ThemeCtx.Provider>
+  );
+}
+
+const ThemeSwitcherContext = createContext<(name: ThemeName) => void>(() => {});
+
+export function useThemeSwitcher() {
+  return useContext(ThemeSwitcherContext);
 }
 
 export const spacing = {

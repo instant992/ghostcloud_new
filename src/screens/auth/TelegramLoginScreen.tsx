@@ -6,7 +6,7 @@ import * as Clipboard from "expo-clipboard";
 import { Button, Card, ErrorText, Screen, Subtitle, Title } from "../../components/UI";
 import { BASE_URL, BOT_USERNAME } from "../../api";
 import { useApp } from "../../context";
-import { colors } from "../../theme";
+import { colors, useTheme } from "../../theme";
 
 function randomToken(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";

@@ -24,9 +24,12 @@ import * as appFilterMod from "../vpn/appFilter";
 import { getInstalledApps, type AppInfo } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
 
 export default function HomeScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes } = useApp();
   const [busy, setBusy] = useState(false);
@@ -406,6 +409,9 @@ function AppFilterModal({
   onClose: () => void;
   onChange: (allowed: string[], blocked: string[]) => void;
 }) {
+  useTheme();
+  const styles = makeStyles();
+
   const [tab, setTab] = useState<AppTab>("block");
   const [includeSystem, setIncludeSystem] = useState(false);
   const [search, setSearch] = useState("");
@@ -586,7 +592,7 @@ function AppFilterModal({
 
 function appsHintStyle(whitelistMode: boolean) {
   return [
-    styles.appsHint,
+    makeStyles().appsHint,
     { color: whitelistMode ? colors.accent : colors.textFaint },
   ];
 }
@@ -608,6 +614,9 @@ function ServerPicker({
   onSelect: (id: string) => void;
   onRefresh: () => void;
 }) {
+  useTheme();
+  const styles = makeStyles();
+
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
   const pinging = pingStore.isRunning();
   const [tab, setTab] = useState<"regular" | "lte">("regular");
@@ -787,7 +796,7 @@ function ParticleRing({ size, color }: { size: number; color: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
@@ -798,9 +807,9 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   appBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
   },
   clientName: { color: colors.text, fontSize: 15, fontWeight: "800" },
   subPill: {

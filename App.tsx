@@ -7,7 +7,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { APP_FONT } from "./src/fontPatch";
 import { AppProvider, useApp } from "./src/context";
-import { colors } from "./src/theme";
+import { colors, ThemeProvider, useTheme } from "./src/theme";
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import RegisterScreen from "./src/screens/auth/RegisterScreen";
@@ -54,19 +54,6 @@ class ErrorBoundary extends React.Component<
     return this.props.children;
   }
 }
-
-const navTheme = {
-  ...DefaultTheme,
-  dark: true,
-  colors: {
-    ...DefaultTheme.colors,
-    background: colors.bg,
-    card: colors.card,
-    text: colors.text,
-    border: colors.border,
-    primary: colors.accent,
-  },
-};
 
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -190,14 +177,39 @@ function Root() {
 export default function App() {
   return (
     <ErrorBoundary>
-      <SafeAreaProvider>
-        <ExpoStatusBar style="light" />
-        <AppProvider>
-          <NavigationContainer theme={navTheme}>
-            <Root />
-          </NavigationContainer>
-        </AppProvider>
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <StatusBarFollower />
+          <AppProvider>
+            <ThemedContainer>
+              <Root />
+            </ThemedContainer>
+          </AppProvider>
+        </SafeAreaProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
+}
+
+/** Навигация и статус-бар, перекрашивающиеся при смене темы */
+function ThemedContainer({ children }: { children: React.ReactNode }) {
+  useTheme();
+  const navTheme = {
+    ...DefaultTheme,
+    dark: colors.text === "#FFFFFF",
+    colors: {
+      ...DefaultTheme.colors,
+      background: colors.bg,
+      card: colors.card,
+      text: colors.text,
+      border: colors.border,
+      primary: colors.accent,
+    },
+  };
+  return <NavigationContainer theme={navTheme}>{children}</NavigationContainer>;
+}
+
+function StatusBarFollower() {
+  useTheme();
+  return <ExpoStatusBar style={colors.text === "#FFFFFF" ? "light" : "dark"} />;
 }

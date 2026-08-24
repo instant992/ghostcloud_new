@@ -3,12 +3,15 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title } from "../components/UI";
 import { useApp } from "../context";
-import { colors, splitNameFlag, formatBytes } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
 import * as stats from "../stats";
 
 type Period = 1 | 7 | 30;
 
 export default function StatsScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const { nodes } = useApp();
   const [period, setPeriod] = useState<Period>(1);
   const [total, setTotal] = useState<stats.DayStat>({ rx: 0, tx: 0 });
@@ -137,7 +140,7 @@ export default function StatsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   periodRow: {
     flexDirection: "row",
     backgroundColor: colors.card,

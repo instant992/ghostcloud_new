@@ -11,12 +11,15 @@ import {
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title } from "../components/UI";
 import { useApp } from "../context";
-import { colors, splitNameFlag } from "../theme";
+import { colors, splitNameFlag, useTheme } from "../theme";
 import { fetchNodes } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
 import { transportLabel } from "../utils/transportLabel";
 
 export default function ServersScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const { nodes, unsupportedCount, selectedNodeId, selectNode, reloadNodes, vpnRunning } = useApp();
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<"regular" | "lte">("regular");
@@ -149,7 +152,7 @@ export default function ServersScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   item: {
     flexDirection: "row",
     alignItems: "center",

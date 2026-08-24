@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 export function TabIcon({
   name,
@@ -12,6 +12,8 @@ export function TabIcon({
   focused: boolean;
   label?: string;
 }) {
+  useTheme();
+  const styles = makeStyles();
   const anim = useRef(new Animated.Value(focused ? 1 : 0)).current;
 
   useEffect(() => {
@@ -54,7 +56,7 @@ export function TabIcon({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   wrap: { alignItems: "center", justifyContent: "center", minWidth: 64 },
   badge: {
     width: 46,

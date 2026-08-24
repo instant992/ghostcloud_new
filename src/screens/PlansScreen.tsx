@@ -5,9 +5,12 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen, Subtitle, Title } from "../components/UI";
 import { createPayment, extendFromBalance, getPrices, paymentStatus } from "../api";
 import { useApp } from "../context";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 export default function PlansScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const nav = useNavigation<any>();
   const { me, refreshMe } = useApp();
   const [prices, setPrices] = useState<Record<string, number>>({});
@@ -177,7 +180,7 @@ function formatDate(v?: string): string {
   return String(v).slice(0, 16);
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   plan: {
     flexDirection: "row" as const,
     alignItems: "center" as const,

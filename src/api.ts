@@ -1,6 +1,6 @@
 import { loadSession } from "./storage";
 
-export const BASE_URL = "https://vpnghost.space";
+export const BASE_URL = "https://ghostcloud.space";
 export const SERVERS_TOKEN = "YxaWExtSvpfVTE1qx5O87tC!sQ6IWK-k!86";
 export const BOT_USERNAME = "vpnghostbot";
 
@@ -36,11 +36,21 @@ async function request(
     if (!opts.rawBody) headers["Content-Type"] = "application/json";
     payload = typeof body === "string" ? body : JSON.stringify(body);
   }
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers,
-    body: payload,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: payload,
+      signal: controller.signal,
+    });
+  } catch (e: any) {
+    clearTimeout(timeout);
+    throw new ApiError("Нет соединения с сервером", 0, e);
+  }
+  clearTimeout(timeout);
   let data: any = null;
   try {
     data = await res.json();

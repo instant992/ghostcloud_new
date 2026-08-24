@@ -12,7 +12,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 export function Screen({
   children,
@@ -23,6 +23,8 @@ export function Screen({
   scroll?: boolean;
   style?: ViewStyle;
 }) {
+  useTheme();
+  const styles = makeStyles();
   if (scroll) {
     return (
       <ScrollView
@@ -39,10 +41,14 @@ export function Screen({
 }
 
 export function Title({ children }: { children: React.ReactNode }) {
+  useTheme();
+  const styles = makeStyles();
   return <Text style={styles.title}>{children}</Text>;
 }
 
 export function Subtitle({ children }: { children: React.ReactNode }) {
+  useTheme();
+  const styles = makeStyles();
   return <Text style={styles.subtitle}>{children}</Text>;
 }
 
@@ -53,6 +59,8 @@ export function Card({
   children: React.ReactNode;
   style?: ViewStyle;
 }) {
+  useTheme();
+  const styles = makeStyles();
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
@@ -65,6 +73,8 @@ type BtnProps = {
 };
 
 export function Button({ title, onPress, loading, disabled, variant = "primary" }: BtnProps) {
+  useTheme();
+  const styles = makeStyles();
   const isDisabled = disabled || loading;
   return (
     <Pressable
@@ -91,6 +101,8 @@ export function Button({ title, onPress, loading, disabled, variant = "primary" 
 }
 
 export function Input(props: TextInputProps) {
+  useTheme();
+  const styles = makeStyles();
   return (
     <TextInput
       placeholderTextColor={colors.textFaint}
@@ -101,6 +113,8 @@ export function Input(props: TextInputProps) {
 }
 
 export function PasswordInput(props: TextInputProps) {
+  useTheme();
+  const styles = makeStyles();
   const [show, setShow] = React.useState(false);
   return (
     <View>
@@ -130,6 +144,8 @@ export function PasswordInput(props: TextInputProps) {
 }
 
 export function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+  useTheme();
+  const styles = makeStyles();
   return (
     <View style={styles.row}>
       <Text style={styles.rowLabel}>{label}</Text>
@@ -139,6 +155,8 @@ export function Row({ label, value, valueColor }: { label: string; value: string
 }
 
 export function ErrorText({ children }: { children?: string | null }) {
+  useTheme();
+  const styles = makeStyles();
   if (!children) return null;
   return (
     <View style={styles.errorBox}>
@@ -147,7 +165,7 @@ export function ErrorText({ children }: { children?: string | null }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 20, paddingBottom: 40 },
   title: { color: colors.text, fontSize: 26, fontWeight: "800", marginBottom: 6 },

@@ -14,14 +14,30 @@ import { isVpnRunning, onVpnStateChanged } from "./vpn/manager";
 import * as FileSystem from "expo-file-system/legacy";
 
 const NODES_CACHE_FILE = "nodes_cache.json";
+const ME_CACHE_FILE = "me_cache.json";
 
-async function readNodesCache(): Promise<{ nodes: VpnNode[]; unsupportedCount: number } | null> {
+async function readCacheFile(file: string): Promise<any | null> {
   try {
-    const uri = `${FileSystem.cacheDirectory}${NODES_CACHE_FILE}`;
+    const uri = `${FileSystem.cacheDirectory}${file}`;
     const info = await FileSystem.getInfoAsync(uri);
     if (!info.exists) return null;
     const raw = await FileSystem.readAsStringAsync(uri);
-    const parsed = JSON.parse(raw);
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+async function writeCacheFile(file: string, data: any) {
+  try {
+    const uri = `${FileSystem.cacheDirectory}${file}`;
+    await FileSystem.writeAsStringAsync(uri, JSON.stringify(data));
+  } catch {}
+}
+
+async function readNodesCache(): Promise<{ nodes: VpnNode[]; unsupportedCount: number } | null> {
+  try {
+    const parsed = await readCacheFile(NODES_CACHE_FILE);
     if (!Array.isArray(parsed?.nodes)) return null;
     return { nodes: parsed.nodes, unsupportedCount: Number(parsed.unsupportedCount) || 0 };
   } catch {
@@ -30,10 +46,7 @@ async function readNodesCache(): Promise<{ nodes: VpnNode[]; unsupportedCount: n
 }
 
 async function writeNodesCache(nodes: VpnNode[], unsupportedCount: number) {
-  try {
-    const uri = `${FileSystem.cacheDirectory}${NODES_CACHE_FILE}`;
-    await FileSystem.writeAsStringAsync(uri, JSON.stringify({ ts: Date.now(), nodes, unsupportedCount }));
-  } catch {}
+  await writeCacheFile(NODES_CACHE_FILE, { ts: Date.now(), nodes, unsupportedCount });
 }
 
 export type MeInfo = {
@@ -144,6 +157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!data?.success) throw new Error(data?.error || "Не удалось получить профиль");
     if (!mounted.current) return;
     setMe(data as MeInfo);
+    writeCacheFile(ME_CACHE_FILE, data);
     const newSession = await loadSession();
     const rw = data.subscription_url || newSession?.rwSubUrl;
     const combined = data.combined_subscription_url || undefined;
@@ -200,11 +214,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!mounted.current) return;
       setSession(s);
       if (s) {
-        // Сначала показываем кэш — список серверов доступен сразу и работает офлайн
-        const cached = await readNodesCache();
-        if (cached && cached.nodes.length > 0 && mounted.current) {
-          setNodes(cached.nodes);
-          setUnsupportedCount(cached.unsupportedCount);
+        // Мгновенный старт: показываем кэш профиля и серверов, сеть догоняет в фоне.
+        // Так приложение полноценно работает офлайн.
+        const [cachedMe, cachedNodes] = await Promise.all([readCacheFile(ME_CACHE_FILE), readNodesCache()]);
+        if (mounted.current) {
+          if (cachedMe && typeof cachedMe === "object") setMe(cachedMe as MeInfo);
+          if (cachedNodes && cachedNodes.nodes.length > 0) {
+            setNodes(cachedNodes.nodes);
+            setUnsupportedCount(cachedNodes.unsupportedCount);
+          }
+          setLoading(false);
         }
         try {
           await refreshMe();
@@ -214,8 +233,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } catch {}
         const savedId = await loadSelectedNodeId();
         if (savedId) setSelectedNodeId(savedId);
+        if (mounted.current) setLoading(false);
+      } else {
+        setLoading(false);
       }
-      if (mounted.current) setLoading(false);
     })();
   }, [refreshMe, reloadNodes]);
 

@@ -5,7 +5,7 @@ import * as Sharing from "expo-sharing";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen, Subtitle, Title } from "../components/UI";
 import { referralApply, referralInfo } from "../api";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 type Referral = {
   email: string;
@@ -16,6 +16,9 @@ type Referral = {
 };
 
 export default function ReferralScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const [info, setInfo] = useState<any>(null);
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -208,7 +211,7 @@ export default function ReferralScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   linkBtn: {
     flex: 1,
     backgroundColor: colors.cardLight,

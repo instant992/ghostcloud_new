@@ -20,9 +20,12 @@ import {
   updateLogin,
   uploadAvatar,
 } from "../api";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 export default function ProfileScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const nav = useNavigation<any>();
   const { me, signOut, refreshMe } = useApp();
   const [editOpen, setEditOpen] = useState(false);
@@ -217,16 +220,24 @@ export default function ProfileScreen() {
           <View
             style={{
               marginTop: 8,
-              backgroundColor: "rgba(255,209,102,0.14)",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              backgroundColor: "rgba(255,140,90,0.12)",
               paddingHorizontal: 14,
               paddingVertical: 6,
               borderRadius: 999,
               borderWidth: 1,
-              borderColor: "rgba(255,209,102,0.4)",
+              borderColor: "rgba(255,140,90,0.4)",
             }}
           >
-            <Text style={{ color: "#FFD166", fontWeight: "800", fontSize: 12 }}>
-              ⭐ СПОНСОР
+            <Image
+              source={{ uri: "sponsor_heart" }}
+              style={{ width: 18, height: 18 }}
+              resizeMode="contain"
+            />
+            <Text style={{ color: "#FF9C6B", fontWeight: "800", fontSize: 12 }}>
+              СПОНСОР
             </Text>
           </View>
         )}
@@ -234,7 +245,14 @@ export default function ProfileScreen() {
 
       {isSponsor ? (
         <Card>
-          <Text style={styles.sectionTitle}>Спонсорские привилегии</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <Image
+              source={{ uri: "sponsor_heart" }}
+              style={{ width: 24, height: 24 }}
+              resizeMode="contain"
+            />
+            <Text style={styles.sectionTitle}>Спонсорские привилегии</Text>
+          </View>
           <Row
             label="Бонусное устройство (+1)"
             value={me?.sponsor_device_bonus_claimed ? "получен" : "доступен"}
@@ -252,15 +270,28 @@ export default function ProfileScreen() {
           <Button title="Скопировать ключ" variant="ghost" onPress={copyGiftKey} />
           <Button title="Зеркало новостей" variant="ghost" onPress={openNewsMirror} />
           <Text style={styles.perksHint}>
-            Спонсорский статус — навсегда. Ключ даёт другу сутки доступа, создавать его можно раз в 30 дней.
+            Спасибо за поддержку сервиса! Статус спонсора действует навсегда.
           </Text>
         </Card>
       ) : (
         <Card>
-          <Text style={styles.sectionTitle}>🌟 Стать спонсором</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <Image
+              source={{ uri: "sponsor_heart" }}
+              style={{ width: 24, height: 24 }}
+              resizeMode="contain"
+            />
+            <Text style={styles.sectionTitle}>Стать спонсором</Text>
+          </View>
+          <Text style={styles.perkLine}>🎁 Бонусные месяцы — подписка добивается до 3 месяцев при покупке 1 или 2</Text>
+          <Text style={styles.perkLine}>📱 +1 устройство — лимит растёт с 6 до 7</Text>
+          <Text style={styles.perkLine}>🌅 Авто-тема по времени суток</Text>
+          <Text style={styles.perkLine}>✨ Дополнительные темы оформления</Text>
+          <Text style={styles.perkLine}>🎨 Кастомная иконка приложения</Text>
+          <Text style={styles.perkLine}>🔑 Подарочный ключ — доступ для друга на 24 часа, раз в месяц</Text>
+          <Text style={styles.perkLine}>🏆 Место в публичном топе спонсоров</Text>
           <Text style={styles.perksHint}>
-            Разовое пополнение от 444 ₽ даёт постоянный спонсорский статус: доступ к спонсорским серверам,
-            бонусное устройство, ключ доступа для друга и зеркало новостей.
+            Статус выдаётся навсегда после пополнения от 444 ₽ одной транзакцией.
           </Text>
           <Button title="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
         </Card>
@@ -368,7 +399,7 @@ function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPre
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   avatar: {
     width: 76,
     height: 76,
@@ -447,6 +478,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
     lineHeight: 17,
+  },
+  perkLine: {
+    color: colors.textDim,
+    fontSize: 12,
+    lineHeight: 20,
   },
 });
 

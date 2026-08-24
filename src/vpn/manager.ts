@@ -21,9 +21,17 @@ const V2RAY_UA = "v2rayNG/1.10.24";
 async function fetchText(url: string, userAgent: string): Promise<string | null> {
   try {
     const headers = await deviceHeaders();
-    const res = await fetch(url, {
-      headers: { "User-Agent": userAgent, Accept: "*/*", ...headers },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        headers: { "User-Agent": userAgent, Accept: "*/*", ...headers },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) return null;
     const text = await res.text();
     if (/not supported|unsupported app/i.test(text.slice(0, 500)) && !text.includes("://")) {

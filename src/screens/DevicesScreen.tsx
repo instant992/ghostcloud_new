@@ -4,7 +4,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Screen, Subtitle } from "../components/UI";
 import { banDevice, buyDevices, deleteDevice, getDevices, unbanDevice } from "../api";
 import * as deviceNames from "../deviceNames";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 type Device = {
   os: string;
@@ -16,6 +16,9 @@ type Device = {
 };
 
 export default function DevicesScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const [devices, setDevices] = useState<Device[]>([]);
   const [count, setCount] = useState(0);
   const [limit, setLimit] = useState(6);
@@ -278,7 +281,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   return s?.subUrl ? { "X-Sub-Url": s.subUrl } : {};
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   item: {
     flexDirection: "row" as const,
     alignItems: "center" as const,

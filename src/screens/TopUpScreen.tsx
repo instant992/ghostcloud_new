@@ -4,11 +4,14 @@ import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen } from "../components/UI";
 import { createTopup, topupStatus } from "../api";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 const PRESETS = [100, 300, 500, 1000];
 
 export default function TopUpScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const [amount, setAmount] = useState("300");
   const [orderId, setOrderId] = useState("");
   const [payUrl, setPayUrl] = useState("");
@@ -105,7 +108,7 @@ export default function TopUpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   preset: {
     flex: 1,
     alignItems: "center" as const,

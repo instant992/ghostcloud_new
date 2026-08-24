@@ -3,9 +3,12 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Button, ErrorText, Input, PasswordInput, Screen, Subtitle, Title } from "../../components/UI";
 import { useApp } from "../../context";
-import { colors } from "../../theme";
+import { colors, useTheme } from "../../theme";
 
 export default function LoginScreen() {
+  useTheme();
+  const styles = makeStyles();
+
   const nav = useNavigation<any>();
   const { signIn } = useApp();
   const [loginStr, setLoginStr] = useState("");
@@ -63,12 +66,12 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = () => StyleSheet.create({
   brand: { alignItems: "center", marginTop: 30, marginBottom: 30 },
   logo: {
-    width: 84,
-    height: 84,
-    borderRadius: 22,
+    width: 96,
+    height: 96,
+    borderRadius: 24,
     marginBottom: 12,
   },
   brandName: {

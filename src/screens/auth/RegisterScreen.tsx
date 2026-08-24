@@ -10,7 +10,7 @@ import {
   sendEmailCode,
   verifyEmailCode,
 } from "../../api";
-import { colors } from "../../theme";
+import { colors, useTheme } from "../../theme";
 
 type Step = "email" | "code" | "plan" | "pay";
 

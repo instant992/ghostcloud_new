@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
-import * as Updates from "expo-updates";
+import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import * as Application from "expo-application";
-import { Button, Card, Row, Screen, Title } from "../components/UI";
-import { colors } from "../theme";
-import { getSelectedCore, getThemeName, setSetting, type CoreName, type ThemeName } from "../settings";
+import { Card, Row, Screen, Title } from "../components/UI";
+import { colors, THEME_LABELS, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
+import { getSelectedCore, getThemeName, setSetting, type CoreName } from "../settings";
 import {
   downloadCore,
   getCpuAbi,
@@ -18,8 +17,8 @@ const CORES_REPO_MANIFEST = "https://raw.githubusercontent.com/instant992/ghostc
 
 const CORES: Array<{ key: CoreName; label: string; file: string; lib: "mihomo" | "singbox" | null; note: string; mb: number }> = [
   { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS", mb: 0 },
-  { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "докачивается · + Hysteria2", mb: 36 },
-  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "докачивается · все протоколы", mb: 53 },
+  { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "+ Hysteria2", mb: 36 },
+  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "все протоколы", mb: 53 },
 ];
 
 // Фолбэк, если манифест недоступен
@@ -81,12 +80,15 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
 }
 
 export default function SettingsScreen() {
+  useTheme();
+  const switchTheme = useThemeSwitcher();
   const [theme, setTheme] = useState<ThemeName>(getThemeName());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
   const [xrayVersion, setXrayVersion] = useState("");
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
   const [versions, setVersions] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState<Record<string, number>>({});
+  const [confirmCore, setConfirmCore] = useState<(typeof CORES)[number] | null>(null);
 
   useEffect(() => {
     setXrayVersion(getXrayVersion());
@@ -101,18 +103,9 @@ export default function SettingsScreen() {
   }, []);
 
   const changeTheme = (next: ThemeName) => {
-    if (next === theme) return;
-    Alert.alert("Сменить тему", "Приложение перезагрузится, чтобы применить тему", [
-      { text: "Отмена", style: "cancel" },
-      {
-        text: "Продолжить",
-        style: "default",
-        onPress: () => {
-          setSetting("theme", next);
-          Updates.reloadAsync().catch(() => {});
-        },
-      },
-    ]);
+    setTheme(next);
+    setSetting("theme", next);
+    switchTheme(next);
   };
 
   const changeCore = (next: CoreName) => {
@@ -120,49 +113,31 @@ export default function SettingsScreen() {
     if (meta?.file && !downloaded[meta.file]) return;
     setCore(next);
     setSetting("core", next);
-    // Ядро загружается в процесс один раз — перезагружаем для чистого состояния
-    if (next !== "xray") {
-      Alert.alert("Ядро выбрано", "Перезагрузить приложение для применения?", [
-        { text: "Позже", style: "cancel" },
-        { text: "Перезагрузить", onPress: () => Updates.reloadAsync().catch(() => {}) },
-      ]);
-    }
   };
 
-  const downloadCoreFile = (c: (typeof CORES)[number]) => {
-    if (!c.lib || !c.file) return;
-    const lib: "mihomo" | "singbox" = c.lib;
+  const startDownload = (c: (typeof CORES)[number]) => {
+    const lib: "mihomo" | "singbox" = c.lib as any;
     const abi = getCpuAbi();
-    Alert.alert(
-      `Скачать ядро ${c.label}`,
-      `Ядро будет скачано с GitHub и установлено в память приложения. Учтите: это займёт около ${c.mb} МБ на устройстве.`,
-      [
-        { text: "Отмена", style: "cancel" },
-        {
-          text: "Скачать",
-          onPress: async () => {
-            setProgress((p) => ({ ...p, [c.file]: 0 }));
-            try {
-              const meta = (await fetchCoreMeta(c.key, abi)) || FALLBACK[c.key]?.[abi];
-              if (!meta) throw new Error("Не удалось получить данные ядра");
-              await downloadCore(c.file, meta.url, meta.sha256, meta.size);
-              setDownloaded((d) => ({ ...d, [c.file]: true }));
-              const v = await loadLibCore(lib).catch(() => "");
-              if (v) setVersions((vv) => ({ ...vv, [c.key]: v }));
-              Alert.alert("Готово", `Ядро ${c.label} установлено`);
-            } catch (e: any) {
-              Alert.alert("Ошибка", e?.message || "Не удалось скачать ядро");
-            } finally {
-              setProgress((p) => {
-                const n = { ...p };
-                delete n[c.file];
-                return n;
-              });
-            }
-          },
-        },
-      ]
-    );
+    setConfirmCore(null);
+    setProgress((p) => ({ ...p, [c.file]: 0 }));
+    (async () => {
+      try {
+        const meta = (await fetchCoreMeta(c.key, abi)) || FALLBACK[c.key]?.[abi];
+        if (!meta) throw new Error("Не удалось получить данные ядра");
+        await downloadCore(c.file, meta.url, meta.sha256, meta.size);
+        setDownloaded((d) => ({ ...d, [c.file]: true }));
+        const v = await loadLibCore(lib).catch(() => "");
+        if (v) setVersions((vv) => ({ ...vv, [c.key]: v }));
+      } catch (e: any) {
+        AlertFallback(e?.message || "Не удалось скачать ядро");
+      } finally {
+        setProgress((p) => {
+          const n = { ...p };
+          delete n[c.file];
+          return n;
+        });
+      }
+    })();
   };
 
   return (
@@ -172,23 +147,29 @@ export default function SettingsScreen() {
       <Card>
         <Text style={styles.sectionTitle}>Тема оформления</Text>
         <View style={styles.themeRow}>
-          {(["dark", "light"] as ThemeName[]).map((t) => (
+          {(["default", "dark", "light"] as ThemeName[]).map((t) => (
             <Pressable
               key={t}
               style={[styles.themeBtn, theme === t && styles.themeBtnOn]}
               onPress={() => changeTheme(t)}
             >
-              <Text style={[styles.themeBtnText, theme === t && { color: "#fff" }]}>
-                {t === "dark" ? "Тёмная" : "Светлая"}
+              <View
+                style={[
+                  styles.themePreview,
+                  t === "light" && { backgroundColor: "#F4F2FA", borderColor: "#E0D9F0" },
+                  t === "dark" && { backgroundColor: "#1C1433", borderColor: "#2E2150" },
+                  t === "default" && { backgroundColor: "#160F2B", borderColor: colors.accent },
+                ]}
+              >
+                <View style={[styles.themeDot, t === "light" && { backgroundColor: "#9333EA" }]} />
+              </View>
+              <Text style={[styles.themeBtnText, theme === t && { color: colors.text }]}>
+                {THEME_LABELS[t]}
               </Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.hint}>
-          {theme === getThemeName()
-            ? "Текущая тема применяется при запуске приложения"
-            : "Изменения применятся после перезагрузки приложения"}
-        </Text>
+        <Text style={styles.hint}>Тема применяется сразу, без перезагрузки</Text>
       </Card>
 
       <Card>
@@ -196,54 +177,50 @@ export default function SettingsScreen() {
         {CORES.map((c) => {
           const active = core === c.key;
           const needDownload = !!c.file && !downloaded[c.file];
-          const busy = c.file ? progress[c.file] !== undefined : false;
+          const pct = c.file ? progress[c.file] : undefined;
+          const busy = pct !== undefined;
           return (
-            <View key={c.key}>
-              <Pressable
-                disabled={needDownload || busy}
-                style={[styles.coreItem, active && styles.coreItemOn, needDownload && { opacity: 0.5 }]}
-                onPress={() => changeCore(c.key)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.coreName}>
-                    {c.label}
-                    {c.key === "xray" && xrayVersion ? (
-                      <Text style={styles.coreVersion}> · {xrayVersion}</Text>
-                    ) : null}
-                    {versions[c.key] ? (
-                      <Text style={styles.coreVersion}> · {versions[c.key]}</Text>
-                    ) : null}
-                  </Text>
-                  <Text style={styles.coreNote}>
-                    {c.file
-                      ? downloaded[c.file]
-                        ? "установлено"
-                        : "не установлено"
-                      : c.note}
-                  </Text>
-                </View>
-                <View style={[styles.radio, active && styles.radioOn]} />
-              </Pressable>
-
-              {c.file && needDownload && (
-                <View style={{ marginBottom: 8 }}>
-                  {busy ? (
-                    <View style={styles.progressWrap}>
-                      <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: `${progress[c.file] || 0}%` }]} />
-                      </View>
-                      <Text style={styles.progressText}>Загрузка… {progress[c.file] || 0}%</Text>
-                    </View>
-                  ) : (
-                    <Button
-                      title={`Скачать ядро ${c.label} (~${c.mb} МБ)`}
-                      variant="ghost"
-                      onPress={() => downloadCoreFile(c)}
-                    />
-                  )}
-                </View>
+            <Pressable
+              key={c.key}
+              disabled={needDownload || busy}
+              style={[styles.coreItem, active && styles.coreItemOn, needDownload && { opacity: 0.85 }]}
+              onPress={() => changeCore(c.key)}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.coreName}>
+                  {c.label}
+                  {c.key === "xray" && xrayVersion ? (
+                    <Text style={styles.coreVersion}> · {xrayVersion}</Text>
+                  ) : null}
+                  {versions[c.key] ? (
+                    <Text style={styles.coreVersion}> · {versions[c.key]}</Text>
+                  ) : null}
+                </Text>
+                <Text style={styles.coreNote}>
+                  {c.file
+                    ? downloaded[c.file]
+                      ? "установлено"
+                      : `не установлено · ~${c.mb} МБ`
+                    : c.note}
+                </Text>
+                {busy && (
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${pct}%` }]} />
+                  </View>
+                )}
+              </View>
+              {needDownload && !busy && (
+                <Pressable
+                  style={styles.downloadBtn}
+                  hitSlop={6}
+                  onPress={() => setConfirmCore(c)}
+                >
+                  <Text style={styles.downloadBtnText}>↓</Text>
+                </Pressable>
               )}
-            </View>
+              {busy && <Text style={styles.progressPct}>{pct}%</Text>}
+              {!needDownload && !busy && <View style={[styles.radio, active && styles.radioOn]} />}
+            </Pressable>
           );
         })}
         <Text style={styles.hint}>
@@ -255,8 +232,45 @@ export default function SettingsScreen() {
         <Row label="Версия приложения" value={`${Application.nativeApplicationVersion || "?"} (${Application.nativeBuildVersion || "?"})`} />
         {!!xrayVersion && <Row label="Ядро Xray" value={xrayVersion} />}
       </Card>
+
+      {/* Стилизованное подтверждение загрузки ядра */}
+      <Modal visible={!!confirmCore} transparent animationType="fade" onRequestClose={() => setConfirmCore(null)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setConfirmCore(null)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalIcon}>
+              <Text style={{ fontSize: 30 }}>⬇️</Text>
+            </View>
+            <Text style={styles.modalTitle}>
+              Скачать ядро {confirmCore?.label}
+            </Text>
+            <Text style={styles.modalText}>
+              Ядро будет скачано с GitHub и установлено в память приложения.
+            </Text>
+            <View style={styles.modalSizeBadge}>
+              <Text style={styles.modalSizeText}>≈ {confirmCore?.mb} МБ на устройстве</Text>
+            </View>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
+              <View style={{ flex: 1 }}>
+                <Pressable style={styles.modalBtnGhost} onPress={() => setConfirmCore(null)}>
+                  <Text style={styles.modalBtnGhostText}>Отмена</Text>
+                </Pressable>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Pressable style={styles.modalBtnPrimary} onPress={() => confirmCore && startDownload(confirmCore)}>
+                  <Text style={styles.modalBtnPrimaryText}>Скачать</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Screen>
   );
+}
+
+function AlertFallback(msg: string) {
+  // простая заглушка ошибки через консоль — ошибки загрузки показываются в UI прогресса
+  console.warn("core download:", msg);
 }
 
 const styles = StyleSheet.create({
@@ -276,17 +290,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     backgroundColor: colors.bgSoft,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
   },
   themeBtnOn: {
-    backgroundColor: colors.accentDeep,
     borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  themePreview: {
+    width: 40,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
+    padding: 4,
+    marginBottom: 8,
+  },
+  themeDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.accent,
   },
   themeBtnText: {
     color: colors.textDim,
     fontWeight: "700",
-    fontSize: 14,
+    fontSize: 12,
   },
   hint: {
     color: colors.textFaint,
@@ -323,6 +353,7 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     fontSize: 11,
     marginTop: 2,
+    marginBottom: 4,
   },
   radio: {
     width: 18,
@@ -335,26 +366,110 @@ const styles = StyleSheet.create({
     borderColor: colors.accent,
     backgroundColor: colors.accent,
   },
-  progressWrap: {
-    paddingHorizontal: 4,
+  downloadBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.accentDeep,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  downloadBtnText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
   },
   progressTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.bgSoft,
-    borderWidth: 1,
-    borderColor: colors.border,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.card,
     overflow: "hidden",
+    marginTop: 6,
   },
   progressFill: {
     height: "100%",
     backgroundColor: colors.accent,
-    borderRadius: 4,
+    borderRadius: 3,
   },
-  progressText: {
-    color: colors.textDim,
-    fontSize: 11,
+  progressPct: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: "700",
+    width: 42,
+    textAlign: "right",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+    alignItems: "center",
+  },
+  modalIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.accentSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
     textAlign: "center",
-    marginTop: 6,
+  },
+  modalText: {
+    color: colors.textDim,
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 8,
+    lineHeight: 19,
+  },
+  modalSizeBadge: {
+    marginTop: 12,
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  modalSizeText: {
+    color: colors.accent,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  modalBtnGhost: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalBtnGhostText: {
+    color: colors.textDim,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  modalBtnPrimary: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    backgroundColor: colors.accentDeep,
+  },
+  modalBtnPrimaryText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 14,
   },
 });

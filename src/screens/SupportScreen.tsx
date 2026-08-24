@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supportMessages, supportSend } from "../api";
-import { colors } from "../theme";
+import { colors, useTheme } from "../theme";
 
 type Msg = {
   id: number;
