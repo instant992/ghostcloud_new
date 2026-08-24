@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState } from "react";
-import { getThemeName } from "./settings";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { AppState } from "react-native";
+import { getThemeName, getSetting } from "./settings";
 
-export type ThemeName = "default" | "dark" | "light";
+export type ThemeName = "auto" | "default" | "dark" | "light";
 
 /** Основная тема — фирменная тёмная с фиолетовым акцентом */
 const defaultColors = {
@@ -59,20 +60,44 @@ const lightColors = {
   gradient: ["#7C3AED", "#A855F7"] as const,
 };
 
-const PALETTES: Record<ThemeName, typeof defaultColors> = {
+const PALETTES: Record<Exclude<ThemeName, "auto">, typeof defaultColors> = {
   default: defaultColors,
   dark: darkColors,
   light: lightColors,
 };
 
-export const colors: any = { ...PALETTES[getThemeName() as ThemeName] || defaultColors };
+/** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью */
+export function resolveAutoTheme(): "dark" | "light" {
+  const toMin = (s: string) => {
+    const [h, m] = s.split(":").map((x) => parseInt(x, 10) || 0);
+    return h * 60 + m;
+  };
+  const now = new Date();
+  const cur = now.getHours() * 60 + now.getMinutes();
+  const rise = toMin(getSetting("theme_sunrise", "06:00"));
+  const set = toMin(getSetting("theme_sunset", "20:00"));
+  if (rise <= set) return cur >= rise && cur < set ? "light" : "dark";
+  // интервал через полночь
+  return cur >= rise || cur < set ? "light" : "dark";
+}
+
+function storedTheme(): ThemeName {
+  return getThemeName();
+}
+
+function resolveTheme(name: ThemeName): "default" | "dark" | "light" {
+  return name === "auto" ? resolveAutoTheme() : name;
+}
+
+export const colors: any = { ...PALETTES[resolveTheme(storedTheme())] };
 
 /** Перекрашивает объект colors на месте — все экраны перерисуются при следующем рендере */
 export function applyTheme(name: ThemeName) {
-  Object.assign(colors, PALETTES[name] || defaultColors);
+  Object.assign(colors, PALETTES[resolveTheme(name)] || defaultColors);
 }
 
 export const THEME_LABELS: Record<ThemeName, string> = {
+  auto: "Авто",
   default: "Основная",
   dark: "Тёмная",
   light: "Светлая",
@@ -81,7 +106,7 @@ export const THEME_LABELS: Record<ThemeName, string> = {
 // ─── Контекст темы: подписка экранов на перерисовку при смене темы ───
 
 const ThemeCtx = createContext<{ name: ThemeName; version: number }>({
-  name: getThemeName() as ThemeName,
+  name: storedTheme(),
   version: 0,
 });
 
@@ -92,7 +117,7 @@ export function useTheme() {
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<{ name: ThemeName; version: number }>(() => ({
-    name: getThemeName() as ThemeName,
+    name: storedTheme(),
     version: 0,
   }));
 
@@ -100,6 +125,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyTheme(name);
     setState((s) => ({ name, version: s.version + 1 }));
   };
+
+  // Авто-тема: переоцениваем при возврате в приложение
+  useEffect(() => {
+    if (state.name !== "auto") return;
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s !== "active") return;
+      applyTheme("auto");
+      setState((prev) => ({ name: prev.name, version: prev.version + 1 }));
+    });
+    return () => sub.remove();
+  }, [state.name]);
 
   return (
     <ThemeCtx.Provider value={state}>

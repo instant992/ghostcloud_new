@@ -9,7 +9,7 @@ if (Platform.OS === "android") {
   }
 }
 
-export type ThemeName = "default" | "dark" | "light";
+export type ThemeName = "auto" | "default" | "dark" | "light";
 export type CoreName = "xray" | "sing-box" | "mihomo";
 
 export function getSetting(key: string, fallback: string): string {
@@ -29,7 +29,7 @@ export function setSetting(key: string, value: string) {
 
 export function getThemeName(): ThemeName {
   const v = getSetting("theme", "default");
-  return v === "dark" || v === "light" ? v : "default";
+  return v === "auto" || v === "dark" || v === "light" ? v : "default";
 }
 
 export function getSelectedCore(): CoreName {

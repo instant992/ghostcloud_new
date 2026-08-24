@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import { Card, Row, Screen, Title } from "../components/UI";
 import { colors, THEME_LABELS, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
-import { getSelectedCore, getThemeName, setSetting, type CoreName } from "../settings";
+import { getSelectedCore, getSetting, getThemeName, setSetting, type CoreName } from "../settings";
 import {
   downloadCore,
   getCpuAbi,
@@ -89,6 +90,14 @@ export default function SettingsScreen() {
   const [versions, setVersions] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [confirmCore, setConfirmCore] = useState<(typeof CORES)[number] | null>(null);
+  const [sunrise, setSunrise] = useState(getSetting("theme_sunrise", "06:00"));
+  const [sunset, setSunset] = useState(getSetting("theme_sunset", "20:00"));
+
+  const saveTime = (key: string, value: string, setter: (v: string) => void) => {
+    const clean = value.replace(/[^\d:]/g, "").slice(0, 5);
+    setter(clean);
+    if (/^\d{2}:\d{2}$/.test(clean)) setSetting(key, clean);
+  };
 
   useEffect(() => {
     setXrayVersion(getXrayVersion());
@@ -147,29 +156,61 @@ export default function SettingsScreen() {
       <Card>
         <Text style={styles.sectionTitle}>Тема оформления</Text>
         <View style={styles.themeRow}>
-          {(["default", "dark", "light"] as ThemeName[]).map((t) => (
+          {(["auto", "default", "dark", "light"] as ThemeName[]).map((t) => (
             <Pressable
               key={t}
               style={[styles.themeBtn, theme === t && styles.themeBtnOn]}
               onPress={() => changeTheme(t)}
             >
-              <View
-                style={[
-                  styles.themePreview,
-                  t === "light" && { backgroundColor: "#F4F2FA", borderColor: "#E0D9F0" },
-                  t === "dark" && { backgroundColor: "#1C1433", borderColor: "#2E2150" },
-                  t === "default" && { backgroundColor: "#160F2B", borderColor: colors.accent },
-                ]}
-              >
-                <View style={[styles.themeDot, t === "light" && { backgroundColor: "#9333EA" }]} />
-              </View>
+              <Ionicons
+                name={
+                  t === "auto"
+                    ? "time-outline"
+                    : t === "light"
+                    ? "sunny-outline"
+                    : t === "dark"
+                    ? "moon-outline"
+                    : "sparkles-outline"
+                }
+                size={18}
+                color={theme === t ? colors.accent : colors.textDim}
+              />
               <Text style={[styles.themeBtnText, theme === t && { color: colors.text }]}>
                 {THEME_LABELS[t]}
               </Text>
             </Pressable>
           ))}
         </View>
-        <Text style={styles.hint}>Тема применяется сразу, без перезагрузки</Text>
+
+        {theme === "auto" && (
+          <View style={styles.autoRow}>
+            <Text style={styles.autoLabel}>Светлая с</Text>
+            <TextInput
+              style={styles.autoInput}
+              value={sunrise}
+              onChangeText={(v) => saveTime("theme_sunrise", v, setSunrise)}
+              placeholder="06:00"
+              placeholderTextColor={colors.textFaint}
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+            />
+            <Text style={styles.autoLabel}>до</Text>
+            <TextInput
+              style={styles.autoInput}
+              value={sunset}
+              onChangeText={(v) => saveTime("theme_sunset", v, setSunset)}
+              placeholder="20:00"
+              placeholderTextColor={colors.textFaint}
+              keyboardType="numbers-and-punctuation"
+              maxLength={5}
+            />
+          </View>
+        )}
+        <Text style={styles.hint}>
+          {theme === "auto"
+            ? "Светлая тема включается автоматически в выбранное время"
+            : "Тема применяется сразу, без перезагрузки"}
+        </Text>
       </Card>
 
       <Card>
@@ -282,41 +323,50 @@ const styles = StyleSheet.create({
   },
   themeRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
   },
   themeBtn: {
     flex: 1,
     alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 12,
     borderRadius: 14,
     backgroundColor: colors.bgSoft,
     borderWidth: 1.5,
     borderColor: colors.border,
+    gap: 5,
+    height: 64,
   },
   themeBtnOn: {
     borderColor: colors.accent,
     backgroundColor: colors.accentSoft,
   },
-  themePreview: {
-    width: 40,
-    height: 28,
-    borderRadius: 8,
-    borderWidth: 1,
-    alignItems: "flex-end",
-    justifyContent: "flex-end",
-    padding: 4,
-    marginBottom: 8,
-  },
-  themeDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.accent,
-  },
   themeBtnText: {
     color: colors.textDim,
     fontWeight: "700",
+    fontSize: 11,
+  },
+  autoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+  },
+  autoLabel: {
+    color: colors.textDim,
     fontSize: 12,
+  },
+  autoInput: {
+    backgroundColor: colors.bgSoft,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    color: colors.text,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    fontSize: 13,
+    width: 64,
+    textAlign: "center",
   },
   hint: {
     color: colors.textFaint,
