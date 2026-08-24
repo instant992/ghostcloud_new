@@ -12,8 +12,7 @@ import {
   requestVpnPermission,
   isPrepared,
   startVpn,
-  startCoreVpn,
-  startMihomoVpn,
+  startLibCoreVpn,
   stopVpn,
 } from "./native";
 
@@ -125,12 +124,12 @@ export async function connect(node: VpnNode): Promise<void> {
   const core = getSelectedCore();
   if (core === "sing-box") {
     const config = buildSingBoxConfig(node);
-    await startCoreVpn("libsingbox.so", config, allowed, blocked);
+    await startLibCoreVpn("singbox", config, allowed, blocked);
     return;
   }
   if (core === "mihomo") {
     const config = buildMihomoConfig(node);
-    await startMihomoVpn(config, allowed, blocked);
+    await startLibCoreVpn("mihomo", config, allowed, blocked);
     return;
   }
   if (!node.supportedByXray) {

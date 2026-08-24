@@ -26,7 +26,7 @@ class XrayCoreModule : Module() {
       CoreVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
       }
-      MihomoVpnService.stateListener = { running ->
+      LibCoreVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
       }
     }
@@ -34,7 +34,7 @@ class XrayCoreModule : Module() {
     OnDestroy {
       XrayVpnService.stateListener = null
       CoreVpnService.stateListener = null
-      MihomoVpnService.stateListener = null
+      LibCoreVpnService.stateListener = null
     }
 
     AsyncFunction("requestPermission") { promise: Promise ->
@@ -279,46 +279,66 @@ class XrayCoreModule : Module() {
       promise.resolve(if (file.exists()) file.delete() else false)
     }
 
-    AsyncFunction("loadMihomoCore") { promise: Promise ->
-      kotlin.concurrent.thread(name = "gc-mihomo-load") {
+    AsyncFunction("loadLibCore") { lib: String, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-libcore-load") {
         try {
-          val file = File(context.filesDir, "cores/libclash.so")
+          val fileName = if (lib == "singbox") "libsingbox.so" else "libclash.so"
+          val file = File(context.filesDir, "cores/$fileName")
           if (!file.exists()) {
-            promise.reject("ERR_NO_CORE", "Ядро mihomo не скачано", null)
+            promise.reject("ERR_NO_CORE", "Ядро не скачано: $lib", null)
             return@thread
           }
-          GcCore.load(file.absolutePath)
-          val home = File(context.filesDir, "mihomo")
+          val home = File(context.filesDir, if (lib == "singbox") "singbox" else "mihomo")
           if (!home.exists()) home.mkdirs()
-          val err = GcCore.gcInit(home.absolutePath)
-          if (err.isNotEmpty()) {
-            promise.reject("ERR_INIT", "mihomo: $err", null)
-            return@thread
+          val version = when (lib) {
+            "singbox" -> {
+              GcSbCore.load(file.absolutePath)
+              val err = GcSbCore.gcInit(home.absolutePath)
+              if (err.isNotEmpty()) {
+                promise.reject("ERR_INIT", "sing-box: $err", null)
+                return@thread
+              }
+              GcSbCore.gcVersion()
+            }
+            else -> {
+              GcCore.load(file.absolutePath)
+              val err = GcCore.gcInit(home.absolutePath)
+              if (err.isNotEmpty()) {
+                promise.reject("ERR_INIT", "mihomo: $err", null)
+                return@thread
+              }
+              GcCore.gcVersion()
+            }
           }
-          promise.resolve(GcCore.gcVersion())
+          promise.resolve(version)
         } catch (e: Throwable) {
-          promise.reject("ERR_LOAD", e.message ?: "Не удалось загрузить ядро mihomo", e)
+          promise.reject("ERR_LOAD", e.message ?: "Не удалось загрузить ядро", e)
         }
       }
     }
 
-    AsyncFunction("startMihomoVpn") { configYaml: String, allowedJson: String?, disallowedJson: String?, promise: Promise ->
+    AsyncFunction("startLibCoreVpn") { lib: String, config: String, allowedJson: String?, disallowedJson: String?, promise: Promise ->
       if (XrayVpnService.isRunning.get() || CoreVpnService.isRunning.get()) {
         promise.reject("ERR_RUNNING", "Сначала остановите текущий VPN", null)
         return@AsyncFunction
       }
-      if (MihomoVpnService.isRunning.get()) {
+      if (LibCoreVpnService.isRunning.get()) {
         promise.reject("ERR_RUNNING", "VPN уже запущен", null)
         return@AsyncFunction
       }
-      if (!GcCore.loaded) {
-        promise.reject("ERR_NO_CORE", "Ядро mihomo не загружено", null)
+      val loaded = when (lib) {
+        "singbox" -> GcSbCore.loaded
+        else -> GcCore.loaded
+      }
+      if (!loaded) {
+        promise.reject("ERR_NO_CORE", "Ядро не загружено: $lib", null)
         return@AsyncFunction
       }
-      MihomoVpnService.pendingPromise = promise
-      val intent = Intent(context, MihomoVpnService::class.java).apply {
-        action = MihomoVpnService.ACTION_START
-        putExtra("config", configYaml)
+      LibCoreVpnService.pendingPromise = promise
+      val intent = Intent(context, LibCoreVpnService::class.java).apply {
+        action = LibCoreVpnService.ACTION_START
+        putExtra("lib", lib)
+        putExtra("config", config)
         if (!allowedJson.isNullOrBlank()) putExtra("allowed", allowedJson)
         if (!disallowedJson.isNullOrBlank()) putExtra("disallowed", disallowedJson)
       }
@@ -329,20 +349,20 @@ class XrayCoreModule : Module() {
           context.startService(intent)
         }
       } catch (e: Throwable) {
-        MihomoVpnService.pendingPromise = null
+        LibCoreVpnService.pendingPromise = null
         promise.reject("ERR_START", e.message ?: "Не удалось запустить VPN-сервис", e)
       }
     }
 
-    Function("stopMihomoVpn") {
-      val intent = Intent(context, MihomoVpnService::class.java).apply {
-        action = MihomoVpnService.ACTION_STOP
+    Function("stopLibCoreVpn") {
+      val intent = Intent(context, LibCoreVpnService::class.java).apply {
+        action = LibCoreVpnService.ACTION_STOP
       }
       context.startService(intent)
     }
 
-    Function("isMihomoRunning") {
-      MihomoVpnService.isRunning.get()
+    Function("isLibCoreRunning") {
+      LibCoreVpnService.isRunning.get()
     }
 
     AsyncFunction("tcpPing") { host: String, port: Int, timeoutMs: Int, promise: Promise ->

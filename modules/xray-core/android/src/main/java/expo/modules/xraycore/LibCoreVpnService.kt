@@ -10,20 +10,20 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import expo.modules.kotlin.Promise
-import org.json.JSONObject
-import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * VPN-сервис для ядра mihomo (in-process, через GcCore).
+ * VPN-сервис для загружаемых библиотечных ядер (mihomo, sing-box).
+ * Ядро работает в процессе приложения, TUN-дескриптор передаётся напрямую.
+ * Тип ядра передаётся через extra "lib": "mihomo" | "singbox".
  */
-class MihomoVpnService : VpnService() {
+class LibCoreVpnService : VpnService() {
 
   companion object {
-    const val ACTION_START = "expo.modules.xraycore.MIHOMO_START"
-    const val ACTION_STOP = "expo.modules.xraycore.MIHOMO_STOP"
+    const val ACTION_START = "expo.modules.xraycore.LIBCORE_START"
+    const val ACTION_STOP = "expo.modules.xraycore.LIBCORE_STOP"
 
-    private const val CHANNEL_ID = "ghostcloud_vpn_mihomo"
+    private const val CHANNEL_ID = "ghostcloud_vpn_libcore"
     private const val NOTIFICATION_ID = 3
 
     val isRunning = AtomicBoolean(false)
@@ -34,12 +34,6 @@ class MihomoVpnService : VpnService() {
     private var tunInterface: ParcelFileDescriptor? = null
   }
 
-  override fun onCreate() {
-    super.onCreate()
-    // Разрешаем ядру защищать сокеты через VpnService
-    // (в текущей схеме UID приложения исключён из маршрута TUN, protect не обязателен)
-  }
-
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_STOP -> {
@@ -48,9 +42,11 @@ class MihomoVpnService : VpnService() {
       }
       else -> {
         val config = intent?.getStringExtra("config")
+        val lib = intent?.getStringExtra("lib") ?: "mihomo"
         if (config != null) {
           startForegroundSilently()
           startCore(
+            lib,
             config,
             intent.getStringExtra("allowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList(),
             intent.getStringExtra("disallowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
@@ -65,12 +61,8 @@ class MihomoVpnService : VpnService() {
     return START_STICKY
   }
 
-  private fun startCore(configYaml: String, allowedPkgs: List<String>, disallowedPkgs: List<String>) {
+  private fun startCore(lib: String, config: String, allowedPkgs: List<String>, disallowedPkgs: List<String>) {
     try {
-      if (!GcCore.loaded) {
-        throw IllegalStateException("Ядро mihomo не загружено")
-      }
-
       val builder = Builder()
         .setSession("GhostCloud")
         .setMtu(1500)
@@ -106,12 +98,13 @@ class MihomoVpnService : VpnService() {
       }
       tunInterface = pfd
 
-      // Защита сокетов ядра: через VpnService.protect (JNI-колбэк недоступен,
-      // поэтому используем защитный хук через protect() самого сервиса невозможен
-      // из Go без моста — полагаемся на исключение UID приложения из маршрута)
-      val err = GcCore.gcStart(configYaml, pfd.fd)
+      val err = when (lib) {
+        "mihomo" -> GcCore.gcStart(config, pfd.fd)
+        "singbox" -> GcSbCore.gcStart(config, pfd.fd)
+        else -> "неизвестное ядро: $lib"
+      }
       if (err.isNotEmpty()) {
-        throw IllegalStateException("mihomo: $err")
+        throw IllegalStateException("$lib: $err")
       }
 
       isRunning.set(true)
@@ -120,18 +113,26 @@ class MihomoVpnService : VpnService() {
       pendingPromise?.resolve(true)
       pendingPromise = null
     } catch (e: Throwable) {
-      runCatching { GcCore.gcStop() }
+      runCatching { stopLibCore(lib) }
       closeTun()
       notifyState(false)
-      pendingPromise?.reject("ERR_START", e.message ?: "Ошибка запуска mihomo", e)
+      pendingPromise?.reject("ERR_START", e.message ?: "Ошибка запуска ядра", e)
       pendingPromise = null
       stopForegroundAndSelf()
+    }
+  }
+
+  private fun stopLibCore(lib: String) {
+    when (lib) {
+      "mihomo" -> if (GcCore.loaded) GcCore.gcStop()
+      "singbox" -> if (GcSbCore.loaded) GcSbCore.gcStop()
     }
   }
 
   private fun stopCore() {
     try {
       if (GcCore.loaded) GcCore.gcStop()
+      if (GcSbCore.loaded) GcSbCore.gcStop()
     } catch (_: Throwable) {
     }
     closeTun()
@@ -190,7 +191,7 @@ class MihomoVpnService : VpnService() {
     val stopIntent = PendingIntent.getService(
       this,
       3,
-      Intent(this, MihomoVpnService::class.java).setAction(ACTION_STOP),
+      Intent(this, LibCoreVpnService::class.java).setAction(ACTION_STOP),
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
     val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

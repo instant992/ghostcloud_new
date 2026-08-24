@@ -9,52 +9,71 @@ import {
   downloadCore,
   getCpuAbi,
   getCoreStatus,
-  getCoreVersion,
   getXrayVersion,
-  loadMihomoCore,
+  loadLibCore,
   onCoreDownloadProgress,
 } from "../vpn/native";
 
 const CORES_REPO_MANIFEST = "https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/manifest.json";
 
-const CORES: Array<{ key: CoreName; label: string; note: string }> = [
-  { key: "xray", label: "Xray", note: "встроен · VLESS, VMess, Trojan, SS" },
-  { key: "sing-box", label: "Sing-box", note: "встроен · + Hysteria2" },
-  { key: "mihomo", label: "Mihomo", note: "скачивается с GitHub · все протоколы" },
+const CORES: Array<{ key: CoreName; label: string; file: string; lib: "mihomo" | "singbox" | null; note: string; mb: number }> = [
+  { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS", mb: 0 },
+  { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "докачивается · + Hysteria2", mb: 36 },
+  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "докачивается · все протоколы", mb: 53 },
 ];
 
-const MIHOMO_FALLBACK: Record<string, { url: string; sha256: string; size: number }> = {
-  "arm64-v8a": {
-    url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/arm64-v8a/libclash.so",
-    sha256: "1b2525cbe98835f988a1d12720662398d2e670136a449e72ce7af70cc6893609",
-    size: 53232248,
+// Фолбэк, если манифест недоступен
+const FALLBACK: Record<string, Record<string, { url: string; sha256: string; size: number }>> = {
+  "sing-box": {
+    "arm64-v8a": {
+      url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/sing-box-2/arm64-v8a/libsingbox.so",
+      sha256: "4e2c79b5b1d721ba957afd9815868f95439e7e1ea989cfded49de09f234ff286",
+      size: 35185576,
+    },
+    "armeabi-v7a": {
+      url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/sing-box-2/armeabi-v7a/libsingbox.so",
+      sha256: "e775d76a702a90e0d0285d07bcb388d09d9fab0b199afbff793aed7f07509a65",
+      size: 33308520,
+    },
+    x86_64: {
+      url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/sing-box-2/x86_64/libsingbox.so",
+      sha256: "100ce32a90b74f98156ad3406ee099ff6359188c1042efa4917c420b385d40e3",
+      size: 37628544,
+    },
   },
-  "armeabi-v7a": {
-    url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/armeabi-v7a/libclash.so",
-    sha256: "8d4d9a0b01a208faaf4544c41967297461728723b8185b1986a2e49108eb6fd9",
-    size: 50100396,
-  },
-  "x86_64": {
-    url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/x86_64/libclash.so",
-    sha256: "2c43e6ee318f5e5b0ae7e253ff954764f3c58fbfceadb5c05424f73d529867d8",
-    size: 57588760,
+  mihomo: {
+    "arm64-v8a": {
+      url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/arm64-v8a/libclash.so",
+      sha256: "1b2525cbe98835f988a1d12720662398d2e670136a449e72ce7af70cc6893609",
+      size: 53232248,
+    },
+    "armeabi-v7a": {
+      url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/armeabi-v7a/libclash.so",
+      sha256: "8d4d9a0b01a208faaf4544c41967297461728723b8185b1986a2e49108eb6fd9",
+      size: 50100396,
+    },
+    x86_64: {
+      url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/x86_64/libclash.so",
+      sha256: "2c43e6ee318f5e5b0ae7e253ff954764f3c58fbfceadb5c05424f73d529867d8",
+      size: 57588760,
+    },
   },
 };
 
-type MihomoMeta = { url: string; sha256: string; size: number; version: string };
+type CoreMeta = { url: string; sha256: string; size: number; version: string };
 
-async function fetchMihomoMeta(abi: string): Promise<MihomoMeta | null> {
+async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null> {
   try {
     const res = await fetch(CORES_REPO_MANIFEST);
     const manifest = await res.json();
-    const core = manifest?.cores?.mihomo;
-    const file = core?.files?.[abi];
+    const entry = manifest?.cores?.[core];
+    const file = entry?.files?.[abi];
     if (!file?.path) return null;
     return {
       url: `https://github.com/instant992/ghostcloudcore_new/raw/main/${file.path}`,
       sha256: String(file.sha256 || ""),
       size: Number(file.size || 0),
-      version: String(core.version || ""),
+      version: String(entry.version || ""),
     };
   } catch {
     return null;
@@ -64,28 +83,19 @@ async function fetchMihomoMeta(abi: string): Promise<MihomoMeta | null> {
 export default function SettingsScreen() {
   const [theme, setTheme] = useState<ThemeName>(getThemeName());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
+  const [xrayVersion, setXrayVersion] = useState("");
+  const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
   const [versions, setVersions] = useState<Record<string, string>>({});
-  const [mihomoDownloaded, setMihomoDownloaded] = useState(false);
-  const [mihomoProgress, setMihomoProgress] = useState<number | null>(null);
-  const [mihomoVersion, setMihomoVersion] = useState("");
+  const [progress, setProgress] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    (async () => {
-      const [sb, xr] = await Promise.all([
-        getCoreVersion("libsingbox.so"),
-        Promise.resolve(getXrayVersion()),
-      ]);
-      setVersions({ "sing-box": sb, xray: xr });
-      const status = getCoreStatus("libclash.so");
-      setMihomoDownloaded(status.downloaded);
-      if (status.downloaded) {
-        loadMihomoCore()
-          .then((v) => setMihomoVersion(v))
-          .catch(() => {});
-      }
-    })();
+    setXrayVersion(getXrayVersion());
+    setDownloaded({
+      "libclash.so": getCoreStatus("libclash.so").downloaded,
+      "libsingbox.so": getCoreStatus("libsingbox.so").downloaded,
+    });
     const off = onCoreDownloadProgress((e) => {
-      if (e.name === "libclash.so") setMihomoProgress(e.progress);
+      setProgress((p) => ({ ...p, [e.name]: e.progress }));
     });
     return off;
   }, []);
@@ -106,34 +116,48 @@ export default function SettingsScreen() {
   };
 
   const changeCore = (next: CoreName) => {
-    if (next === "mihomo" && !mihomoDownloaded) return;
+    const meta = CORES.find((c) => c.key === next);
+    if (meta?.file && !downloaded[meta.file]) return;
     setCore(next);
     setSetting("core", next);
+    // Ядро загружается в процесс один раз — перезагружаем для чистого состояния
+    if (next !== "xray") {
+      Alert.alert("Ядро выбрано", "Перезагрузить приложение для применения?", [
+        { text: "Позже", style: "cancel" },
+        { text: "Перезагрузить", onPress: () => Updates.reloadAsync().catch(() => {}) },
+      ]);
+    }
   };
 
-  const downloadMihomo = () => {
+  const downloadCoreFile = (c: (typeof CORES)[number]) => {
+    if (!c.lib || !c.file) return;
+    const lib: "mihomo" | "singbox" = c.lib;
     const abi = getCpuAbi();
     Alert.alert(
-      "Скачать ядро Mihomo",
-      "Ядро будет скачано с GitHub и установлено в память приложения. Учтите: это займёт около 55–60 МБ на устройстве.",
+      `Скачать ядро ${c.label}`,
+      `Ядро будет скачано с GitHub и установлено в память приложения. Учтите: это займёт около ${c.mb} МБ на устройстве.`,
       [
         { text: "Отмена", style: "cancel" },
         {
           text: "Скачать",
           onPress: async () => {
-            setMihomoProgress(0);
+            setProgress((p) => ({ ...p, [c.file]: 0 }));
             try {
-              const meta = (await fetchMihomoMeta(abi)) || MIHOMO_FALLBACK[abi];
+              const meta = (await fetchCoreMeta(c.key, abi)) || FALLBACK[c.key]?.[abi];
               if (!meta) throw new Error("Не удалось получить данные ядра");
-              await downloadCore("libclash.so", meta.url, meta.sha256, meta.size);
-              setMihomoDownloaded(true);
-              const v = await loadMihomoCore().catch(() => "");
-              setMihomoVersion(v);
-              Alert.alert("Готово", "Ядро Mihomo установлено");
+              await downloadCore(c.file, meta.url, meta.sha256, meta.size);
+              setDownloaded((d) => ({ ...d, [c.file]: true }));
+              const v = await loadLibCore(lib).catch(() => "");
+              if (v) setVersions((vv) => ({ ...vv, [c.key]: v }));
+              Alert.alert("Готово", `Ядро ${c.label} установлено`);
             } catch (e: any) {
               Alert.alert("Ошибка", e?.message || "Не удалось скачать ядро");
             } finally {
-              setMihomoProgress(null);
+              setProgress((p) => {
+                const n = { ...p };
+                delete n[c.file];
+                return n;
+              });
             }
           },
         },
@@ -171,31 +195,28 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Ядро VPN</Text>
         {CORES.map((c) => {
           const active = core === c.key;
-          const isMihomo = c.key === "mihomo";
-          const disabled = isMihomo && !mihomoDownloaded;
+          const needDownload = !!c.file && !downloaded[c.file];
+          const busy = c.file ? progress[c.file] !== undefined : false;
           return (
             <View key={c.key}>
               <Pressable
-                disabled={disabled || mihomoProgress !== null}
-                style={[styles.coreItem, active && styles.coreItemOn, disabled && { opacity: 0.5 }]}
+                disabled={needDownload || busy}
+                style={[styles.coreItem, active && styles.coreItemOn, needDownload && { opacity: 0.5 }]}
                 onPress={() => changeCore(c.key)}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.coreName}>
                     {c.label}
-                    {c.key === "xray" && versions.xray ? (
-                      <Text style={styles.coreVersion}> · {versions.xray}</Text>
+                    {c.key === "xray" && xrayVersion ? (
+                      <Text style={styles.coreVersion}> · {xrayVersion}</Text>
                     ) : null}
-                    {c.key === "sing-box" && versions["sing-box"] ? (
-                      <Text style={styles.coreVersion}> · {versions["sing-box"]}</Text>
-                    ) : null}
-                    {isMihomo && mihomoVersion ? (
-                      <Text style={styles.coreVersion}> · {mihomoVersion}</Text>
+                    {versions[c.key] ? (
+                      <Text style={styles.coreVersion}> · {versions[c.key]}</Text>
                     ) : null}
                   </Text>
                   <Text style={styles.coreNote}>
-                    {isMihomo
-                      ? mihomoDownloaded
+                    {c.file
+                      ? downloaded[c.file]
                         ? "установлено"
                         : "не установлено"
                       : c.note}
@@ -204,17 +225,21 @@ export default function SettingsScreen() {
                 <View style={[styles.radio, active && styles.radioOn]} />
               </Pressable>
 
-              {isMihomo && !mihomoDownloaded && (
+              {c.file && needDownload && (
                 <View style={{ marginBottom: 8 }}>
-                  {mihomoProgress === null ? (
-                    <Button title="Скачать ядро Mihomo (~55 МБ)" variant="ghost" onPress={downloadMihomo} />
-                  ) : (
+                  {busy ? (
                     <View style={styles.progressWrap}>
                       <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: `${mihomoProgress}%` }]} />
+                        <View style={[styles.progressFill, { width: `${progress[c.file] || 0}%` }]} />
                       </View>
-                      <Text style={styles.progressText}>Загрузка… {mihomoProgress}%</Text>
+                      <Text style={styles.progressText}>Загрузка… {progress[c.file] || 0}%</Text>
                     </View>
+                  ) : (
+                    <Button
+                      title={`Скачать ядро ${c.label} (~${c.mb} МБ)`}
+                      variant="ghost"
+                      onPress={() => downloadCoreFile(c)}
+                    />
                   )}
                 </View>
               )}
@@ -222,13 +247,13 @@ export default function SettingsScreen() {
           );
         })}
         <Text style={styles.hint}>
-          Ядро используется при следующем подключении. Sing-box и Mihomo нужны для серверов Hysteria2.
+          Xray встроен в приложение. Sing-box и Mihomo докачиваются с GitHub при первом использовании.
         </Text>
       </Card>
 
       <Card>
         <Row label="Версия приложения" value={`${Application.nativeApplicationVersion || "?"} (${Application.nativeBuildVersion || "?"})`} />
-        {!!getXrayVersion() && <Row label="Ядро Xray" value={getXrayVersion()} />}
+        {!!xrayVersion && <Row label="Ядро Xray" value={xrayVersion} />}
       </Card>
     </Screen>
   );

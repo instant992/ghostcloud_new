@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+﻿<manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <application>
     <service
       android:name=".XrayVpnService"
@@ -27,7 +27,7 @@
     </service>
 
     <service
-      android:name=".MihomoVpnService"
+      android:name=".LibCoreVpnService"
       android:exported="false"
       android:permission="android.permission.BIND_VPN_SERVICE"
       android:foregroundServiceType="specialUse">

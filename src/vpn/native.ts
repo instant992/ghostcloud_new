@@ -66,33 +66,35 @@ export async function deleteCore(name: string): Promise<boolean> {
   return XrayNative.deleteCore(name);
 }
 
-export async function loadMihomoCore(): Promise<string> {
+export async function loadLibCore(lib: "mihomo" | "singbox"): Promise<string> {
   if (!XrayNative) throw new Error("модуль недоступен");
-  return XrayNative.loadMihomoCore();
+  return XrayNative.loadLibCore(lib);
 }
 
-export async function startMihomoVpn(
-  configYaml: string,
+export async function startLibCoreVpn(
+  lib: "mihomo" | "singbox",
+  config: string,
   allowedApps: string[] = [],
   disallowedApps: string[] = []
 ): Promise<boolean> {
   if (!XrayNative) throw new Error("модуль недоступен");
-  return XrayNative.startMihomoVpn(
-    configYaml,
+  return XrayNative.startLibCoreVpn(
+    lib,
+    config,
     allowedApps.length ? allowedApps.join(",") : null,
     disallowedApps.length ? disallowedApps.join(",") : null
   );
 }
 
-export function stopMihomoVpn(): void {
+export function stopLibCoreVpn(): void {
   if (!XrayNative) return;
-  XrayNative.stopMihomoVpn();
+  XrayNative.stopLibCoreVpn();
 }
 
-export function isMihomoRunning(): boolean {
+export function isLibCoreRunning(): boolean {
   if (!XrayNative) return false;
   try {
-    return XrayNative.isMihomoRunning();
+    return XrayNative.isLibCoreRunning();
   } catch {
     return false;
   }
@@ -139,7 +141,7 @@ export function stopVpn(): void {
   if (!XrayNative) return;
   XrayNative.stopVpn();
   XrayNative.stopCoreVpn();
-  XrayNative.stopMihomoVpn();
+  XrayNative.stopLibCoreVpn();
 }
 
 export async function requestVpnPermission(): Promise<boolean> {
@@ -159,7 +161,7 @@ export async function isPrepared(): Promise<boolean> {
 export function isVpnRunning(): boolean {
   if (!XrayNative) return false;
   try {
-    return XrayNative.isVpnRunning() || XrayNative.isCoreRunning();
+    return XrayNative.isVpnRunning() || XrayNative.isCoreRunning() || XrayNative.isLibCoreRunning();
   } catch {
     return false;
   }
