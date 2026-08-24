@@ -200,6 +200,35 @@ class XrayCoreModule : Module() {
       Build.SUPPORTED_ABIS.firstOrNull() ?: ""
     }
 
+    // Кэш иконок приложений (packageName -> base64 PNG)
+    val appIconCache = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    AsyncFunction("getAppIcon") { packageName: String, promise: Promise ->
+      appIconCache[packageName]?.let {
+        promise.resolve(it)
+        return@AsyncFunction
+      }
+      kotlin.concurrent.thread(name = "gc-app-icon") {
+        try {
+          val pm = context.packageManager
+          val drawable = pm.getApplicationIcon(packageName)
+          val size = 96
+          val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+          val canvas = android.graphics.Canvas(bmp)
+          drawable.setBounds(0, 0, size, size)
+          drawable.draw(canvas)
+          val out = java.io.ByteArrayOutputStream()
+          bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out)
+          bmp.recycle()
+          val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+          appIconCache[packageName] = b64
+          promise.resolve(b64)
+        } catch (e: Throwable) {
+          promise.resolve(null)
+        }
+      }
+    }
+
     Function("getCoreStatus") { name: String ->
       val file = File(context.filesDir, "cores/$name")
       mapOf(

@@ -121,6 +121,7 @@ function MainTabs() {
 }
 
 function AuthStack() {
+  useTheme();
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="Login" component={LoginScreen} />
@@ -133,6 +134,7 @@ function AuthStack() {
 }
 
 function Root() {
+  useTheme();
   const { loading, session } = useApp();
   if (loading) {
     return (

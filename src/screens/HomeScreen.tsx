@@ -21,7 +21,7 @@ import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
 import * as appFilterMod from "../vpn/appFilter";
-import { getInstalledApps, type AppInfo } from "../vpn/native";
+import { getInstalledApps, getAppIcon, type AppInfo } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
 import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
@@ -400,6 +400,40 @@ export default function HomeScreen() {
 
 type AppTab = "allow" | "block";
 
+/** Иконка приложения в списке фильтра (грузится с PackageManager, кэш на нативной стороне) */
+function AppIcon({ packageName, name }: { packageName: string; name: string }) {
+  useTheme();
+  const styles = makeStyles();
+  const [icon, setIcon] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getAppIcon(packageName).then((b64) => {
+      if (alive && b64) setIcon(b64);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [packageName]);
+
+  if (icon) {
+    return (
+      <View style={styles.appAvatar}>
+        <Image
+          source={{ uri: `data:image/png;base64,${icon}` }}
+          style={{ width: 34, height: 34, borderRadius: 10 }}
+        />
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.appAvatar, { backgroundColor: colors.accentSoft }]}>
+      <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 12 }}>
+        {(name[0] || "?").toUpperCase()}
+      </Text>
+    </View>
+  );
+}
+
 function AppFilterModal({
   visible,
   onClose,
@@ -551,11 +585,7 @@ function AppFilterModal({
                 tab === "allow" ? allowed.includes(item.packageName) : blocked.includes(item.packageName);
               return (
                 <Pressable style={styles.appRow} onPress={() => toggleApp(item.packageName)}>
-                  <View style={[styles.appAvatar, { backgroundColor: colors.accentSoft }]}>
-                    <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 12 }}>
-                      {(item.appName[0] || "?").toUpperCase()}
-                    </Text>
-                  </View>
+                  <AppIcon packageName={item.packageName} name={item.appName} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }} numberOfLines={1}>
                       {item.appName}
@@ -807,9 +837,9 @@ const makeStyles = () => StyleSheet.create({
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   appBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 13,
   },
   clientName: { color: colors.text, fontSize: 15, fontWeight: "800" },
   subPill: {
@@ -1009,11 +1039,12 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 6,
   },
   appAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
   sysTag: {
     backgroundColor: colors.bgSoft,

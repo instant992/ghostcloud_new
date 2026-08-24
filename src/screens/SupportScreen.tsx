@@ -13,6 +13,7 @@ type Msg = {
 };
 
 export default function SupportScreen() {
+  useTheme();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);

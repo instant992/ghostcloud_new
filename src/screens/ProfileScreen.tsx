@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Alert, Animated, Easing, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
@@ -21,6 +21,49 @@ import {
   uploadAvatar,
 } from "../api";
 import { colors, useTheme } from "../theme";
+
+/** Пульсирующее сердечко спонсора — свечение в духе кнопки VPN */
+function SponsorHeart({ size = 20 }: { size?: number }) {
+  useTheme();
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const a = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    );
+    a.start();
+    return () => a.stop();
+  }, [pulse]);
+
+  return (
+    <View style={{ width: size * 1.9, height: size * 1.9, alignItems: "center", justifyContent: "center" }}>
+      <Animated.View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          width: size * 1.5,
+          height: size * 1.5,
+          borderRadius: size,
+          backgroundColor: "rgba(255,140,90,0.4)",
+          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.75, 1.7] }) }],
+          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] }),
+        }}
+      />
+      <Animated.Image
+        source={{ uri: "sponsor_heart" }}
+        style={{
+          width: size,
+          height: size,
+          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) }],
+        }}
+        resizeMode="contain"
+      />
+    </View>
+  );
+}
 
 export default function ProfileScreen() {
   useTheme();
@@ -201,7 +244,10 @@ export default function ProfileScreen() {
             <Text style={{ fontSize: 13 }}>✏️</Text>
           </Pressable>
         </View>
-        <Text style={styles.name}>{me?.display_name || me?.login || "Пользователь"}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={styles.name}>{me?.display_name || me?.login || "Пользователь"}</Text>
+          {isSponsor && <SponsorHeart size={20} />}
+        </View>
         {!!me?.email && <Text style={styles.email}>{me.email}</Text>}
         <View
           style={{
@@ -246,11 +292,7 @@ export default function ProfileScreen() {
       {isSponsor ? (
         <Card>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <Image
-              source={{ uri: "sponsor_heart" }}
-              style={{ width: 24, height: 24 }}
-              resizeMode="contain"
-            />
+            <SponsorHeart size={22} />
             <Text style={styles.sectionTitle}>Спонсорские привилегии</Text>
           </View>
           <Row
@@ -276,11 +318,7 @@ export default function ProfileScreen() {
       ) : (
         <Card>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <Image
-              source={{ uri: "sponsor_heart" }}
-              style={{ width: 24, height: 24 }}
-              resizeMode="contain"
-            />
+            <SponsorHeart size={22} />
             <Text style={styles.sectionTitle}>Стать спонсором</Text>
           </View>
           <Text style={styles.perkLine}>🎁 Бонусные месяцы — подписка добивается до 3 месяцев при покупке 1 или 2</Text>

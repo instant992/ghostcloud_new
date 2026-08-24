@@ -8,6 +8,7 @@ import { useApp } from "../../context";
 import { colors, useTheme } from "../../theme";
 
 export default function QRLoginScreen() {
+  useTheme();
   const nav = useNavigation<any>();
   const { refreshMe, reloadNodes } = useApp();
   const [sessionId, setSessionId] = useState("");

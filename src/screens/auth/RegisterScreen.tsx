@@ -15,6 +15,7 @@ import { colors, useTheme } from "../../theme";
 type Step = "email" | "code" | "plan" | "pay";
 
 export default function RegisterScreen() {
+  useTheme();
   const nav = useNavigation<any>();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");

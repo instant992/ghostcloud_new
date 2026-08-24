@@ -16,6 +16,7 @@ function randomToken(): string {
 }
 
 export default function TelegramLoginScreen() {
+  useTheme();
   const nav = useNavigation<any>();
   const { signInViaToken } = useApp();
   const [token, setToken] = useState<string | null>(null);

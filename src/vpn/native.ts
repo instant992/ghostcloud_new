@@ -41,6 +41,12 @@ export function getCpuAbi(): string {
   }
 }
 
+/** base64 PNG иконки приложения (или null) */
+export function getAppIcon(packageName: string): Promise<string | null> {
+  if (!XrayNative) return Promise.resolve(null);
+  return XrayNative.getAppIcon(packageName).catch(() => null);
+}
+
 export function getCoreStatus(name: string): { downloaded: boolean; size: number; path: string } {
   if (!XrayNative) return { downloaded: false, size: 0, path: "" };
   try {
