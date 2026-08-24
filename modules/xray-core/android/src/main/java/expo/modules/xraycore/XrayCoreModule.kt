@@ -8,6 +8,7 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONObject
+import java.io.File
 
 class XrayCoreModule : Module() {
   private val context
@@ -16,7 +17,7 @@ class XrayCoreModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("XrayCore")
 
-    Events("onVpnStateChanged")
+    Events("onVpnStateChanged", "onCoreDownloadProgress")
 
     OnCreate {
       XrayVpnService.stateListener = { running ->
@@ -25,11 +26,15 @@ class XrayCoreModule : Module() {
       CoreVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
       }
+      MihomoVpnService.stateListener = { running ->
+        sendEvent("onVpnStateChanged", mapOf("running" to running))
+      }
     }
 
     OnDestroy {
       XrayVpnService.stateListener = null
       CoreVpnService.stateListener = null
+      MihomoVpnService.stateListener = null
     }
 
     AsyncFunction("requestPermission") { promise: Promise ->
@@ -187,6 +192,157 @@ class XrayCoreModule : Module() {
           promise.resolve("")
         }
       }
+    }
+
+    // ---- Загрузка ядер из репозитория (mihomo) ----
+
+    Function("getCpuAbi") {
+      Build.SUPPORTED_ABIS.firstOrNull() ?: ""
+    }
+
+    Function("getCoreStatus") { name: String ->
+      val file = File(context.filesDir, "cores/$name")
+      mapOf(
+        "downloaded" to file.exists(),
+        "size" to (if (file.exists()) file.length() else 0L),
+        "path" to file.absolutePath
+      )
+    }
+
+    AsyncFunction("downloadCore") { name: String, url: String, expectedSha256: String, expectedSize: Double, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-core-download") {
+        try {
+          val dir = File(context.filesDir, "cores")
+          if (!dir.exists()) dir.mkdirs()
+          val tmp = File(dir, "$name.tmp")
+          val dest = File(dir, name)
+
+          val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+          conn.instanceFollowRedirects = true
+          conn.connectTimeout = 20000
+          conn.readTimeout = 60000
+          conn.setRequestProperty("User-Agent", "GhostCloud-Android")
+          conn.connect()
+          if (conn.responseCode !in 200..299) {
+            throw IllegalStateException("HTTP ${conn.responseCode}")
+          }
+          val total = (conn.contentLengthLong.takeIf { it > 0 }) ?: expectedSize.toLong()
+          val digest = java.security.MessageDigest.getInstance("SHA-256")
+          var received = 0L
+          var lastPct = -1
+          conn.inputStream.use { input ->
+            tmp.outputStream().use { output ->
+              val buf = ByteArray(256 * 1024)
+              while (true) {
+                val read = input.read(buf)
+                if (read < 0) break
+                output.write(buf, 0, read)
+                digest.update(buf, 0, read)
+                received += read
+                if (total > 0) {
+                  val pct = (received * 100 / total).toInt()
+                  if (pct != lastPct) {
+                    lastPct = pct
+                    sendEvent(
+                      "onCoreDownloadProgress",
+                      mapOf("name" to name, "received" to received, "total" to total, "progress" to pct)
+                    )
+                  }
+                }
+              }
+            }
+          }
+          conn.disconnect()
+
+          if (expectedSize > 0 && received != expectedSize.toLong()) {
+            tmp.delete()
+            throw IllegalStateException("Размер файла не совпадает: $received != ${expectedSize.toLong()}")
+          }
+          val hash = digest.digest().joinToString("") { "%02x".format(it) }
+          if (!expectedSha256.isBlank() && !hash.equals(expectedSha256, ignoreCase = true)) {
+            tmp.delete()
+            throw IllegalStateException("Контрольная сумма не совпадает")
+          }
+          tmp.renameTo(dest)
+          // делаем читаемым для System.load
+          dest.setReadable(true)
+          sendEvent("onCoreDownloadProgress", mapOf("name" to name, "received" to received, "total" to total, "progress" to 100))
+          promise.resolve(dest.absolutePath)
+        } catch (e: Throwable) {
+          promise.reject("ERR_DOWNLOAD", e.message ?: "Ошибка загрузки ядра", e)
+        }
+      }
+    }
+
+    AsyncFunction("deleteCore") { name: String, promise: Promise ->
+      val file = File(context.filesDir, "cores/$name")
+      promise.resolve(if (file.exists()) file.delete() else false)
+    }
+
+    AsyncFunction("loadMihomoCore") { promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-mihomo-load") {
+        try {
+          val file = File(context.filesDir, "cores/libclash.so")
+          if (!file.exists()) {
+            promise.reject("ERR_NO_CORE", "Ядро mihomo не скачано", null)
+            return@thread
+          }
+          GcCore.load(file.absolutePath)
+          val home = File(context.filesDir, "mihomo")
+          if (!home.exists()) home.mkdirs()
+          val err = GcCore.gcInit(home.absolutePath)
+          if (err.isNotEmpty()) {
+            promise.reject("ERR_INIT", "mihomo: $err", null)
+            return@thread
+          }
+          promise.resolve(GcCore.gcVersion())
+        } catch (e: Throwable) {
+          promise.reject("ERR_LOAD", e.message ?: "Не удалось загрузить ядро mihomo", e)
+        }
+      }
+    }
+
+    AsyncFunction("startMihomoVpn") { configYaml: String, allowedJson: String?, disallowedJson: String?, promise: Promise ->
+      if (XrayVpnService.isRunning.get() || CoreVpnService.isRunning.get()) {
+        promise.reject("ERR_RUNNING", "Сначала остановите текущий VPN", null)
+        return@AsyncFunction
+      }
+      if (MihomoVpnService.isRunning.get()) {
+        promise.reject("ERR_RUNNING", "VPN уже запущен", null)
+        return@AsyncFunction
+      }
+      if (!GcCore.loaded) {
+        promise.reject("ERR_NO_CORE", "Ядро mihomo не загружено", null)
+        return@AsyncFunction
+      }
+      MihomoVpnService.pendingPromise = promise
+      val intent = Intent(context, MihomoVpnService::class.java).apply {
+        action = MihomoVpnService.ACTION_START
+        putExtra("config", configYaml)
+        if (!allowedJson.isNullOrBlank()) putExtra("allowed", allowedJson)
+        if (!disallowedJson.isNullOrBlank()) putExtra("disallowed", disallowedJson)
+      }
+      try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          context.startForegroundService(intent)
+        } else {
+          context.startService(intent)
+        }
+      } catch (e: Throwable) {
+        MihomoVpnService.pendingPromise = null
+        promise.reject("ERR_START", e.message ?: "Не удалось запустить VPN-сервис", e)
+      }
+    }
+
+    Function("stopMihomoVpn") {
+      val intent = Intent(context, MihomoVpnService::class.java).apply {
+        action = MihomoVpnService.ACTION_STOP
+      }
+      context.startService(intent)
+    }
+
+    Function("isMihomoRunning") {
+      MihomoVpnService.isRunning.get()
     }
 
     AsyncFunction("tcpPing") { host: String, port: Int, timeoutMs: Int, promise: Promise ->

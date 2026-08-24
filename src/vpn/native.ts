@@ -24,6 +24,80 @@ export type AppInfo = {
 
 const emitter: any = XrayNative ? new EventEmitter(XrayNative) : null;
 
+export function onCoreDownloadProgress(
+  cb: (e: { name: string; received: number; total: number; progress: number }) => void
+): () => void {
+  if (!emitter) return () => {};
+  const sub: any = emitter.addListener("onCoreDownloadProgress", cb);
+  return () => sub.remove();
+}
+
+export function getCpuAbi(): string {
+  if (!XrayNative) return "";
+  try {
+    return XrayNative.getCpuAbi() || "";
+  } catch {
+    return "";
+  }
+}
+
+export function getCoreStatus(name: string): { downloaded: boolean; size: number; path: string } {
+  if (!XrayNative) return { downloaded: false, size: 0, path: "" };
+  try {
+    const s = XrayNative.getCoreStatus(name);
+    return { downloaded: Boolean(s?.downloaded), size: Number(s?.size || 0), path: String(s?.path || "") };
+  } catch {
+    return { downloaded: false, size: 0, path: "" };
+  }
+}
+
+export async function downloadCore(
+  name: string,
+  url: string,
+  sha256: string,
+  size: number
+): Promise<string> {
+  if (!XrayNative) throw new Error("модуль недоступен");
+  return XrayNative.downloadCore(name, url, sha256, size);
+}
+
+export async function deleteCore(name: string): Promise<boolean> {
+  if (!XrayNative) return false;
+  return XrayNative.deleteCore(name);
+}
+
+export async function loadMihomoCore(): Promise<string> {
+  if (!XrayNative) throw new Error("модуль недоступен");
+  return XrayNative.loadMihomoCore();
+}
+
+export async function startMihomoVpn(
+  configYaml: string,
+  allowedApps: string[] = [],
+  disallowedApps: string[] = []
+): Promise<boolean> {
+  if (!XrayNative) throw new Error("модуль недоступен");
+  return XrayNative.startMihomoVpn(
+    configYaml,
+    allowedApps.length ? allowedApps.join(",") : null,
+    disallowedApps.length ? disallowedApps.join(",") : null
+  );
+}
+
+export function stopMihomoVpn(): void {
+  if (!XrayNative) return;
+  XrayNative.stopMihomoVpn();
+}
+
+export function isMihomoRunning(): boolean {
+  if (!XrayNative) return false;
+  try {
+    return XrayNative.isMihomoRunning();
+  } catch {
+    return false;
+  }
+}
+
 export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
   if (!emitter) return () => {};
   const sub: any = emitter.addListener("onVpnStateChanged", (e: { running: boolean }) =>
@@ -65,6 +139,7 @@ export function stopVpn(): void {
   if (!XrayNative) return;
   XrayNative.stopVpn();
   XrayNative.stopCoreVpn();
+  XrayNative.stopMihomoVpn();
 }
 
 export async function requestVpnPermission(): Promise<boolean> {

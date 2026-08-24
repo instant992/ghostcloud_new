@@ -66,9 +66,9 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   brand: { alignItems: "center", marginTop: 30, marginBottom: 30 },
   logo: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
+    width: 84,
+    height: 84,
+    borderRadius: 22,
     marginBottom: 12,
   },
   brandName: {

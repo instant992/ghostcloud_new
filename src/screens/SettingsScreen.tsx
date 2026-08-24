@@ -5,18 +5,69 @@ import * as Application from "expo-application";
 import { Button, Card, Row, Screen, Title } from "../components/UI";
 import { colors } from "../theme";
 import { getSelectedCore, getThemeName, setSetting, type CoreName, type ThemeName } from "../settings";
-import { getCoreVersion, getXrayVersion } from "../vpn/native";
+import {
+  downloadCore,
+  getCpuAbi,
+  getCoreStatus,
+  getCoreVersion,
+  getXrayVersion,
+  loadMihomoCore,
+  onCoreDownloadProgress,
+} from "../vpn/native";
+
+const CORES_REPO_MANIFEST = "https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/manifest.json";
 
 const CORES: Array<{ key: CoreName; label: string; note: string }> = [
   { key: "xray", label: "Xray", note: "встроен · VLESS, VMess, Trojan, SS" },
   { key: "sing-box", label: "Sing-box", note: "встроен · + Hysteria2" },
-  { key: "mihomo", label: "Mihomo", note: "скоро" },
+  { key: "mihomo", label: "Mihomo", note: "скачивается с GitHub · все протоколы" },
 ];
+
+const MIHOMO_FALLBACK: Record<string, { url: string; sha256: string; size: number }> = {
+  "arm64-v8a": {
+    url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/arm64-v8a/libclash.so",
+    sha256: "1b2525cbe98835f988a1d12720662398d2e670136a449e72ce7af70cc6893609",
+    size: 53232248,
+  },
+  "armeabi-v7a": {
+    url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/armeabi-v7a/libclash.so",
+    sha256: "8d4d9a0b01a208faaf4544c41967297461728723b8185b1986a2e49108eb6fd9",
+    size: 50100396,
+  },
+  "x86_64": {
+    url: "https://github.com/instant992/ghostcloudcore_new/raw/main/cores/mihomo-2/x86_64/libclash.so",
+    sha256: "2c43e6ee318f5e5b0ae7e253ff954764f3c58fbfceadb5c05424f73d529867d8",
+    size: 57588760,
+  },
+};
+
+type MihomoMeta = { url: string; sha256: string; size: number; version: string };
+
+async function fetchMihomoMeta(abi: string): Promise<MihomoMeta | null> {
+  try {
+    const res = await fetch(CORES_REPO_MANIFEST);
+    const manifest = await res.json();
+    const core = manifest?.cores?.mihomo;
+    const file = core?.files?.[abi];
+    if (!file?.path) return null;
+    return {
+      url: `https://github.com/instant992/ghostcloudcore_new/raw/main/${file.path}`,
+      sha256: String(file.sha256 || ""),
+      size: Number(file.size || 0),
+      version: String(core.version || ""),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function SettingsScreen() {
   const [theme, setTheme] = useState<ThemeName>(getThemeName());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
   const [versions, setVersions] = useState<Record<string, string>>({});
+  const [mihomoDownloaded, setMihomoDownloaded] = useState(false);
+  const [mihomoProgress, setMihomoProgress] = useState<number | null>(null);
+  const [mihomoVersion, setMihomoVersion] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -25,7 +76,18 @@ export default function SettingsScreen() {
         Promise.resolve(getXrayVersion()),
       ]);
       setVersions({ "sing-box": sb, xray: xr });
+      const status = getCoreStatus("libclash.so");
+      setMihomoDownloaded(status.downloaded);
+      if (status.downloaded) {
+        loadMihomoCore()
+          .then((v) => setMihomoVersion(v))
+          .catch(() => {});
+      }
     })();
+    const off = onCoreDownloadProgress((e) => {
+      if (e.name === "libclash.so") setMihomoProgress(e.progress);
+    });
+    return off;
   }, []);
 
   const changeTheme = (next: ThemeName) => {
@@ -44,9 +106,39 @@ export default function SettingsScreen() {
   };
 
   const changeCore = (next: CoreName) => {
-    if (next === "mihomo") return;
+    if (next === "mihomo" && !mihomoDownloaded) return;
     setCore(next);
     setSetting("core", next);
+  };
+
+  const downloadMihomo = () => {
+    const abi = getCpuAbi();
+    Alert.alert(
+      "Скачать ядро Mihomo",
+      "Ядро будет скачано с GitHub и установлено в память приложения. Учтите: это займёт около 55–60 МБ на устройстве.",
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Скачать",
+          onPress: async () => {
+            setMihomoProgress(0);
+            try {
+              const meta = (await fetchMihomoMeta(abi)) || MIHOMO_FALLBACK[abi];
+              if (!meta) throw new Error("Не удалось получить данные ядра");
+              await downloadCore("libclash.so", meta.url, meta.sha256, meta.size);
+              setMihomoDownloaded(true);
+              const v = await loadMihomoCore().catch(() => "");
+              setMihomoVersion(v);
+              Alert.alert("Готово", "Ядро Mihomo установлено");
+            } catch (e: any) {
+              Alert.alert("Ошибка", e?.message || "Не удалось скачать ядро");
+            } finally {
+              setMihomoProgress(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -79,27 +171,58 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Ядро VPN</Text>
         {CORES.map((c) => {
           const active = core === c.key;
-          const disabled = c.key === "mihomo";
+          const isMihomo = c.key === "mihomo";
+          const disabled = isMihomo && !mihomoDownloaded;
           return (
-            <Pressable
-              key={c.key}
-              disabled={disabled}
-              style={[styles.coreItem, active && styles.coreItemOn, disabled && { opacity: 0.45 }]}
-              onPress={() => changeCore(c.key)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.coreName}>
-                  {c.label}
-                  {versions[c.key] ? <Text style={styles.coreVersion}> · {versions[c.key]}</Text> : null}
-                </Text>
-                <Text style={styles.coreNote}>{c.note}</Text>
-              </View>
-              <View style={[styles.radio, active && styles.radioOn]} />
-            </Pressable>
+            <View key={c.key}>
+              <Pressable
+                disabled={disabled || mihomoProgress !== null}
+                style={[styles.coreItem, active && styles.coreItemOn, disabled && { opacity: 0.5 }]}
+                onPress={() => changeCore(c.key)}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.coreName}>
+                    {c.label}
+                    {c.key === "xray" && versions.xray ? (
+                      <Text style={styles.coreVersion}> · {versions.xray}</Text>
+                    ) : null}
+                    {c.key === "sing-box" && versions["sing-box"] ? (
+                      <Text style={styles.coreVersion}> · {versions["sing-box"]}</Text>
+                    ) : null}
+                    {isMihomo && mihomoVersion ? (
+                      <Text style={styles.coreVersion}> · {mihomoVersion}</Text>
+                    ) : null}
+                  </Text>
+                  <Text style={styles.coreNote}>
+                    {isMihomo
+                      ? mihomoDownloaded
+                        ? "установлено"
+                        : "не установлено"
+                      : c.note}
+                  </Text>
+                </View>
+                <View style={[styles.radio, active && styles.radioOn]} />
+              </Pressable>
+
+              {isMihomo && !mihomoDownloaded && (
+                <View style={{ marginBottom: 8 }}>
+                  {mihomoProgress === null ? (
+                    <Button title="Скачать ядро Mihomo (~55 МБ)" variant="ghost" onPress={downloadMihomo} />
+                  ) : (
+                    <View style={styles.progressWrap}>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${mihomoProgress}%` }]} />
+                      </View>
+                      <Text style={styles.progressText}>Загрузка… {mihomoProgress}%</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
           );
         })}
         <Text style={styles.hint}>
-          Ядро используется при следующем подключении. Sing-box нужен для серверов Hysteria2.
+          Ядро используется при следующем подключении. Sing-box и Mihomo нужны для серверов Hysteria2.
         </Text>
       </Card>
 
@@ -186,5 +309,27 @@ const styles = StyleSheet.create({
   radioOn: {
     borderColor: colors.accent,
     backgroundColor: colors.accent,
+  },
+  progressWrap: {
+    paddingHorizontal: 4,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.accent,
+    borderRadius: 4,
+  },
+  progressText: {
+    color: colors.textDim,
+    fontSize: 11,
+    textAlign: "center",
+    marginTop: 6,
   },
 });

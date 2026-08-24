@@ -4,6 +4,7 @@ import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "
 import type { VpnNode } from "./parse";
 import { buildXrayConfig } from "./xrayConfig";
 import { buildSingBoxConfig } from "./singboxConfig";
+import { buildMihomoConfig } from "./mihomoConfig";
 import { loadFilter } from "./appFilter";
 import {
   isVpnRunning,
@@ -12,6 +13,7 @@ import {
   isPrepared,
   startVpn,
   startCoreVpn,
+  startMihomoVpn,
   stopVpn,
 } from "./native";
 
@@ -126,9 +128,13 @@ export async function connect(node: VpnNode): Promise<void> {
     await startCoreVpn("libsingbox.so", config, allowed, blocked);
     return;
   }
-  // mihomo будет подключён позже; пока всё остальное — через Xray
-  if (!node.supportedByXray && core === "xray") {
-    throw new Error("Hysteria2 доступен только на ядре sing-box — выберите его в настройках");
+  if (core === "mihomo") {
+    const config = buildMihomoConfig(node);
+    await startMihomoVpn(config, allowed, blocked);
+    return;
+  }
+  if (!node.supportedByXray) {
+    throw new Error("Hysteria2 доступен только на ядрах sing-box и mihomo — выберите их в настройках");
   }
   const config = buildXrayConfig(node, null);
   await startVpn(config, allowed, blocked);

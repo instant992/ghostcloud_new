@@ -798,9 +798,9 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   appBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
   },
   clientName: { color: colors.text, fontSize: 15, fontWeight: "800" },
   subPill: {
