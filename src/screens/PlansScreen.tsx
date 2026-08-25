@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen, Subtitle, Title } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { createPayment, extendFromBalance, getPrices, paymentStatus } from "../api";
 import { useApp } from "../context";
 import { colors, useTheme } from "../theme";
@@ -96,7 +97,7 @@ export default function PlansScreen() {
       {(Object.keys(prices).length ? Object.keys(prices) : ["1_month", "2_months", "3_months"])
         .filter((key) => key !== "trial")
         .map((key) => (
-          <Pressable
+          <PressableScale
             key={key}
             onPress={() => setSelectedPlan(key)}
             style={[
@@ -109,7 +110,7 @@ export default function PlansScreen() {
               <Text style={styles.planDays}>{planDays(key)}</Text>
             </View>
             <Text style={styles.planPrice}>{prices[key] ?? planPrice(key)} ₽</Text>
-          </Pressable>
+          </PressableScale>
         )
       )}
 

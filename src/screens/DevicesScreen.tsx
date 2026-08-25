@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Screen, Subtitle } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { banDevice, buyDevices, deleteDevice, getDevices, unbanDevice } from "../api";
 import * as deviceNames from "../deviceNames";
 import { colors, useTheme } from "../theme";
@@ -172,15 +173,15 @@ export default function DevicesScreen() {
       <ErrorText>{error}</ErrorText>
 
       <View style={{ flexDirection: "row", marginBottom: 12 }}>
-        <Pressable style={styles.actionBtn} onPress={onBuy}>
+        <PressableScale style={styles.actionBtn} onPress={onBuy}>
           <Text style={styles.actionBtnText}>+ устройство · 50 ₽</Text>
-        </Pressable>
+        </PressableScale>
         {!!bannedCount && (
-          <Pressable style={styles.actionBtn} onPress={() => setShowBanned(!showBanned)}>
+          <PressableScale style={styles.actionBtn} onPress={() => setShowBanned(!showBanned)}>
             <Text style={[styles.actionBtnText, { color: colors.red }]}>
               Бан-лист ({bannedCount})
             </Text>
-          </Pressable>
+          </PressableScale>
         )}
       </View>
 
@@ -201,7 +202,7 @@ export default function DevicesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor={colors.accent} />}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <Pressable
+            <PressableScale
               onPress={() => {
                 setRenameTarget(item);
                 setRenameValue(names[item.hwid_full] || "");
@@ -209,7 +210,7 @@ export default function DevicesScreen() {
               style={{ marginRight: 12 }}
             >
               <Text style={{ fontSize: 18 }}>✏️</Text>
-            </Pressable>
+            </PressableScale>
             <Text style={{ fontSize: 24 }}>💻</Text>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.itemTitle} numberOfLines={1}>
@@ -222,12 +223,12 @@ export default function DevicesScreen() {
                   : `HWID: ${item.hwid}`}
               </Text>
             </View>
-            <Pressable onPress={() => onDelete(item)}>
+            <PressableScale onPress={() => onDelete(item)}>
               <Text style={{ color: colors.textFaint, paddingHorizontal: 8 }}>🗑</Text>
-            </Pressable>
-            <Pressable onPress={() => onBan(item)}>
+            </PressableScale>
+            <PressableScale onPress={() => onBan(item)}>
               <Text style={{ color: colors.red, paddingHorizontal: 8 }}>🚫</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
         ListEmptyComponent={
@@ -237,8 +238,8 @@ export default function DevicesScreen() {
         }
       />
       <Modal visible={!!renameTarget} transparent animationType="fade" onRequestClose={() => setRenameTarget(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setRenameTarget(null)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
+        <PressableScale style={styles.modalBackdrop} onPress={() => setRenameTarget(null)}>
+          <PressableScale style={styles.modalCard} onPress={() => {}}>
             <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16, marginBottom: 12 }}>
               Название устройства
             </Text>
@@ -268,8 +269,8 @@ export default function DevicesScreen() {
                 <Button title="Сохранить" onPress={saveName} />
               </View>
             </View>
-          </Pressable>
-        </Pressable>
+          </PressableScale>
+        </PressableScale>
       </Modal>
     </Screen>
   );

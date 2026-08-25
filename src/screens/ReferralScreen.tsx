@@ -4,6 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Sharing from "expo-sharing";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen, Subtitle, Title } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { referralApply, referralInfo } from "../api";
 import { colors, useTheme } from "../theme";
 
@@ -67,20 +68,20 @@ export default function ReferralScreen() {
           {info.link}
         </Text>
         <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
-          <Pressable
+          <PressableScale
             style={styles.linkBtn}
             onPress={() => Clipboard.setStringAsync(info.link).catch(() => {})}
           >
             <Text style={styles.linkBtnText}>Копировать</Text>
-          </Pressable>
-          <Pressable
+          </PressableScale>
+          <PressableScale
             style={styles.linkBtn}
             onPress={() =>
               Share.share({ message: `GhostCloud VPN — попробуй по моей ссылке: ${info.link}` }).catch(() => {})
             }
           >
             <Text style={styles.linkBtnText}>Поделиться</Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </Card>
 

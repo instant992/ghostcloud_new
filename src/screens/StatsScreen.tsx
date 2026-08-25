@@ -2,6 +2,7 @@ import React, { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
 import * as stats from "../stats";
@@ -47,7 +48,7 @@ export default function StatsScreen() {
 
       <View style={styles.periodRow}>
         {([1, 7, 30] as Period[]).map((p) => (
-          <Pressable
+          <PressableScale
             key={p}
             onPress={() => setPeriod(p)}
             style={[styles.periodBtn, period === p && styles.periodBtnOn]}
@@ -60,7 +61,7 @@ export default function StatsScreen() {
             >
               {p === 1 ? "День" : `${p} дней`}
             </Text>
-          </Pressable>
+          </PressableScale>
         ))}
       </View>
 

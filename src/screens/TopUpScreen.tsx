@@ -3,6 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { createTopup, topupStatus } from "../api";
 import { colors, useTheme } from "../theme";
 
@@ -68,7 +69,7 @@ export default function TopUpScreen() {
         </Text>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
           {PRESETS.map((p) => (
-            <Pressable
+            <PressableScale
               key={p}
               onPress={() => setAmount(String(p))}
               style={[
@@ -77,7 +78,7 @@ export default function TopUpScreen() {
               ]}
             >
               <Text style={{ color: colors.text, fontWeight: "700" }}>{p} ₽</Text>
-            </Pressable>
+            </PressableScale>
           ))}
         </View>
         <Input

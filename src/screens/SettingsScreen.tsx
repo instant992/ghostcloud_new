@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
+import * as Haptics from "expo-haptics";
 import { Card, Row, Screen, Title } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { colors, THEME_LABELS, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
 import { getSelectedCore, getSetting, getThemeName, setSetting, type CoreName } from "../settings";
 import {
@@ -135,6 +137,7 @@ export default function SettingsScreen() {
         if (!meta) throw new Error("Не удалось получить данные ядра");
         await downloadCore(c.file, meta.url, meta.sha256, meta.size);
         setDownloaded((d) => ({ ...d, [c.file]: true }));
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         const v = await loadLibCore(lib).catch(() => "");
         if (v) setVersions((vv) => ({ ...vv, [c.key]: v }));
       } catch (e: any) {
@@ -157,7 +160,7 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>Тема оформления</Text>
         <View style={styles.themeRow}>
           {(["auto", "default", "dark", "light"] as ThemeName[]).map((t) => (
-            <Pressable
+            <PressableScale
               key={t}
               style={[styles.themeBtn, theme === t && styles.themeBtnOn]}
               onPress={() => changeTheme(t)}
@@ -178,7 +181,7 @@ export default function SettingsScreen() {
               <Text style={[styles.themeBtnText, theme === t && { color: colors.text }]}>
                 {THEME_LABELS[t]}
               </Text>
-            </Pressable>
+            </PressableScale>
           ))}
         </View>
 
@@ -221,7 +224,7 @@ export default function SettingsScreen() {
           const pct = c.file ? progress[c.file] : undefined;
           const busy = pct !== undefined;
           return (
-            <Pressable
+            <PressableScale
               key={c.key}
               disabled={needDownload || busy}
               style={[styles.coreItem, active && styles.coreItemOn, needDownload && { opacity: 0.85 }]}
@@ -251,17 +254,17 @@ export default function SettingsScreen() {
                 )}
               </View>
               {needDownload && !busy && (
-                <Pressable
+                <PressableScale
                   style={styles.downloadBtn}
                   hitSlop={6}
                   onPress={() => setConfirmCore(c)}
                 >
                   <Text style={styles.downloadBtnText}>↓</Text>
-                </Pressable>
+                </PressableScale>
               )}
               {busy && <Text style={styles.progressPct}>{pct}%</Text>}
               {!needDownload && !busy && <View style={[styles.radio, active && styles.radioOn]} />}
-            </Pressable>
+            </PressableScale>
           );
         })}
         <Text style={styles.hint}>
@@ -276,8 +279,8 @@ export default function SettingsScreen() {
 
       {/* Стилизованное подтверждение загрузки ядра */}
       <Modal visible={!!confirmCore} transparent animationType="fade" onRequestClose={() => setConfirmCore(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setConfirmCore(null)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
+        <PressableScale style={styles.modalBackdrop} onPress={() => setConfirmCore(null)}>
+          <PressableScale style={styles.modalCard} onPress={() => {}}>
             <View style={styles.modalIcon}>
               <Text style={{ fontSize: 30 }}>⬇️</Text>
             </View>
@@ -292,18 +295,18 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
               <View style={{ flex: 1 }}>
-                <Pressable style={styles.modalBtnGhost} onPress={() => setConfirmCore(null)}>
+                <PressableScale style={styles.modalBtnGhost} onPress={() => setConfirmCore(null)}>
                   <Text style={styles.modalBtnGhostText}>Отмена</Text>
-                </Pressable>
+                </PressableScale>
               </View>
               <View style={{ flex: 1 }}>
-                <Pressable style={styles.modalBtnPrimary} onPress={() => confirmCore && startDownload(confirmCore)}>
+                <PressableScale style={styles.modalBtnPrimary} onPress={() => confirmCore && startDownload(confirmCore)}>
                   <Text style={styles.modalBtnPrimaryText}>Скачать</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             </View>
-          </Pressable>
-        </Pressable>
+          </PressableScale>
+        </PressableScale>
       </Modal>
     </Screen>
   );

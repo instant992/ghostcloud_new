@@ -13,6 +13,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { PressableScale } from "../components/PressableScale";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
@@ -146,13 +147,15 @@ export default function HomeScreen() {
       if (vpnRunning) {
         await disconnect();
         setVpnRunning(false);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } else {
         if (!selectedNode) throw new Error("Нет доступных серверов");
-        if (!selectedNode.supportedByXray) throw new Error("Протокол этого сервера не поддерживается");
         await connect(selectedNode);
         setVpnRunning(true);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
     } catch (e: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setError(e?.message || "Ошибка подключения");
     } finally {
       setBusy(false);
@@ -183,18 +186,18 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
-        <Pressable style={styles.subPill} onPress={() => nav.navigate("Тарифы")}>
+        <PressableScale style={styles.subPill} onPress={() => nav.navigate("Тарифы")}>
           <Text style={styles.subPillDays}>
             {daysLeft} {pluralDays(daysLeft)}
           </Text>
           <Text style={styles.subPillBalance}>
             Баланс: {((me?.balance || 0) / 100).toFixed(0)} ₽
           </Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={styles.powerArea}>
-        <Pressable onPress={toggle} disabled={busy} style={styles.pressable}>
+        <PressableScale onPress={toggle} disabled={busy} style={styles.pressable}>
           <Animated.View
             pointerEvents="none"
             style={[
@@ -265,7 +268,7 @@ export default function HomeScreen() {
           >
             <PowerIcon on={connected} />
           </View>
-        </Pressable>
+        </PressableScale>
         {!!connected && (
           <Text style={styles.timer}>
             {formatTimer(seconds)}
@@ -274,7 +277,7 @@ export default function HomeScreen() {
         {!!error && <Text style={styles.error}>{error}</Text>}
       </View>
 
-      <Pressable style={styles.serverCard} onPress={() => setPickerOpen(true)}>
+      <PressableScale style={styles.serverCard} onPress={() => setPickerOpen(true)}>
         <View style={styles.serverIcon}>
           <Ionicons name="flash" size={20} color={colors.accent} />
         </View>
@@ -296,16 +299,16 @@ export default function HomeScreen() {
           )}
         </View>
         {selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
-        <Pressable style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
+        <PressableScale style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
           {refreshingNodes ? (
             <ActivityIndicator size="small" color={colors.accent} />
           ) : (
             <Ionicons name="refresh" size={16} color={colors.textDim} />
           )}
-        </Pressable>
-      </Pressable>
+        </PressableScale>
+      </PressableScale>
 
-      <Pressable
+      <PressableScale
         style={[styles.connectPill, busy && { opacity: 0.7 }]}
         onPress={toggle}
         disabled={busy}
@@ -313,10 +316,10 @@ export default function HomeScreen() {
         <Text style={styles.connectPillText}>
           {busy ? "Подключение…" : connected ? "Отключить" : "Подключить"}
         </Text>
-      </Pressable>
+      </PressableScale>
 
       <View style={styles.statsRow}>
-        <Pressable style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+        <PressableScale style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
           <View style={[styles.statIcon, { backgroundColor: "rgba(52,211,153,0.12)" }]}>
             <Ionicons name="arrow-up" size={15} color={colors.green} />
           </View>
@@ -324,8 +327,8 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Отправлено</Text>
             <Text style={styles.statValue}>{formatBytes(todayStat.tx)}</Text>
           </View>
-        </Pressable>
-        <Pressable style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+        </PressableScale>
+        <PressableScale style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
           <View style={[styles.statIcon, { backgroundColor: colors.accentSoft }]}>
             <Ionicons name="arrow-down" size={15} color={colors.accent} />
           </View>
@@ -333,10 +336,10 @@ export default function HomeScreen() {
             <Text style={styles.statLabel}>Получено</Text>
             <Text style={styles.statValue}>{formatBytes(todayStat.rx)}</Text>
           </View>
-        </Pressable>
+        </PressableScale>
       </View>
 
-      <Pressable style={styles.appsCard} onPress={() => setAppsOpen(true)}>
+      <PressableScale style={styles.appsCard} onPress={() => setAppsOpen(true)}>
         <View style={styles.serverIcon}>
           <Ionicons name="apps" size={20} color={colors.accent} />
         </View>
@@ -351,7 +354,7 @@ export default function HomeScreen() {
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-      </Pressable>
+      </PressableScale>
 
       <AppFilterModal
         visible={appsOpen}
@@ -507,9 +510,9 @@ function AppFilterModal({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.appsScreen}>
         <View style={styles.appsHeader}>
-          <Pressable onPress={onClose} hitSlop={10}>
+          <PressableScale onPress={onClose} hitSlop={10}>
             <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700" }}>Готово</Text>
-          </Pressable>
+          </PressableScale>
           <Text style={styles.appsTitle}>Приложения</Text>
           <View style={{ width: 50 }} />
         </View>
@@ -521,7 +524,7 @@ function AppFilterModal({
               ["block", `Мимо VPN (${blocked.length})`],
             ] as Array<[AppTab, string]>
           ).map(([key, label]) => (
-            <Pressable
+            <PressableScale
               key={key}
               style={[styles.appsTabBtn, tab === key && styles.appsTabBtnOn]}
               onPress={() => setTab(key)}
@@ -535,7 +538,7 @@ function AppFilterModal({
               >
                 {label}
               </Text>
-            </Pressable>
+            </PressableScale>
           ))}
         </View>
 
@@ -584,7 +587,7 @@ function AppFilterModal({
               const inList =
                 tab === "allow" ? allowed.includes(item.packageName) : blocked.includes(item.packageName);
               return (
-                <Pressable style={styles.appRow} onPress={() => toggleApp(item.packageName)}>
+                <PressableScale style={styles.appRow} onPress={() => toggleApp(item.packageName)}>
                   <AppIcon packageName={item.packageName} name={item.appName} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }} numberOfLines={1}>
@@ -610,7 +613,7 @@ function AppFilterModal({
                         : colors.textFaint
                     }
                   />
-                </Pressable>
+                </PressableScale>
               );
             }}
           />
@@ -656,13 +659,13 @@ function ServerPicker({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <PressableScale style={styles.sheetBackdrop} onPress={onClose}>
+        <PressableScale style={styles.sheet} onPress={() => {}}>
           <View style={styles.sheetHandle} />
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Выбор сервера</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
-              <Pressable onPress={() => pingStore.pingAll(nodes)} disabled={pinging}>
+              <PressableScale onPress={() => pingStore.pingAll(nodes)} disabled={pinging}>
                 {pinging ? (
                   <ActivityIndicator size="small" color={colors.accent} />
                 ) : (
@@ -670,10 +673,10 @@ function ServerPicker({
                     Пинг
                   </Text>
                 )}
-              </Pressable>
-              <Pressable onPress={onClose}>
+              </PressableScale>
+              <PressableScale onPress={onClose}>
                 <Text style={{ color: colors.textFaint, fontSize: 18 }}>✕</Text>
-              </Pressable>
+              </PressableScale>
             </View>
           </View>
 
@@ -682,7 +685,7 @@ function ServerPicker({
               { key: "regular", label: "Обычные" },
               { key: "lte", label: "LTE Open" },
             ] as const).map((t) => (
-              <Pressable
+              <PressableScale
                 key={t.key}
                 onPress={() => setTab(t.key)}
                 style={[styles.tabBtn, tab === t.key && styles.tabBtnOn]}
@@ -690,7 +693,7 @@ function ServerPicker({
                 <Text style={[styles.tabText, tab === t.key && { color: "#fff" }]}>
                   {t.label}
                 </Text>
-              </Pressable>
+              </PressableScale>
             ))}
           </View>
 
@@ -709,7 +712,7 @@ function ServerPicker({
               const selected = item.id === selectedId;
               const ping = pings[item.id];
               return (
-                <Pressable
+                <PressableScale
                   style={[styles.sheetItem, selected && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
                   onPress={() => onSelect(item.id)}
                 >
@@ -747,7 +750,7 @@ function ServerPicker({
                   {selected && (
                     <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />
                   )}
-                </Pressable>
+                </PressableScale>
               );
             }}
             ListEmptyComponent={
@@ -755,14 +758,14 @@ function ServerPicker({
                 <Text style={{ color: colors.textFaint, textAlign: "center" }}>
                   Список пуст — обновите подписку
                 </Text>
-                <Pressable style={styles.refreshBtn} onPress={onRefresh}>
+                <PressableScale style={styles.refreshBtn} onPress={onRefresh}>
                   <Text style={{ color: "#fff", fontWeight: "700" }}>Обновить</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             }
           />
-        </Pressable>
-      </Pressable>
+        </PressableScale>
+      </PressableScale>
     </Modal>
   );
 }

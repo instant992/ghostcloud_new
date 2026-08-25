@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, useTheme } from "../theme";
+import { PressableScale } from "./PressableScale";
 
 export function Screen({
   children,
@@ -77,16 +78,15 @@ export function Button({ title, onPress, loading, disabled, variant = "primary" 
   const styles = makeStyles();
   const isDisabled = disabled || loading;
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={isDisabled}
-      style={({ pressed }) => [
+      style={[
         styles.btn,
         variant === "primary" && styles.btnPrimary,
         variant === "ghost" && styles.btnGhost,
         variant === "danger" && styles.btnDanger,
         isDisabled && { opacity: 0.5 },
-        pressed && { transform: [{ scale: 0.98 }] },
       ]}
     >
       {loading ? (
@@ -96,7 +96,7 @@ export function Button({ title, onPress, loading, disabled, variant = "primary" 
           {title}
         </Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

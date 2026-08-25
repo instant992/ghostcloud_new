@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import { colors, splitNameFlag, useTheme } from "../theme";
 import { fetchNodes } from "../vpn/manager";
@@ -50,7 +51,7 @@ export default function ServersScreen() {
     const info = splitNameFlag(item.name);
     const ping = pings[item.id];
     return (
-      <Pressable
+      <PressableScale
         onPress={() => selectNode(item.id)}
         style={[
           styles.item,
@@ -88,7 +89,7 @@ export default function ServersScreen() {
         {selected && (
           <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />
         )}
-      </Pressable>
+      </PressableScale>
     );
   };
 
@@ -102,22 +103,22 @@ export default function ServersScreen() {
       </Subtitle>
 
       <View style={{ flexDirection: "row", marginBottom: 10 }}>
-        <Pressable
+        <PressableScale
           onPress={() => setTab("regular")}
           style={[styles.tabBtn, tab === "regular" && styles.tabBtnOn]}
         >
           <Text style={[styles.tabText, tab === "regular" && { color: "#fff" }]}>Обычные</Text>
-        </Pressable>
-        <Pressable
+        </PressableScale>
+        <PressableScale
           onPress={() => setTab("lte")}
           style={[styles.tabBtn, tab === "lte" && styles.tabBtnOn]}
         >
           <Text style={[styles.tabText, tab === "lte" && { color: "#fff" }]}>LTE Open</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <View style={{ flexDirection: "row", marginBottom: 12 }}>
-        <Pressable
+        <PressableScale
           onPress={() => pingStore.pingAll(filtered)}
           style={styles.actionBtn}
           disabled={pinging || vpnRunning}
@@ -127,10 +128,10 @@ export default function ServersScreen() {
           ) : (
             <Text style={styles.actionBtnText}>Проверить пинг</Text>
           )}
-        </Pressable>
-        <Pressable onPress={doRefresh} style={styles.actionBtn}>
+        </PressableScale>
+        <PressableScale onPress={doRefresh} style={styles.actionBtn}>
           <Text style={styles.actionBtnText}>Обновить</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <FlatList

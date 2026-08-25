@@ -1,5 +1,6 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
+import * as Haptics from "expo-haptics";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -78,7 +79,10 @@ function CustomTabBar({ state, navigation }: any) {
           <Pressable
             key={route.key}
             hitSlop={8}
-            onPress={() => navigation.navigate(route.name)}
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              navigation.navigate(route.name);
+            }}
           >
             <TabIcon
               name={focused ? meta.icon : meta.outline}

@@ -5,6 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, Screen, Title } from "../components/UI";
+import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import {
   BASE_URL,
@@ -240,9 +241,9 @@ export default function ProfileScreen() {
               <Text style={{ fontSize: 34 }}>👤</Text>
             </View>
           )}
-          <Pressable style={styles.editBadge} onPress={openEditor}>
+          <PressableScale style={styles.editBadge} onPress={openEditor}>
             <Text style={{ fontSize: 13 }}>✏️</Text>
-          </Pressable>
+          </PressableScale>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <Text style={styles.name}>{me?.display_name || me?.login || "Пользователь"}</Text>
@@ -356,26 +357,26 @@ export default function ProfileScreen() {
       </Card>
 
       <Card>
-        <Pressable onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/offer`)}>
+        <PressableScale onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/offer`)}>
           <Text style={{ color: colors.textDim, textAlign: "center", paddingVertical: 6 }}>
             Пользовательское соглашение
           </Text>
-        </Pressable>
-        <Pressable onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/privacy`)}>
+        </PressableScale>
+        <PressableScale onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/privacy`)}>
           <Text style={{ color: colors.textDim, textAlign: "center", paddingVertical: 6 }}>
             Политика конфиденциальности
           </Text>
-        </Pressable>
+        </PressableScale>
       </Card>
 
       <Button title="Выйти из аккаунта" variant="danger" onPress={signOut} />
 
       <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
+        <PressableScale style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
+          <PressableScale style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Редактирование профиля</Text>
 
-            <Pressable style={{ alignItems: "center", marginBottom: 14 }} onPress={pickAvatar} disabled={busy}>
+            <PressableScale style={{ alignItems: "center", marginBottom: 14 }} onPress={pickAvatar} disabled={busy}>
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
               ) : (
@@ -386,7 +387,7 @@ export default function ProfileScreen() {
               <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700", marginTop: 6 }}>
                 Сменить фото
               </Text>
-            </Pressable>
+            </PressableScale>
 
             <Text style={styles.fieldLabel}>Ник (отображается в профиле)</Text>
             <TextInput style={styles.field} value={nick} onChangeText={setNick} maxLength={32} placeholder="Ник" placeholderTextColor={colors.textFaint} />
@@ -394,11 +395,11 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Логин (для входа)</Text>
             <TextInput style={styles.field} value={loginStr} onChangeText={setLoginStr} maxLength={32} autoCapitalize="none" placeholder="Логин" placeholderTextColor={colors.textFaint} />
 
-            <Pressable onPress={sendPasswordReset}>
+            <PressableScale onPress={sendPasswordReset}>
               <Text style={{ color: colors.accent, fontSize: 12, marginBottom: 14 }}>
                 🔑 Сменить пароль — отправим новый на почту
               </Text>
-            </Pressable>
+            </PressableScale>
 
             <View style={{ flexDirection: "row", gap: 8 }}>
               <View style={{ flex: 1 }}>
@@ -408,8 +409,8 @@ export default function ProfileScreen() {
                 <Button title="Сохранить" loading={busy} onPress={saveProfile} />
               </View>
             </View>
-          </Pressable>
-        </Pressable>
+          </PressableScale>
+        </PressableScale>
       </Modal>
     </Screen>
   );
@@ -417,7 +418,7 @@ export default function ProfileScreen() {
 
 function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       style={{
         flexDirection: "row",
@@ -433,7 +434,7 @@ function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPre
       <Text style={{ fontSize: 20, marginRight: 12 }}>{icon}</Text>
       <Text style={{ color: colors.text, fontWeight: "600", flex: 1 }}>{label}</Text>
       <Text style={{ color: colors.textFaint }}>›</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

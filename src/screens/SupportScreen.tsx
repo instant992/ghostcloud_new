@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from "react-native";
+import { PressableScale } from "../components/PressableScale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supportMessages, supportSend } from "../api";
 import { colors, useTheme } from "../theme";
@@ -124,7 +125,7 @@ export default function SupportScreen() {
           value={text}
           onChangeText={setText}
         />
-        <Pressable
+        <PressableScale
           onPress={send}
           disabled={sending}
           style={{
@@ -136,7 +137,7 @@ export default function SupportScreen() {
           }}
         >
           <Text style={{ color: "#fff", fontSize: 18 }}>➤</Text>
-        </Pressable>
+        </PressableScale>
       </View>
     </KeyboardAvoidingView>
   );
