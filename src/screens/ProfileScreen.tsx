@@ -10,7 +10,10 @@ import { useApp } from "../context";
 import {
   BASE_URL,
   BOT_USERNAME,
+  activateGiftKey,
+  applyPromo,
   claimSponsorDevice,
+  getDonorLeaderboard,
   generateGiftKey,
   getGiftKeyStatus,
   getSponsorNewsMirror,
@@ -218,6 +221,61 @@ export default function ProfileScreen() {
     Alert.alert("Скопировано", "Ключ в буфере обмена");
   };
 
+  const [promoCode, setPromoCode] = useState("");
+  const [giftActivateCode, setGiftActivateCode] = useState("");
+  const [lbOpen, setLbOpen] = useState(false);
+  const [lbData, setLbData] = useState<{ leaderboard: any[]; my_position: number | null } | null>(null);
+  const [lbBusy, setLbBusy] = useState(false);
+
+  const applyPromoCode = async () => {
+    const code = promoCode.trim();
+    if (!code) return;
+    setBusy(true);
+    try {
+      const r = await applyPromo(code);
+      if (!r?.success) throw new Error(r?.error || "Не удалось активировать промокод");
+      setPromoCode("");
+      await refreshMe();
+      Alert.alert("Готово", r?.message || "Промокод активирован");
+    } catch (e: any) {
+      Alert.alert("Ошибка", e?.message || "Не удалось активировать промокод");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const activateGift = async () => {
+    const code = giftActivateCode.trim();
+    if (!code) return;
+    setBusy(true);
+    try {
+      const r = await activateGiftKey(code);
+      if (!r?.success) throw new Error(r?.error || "Не удалось активировать ключ");
+      setGiftActivateCode("");
+      await refreshMe();
+      Alert.alert("Готово", r?.message || "Подарочная подписка на 24 часа активирована");
+    } catch (e: any) {
+      Alert.alert("Ошибка", e?.message || "Не удалось активировать ключ");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openLeaderboard = async () => {
+    setLbOpen(true);
+    setLbBusy(true);
+    try {
+      const r = await getDonorLeaderboard();
+      if (!r?.success) throw new Error(r?.error || "Ошибка загрузки");
+      setLbData({ leaderboard: r.leaderboard || [], my_position: r.my_position ?? null });
+    } catch (e: any) {
+      setLbOpen(false);
+      Alert.alert("Ошибка", e?.message || "Не удалось загрузить рейтинг");
+    } finally {
+      setLbBusy(false);
+    }
+  };
+
   const openNewsMirror = async () => {
     try {
       const r = await getSponsorNewsMirror();
@@ -231,7 +289,6 @@ export default function ProfileScreen() {
   return (
     <Screen style={{ paddingTop: 64 }}>
       <Title>Профиль</Title>
-
       <Card style={{ alignItems: "center", paddingVertical: 22 }}>
         <View>
           {avatarUri ? (
@@ -337,6 +394,39 @@ export default function ProfileScreen() {
       )}
 
       <Card>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <Text style={{ fontSize: 20 }}>🎁</Text>
+          <Text style={styles.sectionTitle}>Подарки и бонусы</Text>
+        </View>
+        <Text style={styles.fieldLabel}>Промокод</Text>
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+          <TextInput
+            style={[styles.field, { flex: 1, marginBottom: 0 }]}
+            value={promoCode}
+            onChangeText={setPromoCode}
+            autoCapitalize="none"
+            placeholder="Введите промокод"
+            placeholderTextColor={colors.textFaint}
+          />
+          <Button title="ОК" loading={busy} onPress={applyPromoCode} />
+        </View>
+        <Text style={styles.fieldLabel}>Активировать подарочный ключ (24 ч.)</Text>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TextInput
+            style={[styles.field, { flex: 1, marginBottom: 0 }]}
+            value={giftActivateCode}
+            onChangeText={setGiftActivateCode}
+            autoCapitalize="none"
+            placeholder="Ключ от друга"
+            placeholderTextColor={colors.textFaint}
+          />
+          <Button title="ОК" loading={busy} onPress={activateGift} />
+        </View>
+      </Card>
+
+      <MenuItem icon="🏆" label="Топ спонсоров" onPress={openLeaderboard} />
+
+      <Card>
         <Row label="Баланс" value={`${((me?.balance || 0) / 100).toFixed(0)} ₽`} valueColor={colors.accent} />
         <Row label="Действует до" value={String(me?.expire_at || "—").slice(0, 16)} />
         <Row label="Устройства" value={`${me?.device_count ?? 0} / ${me?.device_limit ?? 6}`} />
@@ -370,6 +460,59 @@ export default function ProfileScreen() {
       </Card>
 
       <Button title="Выйти из аккаунта" variant="danger" onPress={signOut} />
+
+      <Modal visible={lbOpen} transparent animationType="fade" onRequestClose={() => setLbOpen(false)}>
+        <PressableScale style={styles.modalBackdrop} onPress={() => setLbOpen(false)}>
+          <PressableScale style={[styles.modalCard, { maxHeight: "80%" }]} onPress={() => {}}>
+            <Text style={styles.modalTitle}>🏆 Топ спонсоров</Text>
+            {lbBusy ? (
+              <Text style={{ color: colors.textDim, textAlign: "center", paddingVertical: 24 }}>Загрузка…</Text>
+            ) : lbData ? (
+              <>
+                <View style={styles.lbMyCard}>
+                  <View style={styles.lbMyBadge}>
+                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16 }}>
+                      {lbData.my_position ? `#${lbData.my_position}` : "—"}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: colors.text, fontWeight: "800" }}>Ваша позиция</Text>
+                    <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 2 }}>
+                      Поддержите проект пополнением баланса
+                    </Text>
+                  </View>
+                  {!!lbData.my_position && lbData.my_position <= 3 && (
+                    <Text style={{ fontSize: 28 }}>{["🥇", "🥈", "🥉"][lbData.my_position - 1]}</Text>
+                  )}
+                </View>
+                {lbData.leaderboard.length === 0 ? (
+                  <Text style={{ color: colors.textDim, textAlign: "center", paddingVertical: 20 }}>
+                    Пока нет данных — будьте первым спонсором!
+                  </Text>
+                ) : (
+                  lbData.leaderboard.map((e: any, i: number) => (
+                    <View key={i} style={[styles.lbRow, e.is_me && styles.lbRowMe]}>
+                      <Text style={{ width: 34, fontSize: 15 }}>
+                        {e.rank <= 3 ? ["🥇", "🥈", "🥉"][e.rank - 1] : `${e.rank}`}
+                      </Text>
+                      <Text style={{ flex: 1, color: e.is_me ? "#FF9C6B" : colors.text, fontWeight: e.is_me ? "800" : "500" }} numberOfLines={1}>
+                        {e.masked_name || "—"}
+                        {e.is_me ? "  (ВЫ)" : ""}
+                      </Text>
+                      <View style={styles.lbAmount}>
+                        <Text style={{ color: "#FF9C6B", fontWeight: "800", fontSize: 12 }}>
+                          {e.total_amount || 0} ₽
+                        </Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </>
+            ) : null}
+            <Button title="Закрыть" variant="ghost" onPress={() => setLbOpen(false)} />
+          </PressableScale>
+        </PressableScale>
+      </Modal>
 
       <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
         <PressableScale style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
@@ -522,6 +665,44 @@ const makeStyles = () => StyleSheet.create({
     color: colors.textDim,
     fontSize: 12,
     lineHeight: 20,
+  },
+  lbMyCard: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 12,
+    backgroundColor: "rgba(255,140,90,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,140,90,0.35)",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+  },
+  lbMyBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#FF9C6B",
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
+  lbRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+  },
+  lbRowMe: {
+    backgroundColor: "rgba(255,140,90,0.10)",
+  },
+  lbAmount: {
+    backgroundColor: "rgba(255,140,90,0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255,140,90,0.35)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginLeft: 8,
   },
 });
 

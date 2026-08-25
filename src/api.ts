@@ -257,3 +257,15 @@ export async function generateGiftKey() {
 export async function getSponsorNewsMirror() {
   return request("GET", "/api/auth/mobile/news-mirror");
 }
+
+export async function activateGiftKey(token: string) {
+  return request("POST", "/api/auth/mobile/gift-key/activate", { token });
+}
+
+export async function getDonorLeaderboard() {
+  return request("GET", "/api/auth/mobile/donors/leaderboard");
+}
+
+export async function getReferralLeaderboard() {
+  return request("GET", "/api/auth/mobile/referral/leaderboard");
+}
