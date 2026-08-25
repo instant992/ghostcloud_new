@@ -89,7 +89,6 @@ class XrayCoreModule : Module() {
             val isSystem = (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 ||
               (ai.flags and android.content.pm.ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
             if (!includeSystem && isSystem) continue
-            if (pm.getLaunchIntentForPackage(pkg) == null) continue
             apps.add(
               mapOf(
                 "packageName" to pkg,
