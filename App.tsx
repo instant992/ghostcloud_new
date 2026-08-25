@@ -26,6 +26,7 @@ import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
 import { TabIcon } from "./src/components/TabIcon";
+import FoxSplash from "./src/components/FoxSplash";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -61,7 +62,6 @@ const Tabs = createBottomTabNavigator();
 
 const TAB_META: Record<string, { icon: string; outline: string; label: string }> = {
   Главная: { icon: "home", outline: "home-outline", label: "Главная" },
-  Статистика: { icon: "stats-chart", outline: "stats-chart-outline", label: "Статистика" },
   Тарифы: { icon: "card", outline: "card-outline", label: "Тарифы" },
   Профиль: { icon: "person", outline: "person-outline", label: "Профиль" },
   Настройки: { icon: "settings", outline: "settings-outline", label: "Настройки" },
@@ -181,6 +181,7 @@ function Root() {
 }
 
 export default function App() {
+  const [splashDone, setSplashDone] = React.useState(false);
   return (
     <ErrorBoundary>
       <ThemeProvider>
@@ -190,6 +191,7 @@ export default function App() {
             <ThemedContainer>
               <Root />
             </ThemedContainer>
+            {!splashDone && <FoxSplash onDone={() => setSplashDone(true)} />}
           </AppProvider>
         </SafeAreaProvider>
       </ThemeProvider>
@@ -197,9 +199,11 @@ export default function App() {
   );
 }
 
-/** Навигация и статус-бар, перекрашивающиеся при смене темы */
+/** Навигация и статус-бар, перекрашивающиеся при смене темы.
+ *  При смене темы всё дерево перемонтируется (key=version) — гарантия,
+ *  что ни один блок не останется в старой палитре. */
 function ThemedContainer({ children }: { children: React.ReactNode }) {
-  useTheme();
+  const { version } = useTheme();
   const navTheme = {
     ...DefaultTheme,
     dark: colors.text === "#FFFFFF",
@@ -212,7 +216,11 @@ function ThemedContainer({ children }: { children: React.ReactNode }) {
       primary: colors.accent,
     },
   };
-  return <NavigationContainer theme={navTheme}>{children}</NavigationContainer>;
+  return (
+    <NavigationContainer theme={navTheme}>
+      <React.Fragment key={version}>{children}</React.Fragment>
+    </NavigationContainer>
+  );
 }
 
 function StatusBarFollower() {
