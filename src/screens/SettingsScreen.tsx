@@ -5,7 +5,7 @@ import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
 import { Card, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
-import { colors, THEME_LABELS, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
+import { colors, THEME_LABELS, THEME_ORDER, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
 import { getSelectedCore, getSetting, getThemeName, setSetting, type CoreName } from "../settings";
 import {
   downloadCore,
@@ -84,6 +84,7 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
 
 export default function SettingsScreen() {
   useTheme();
+  const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
   const [theme, setTheme] = useState<ThemeName>(getThemeName());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
@@ -92,6 +93,7 @@ export default function SettingsScreen() {
   const [versions, setVersions] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState<Record<string, number>>({});
   const [confirmCore, setConfirmCore] = useState<(typeof CORES)[number] | null>(null);
+  const [themeOpen, setThemeOpen] = useState(false);
   const [sunrise, setSunrise] = useState(getSetting("theme_sunrise", "06:00"));
   const [sunset, setSunset] = useState(getSetting("theme_sunset", "20:00"));
 
@@ -158,32 +160,15 @@ export default function SettingsScreen() {
 
       <Card>
         <Text style={styles.sectionTitle}>Тема оформления</Text>
-        <View style={styles.themeRow}>
-          {(["auto", "default", "dark", "light"] as ThemeName[]).map((t) => (
-            <PressableScale
-              key={t}
-              style={[styles.themeBtn, theme === t && styles.themeBtnOn]}
-              onPress={() => changeTheme(t)}
-            >
-              <Ionicons
-                name={
-                  t === "auto"
-                    ? "time-outline"
-                    : t === "light"
-                    ? "sunny-outline"
-                    : t === "dark"
-                    ? "moon-outline"
-                    : "sparkles-outline"
-                }
-                size={18}
-                color={theme === t ? colors.accent : colors.textDim}
-              />
-              <Text style={[styles.themeBtnText, theme === t && { color: colors.text }]}>
-                {THEME_LABELS[t]}
-              </Text>
-            </PressableScale>
-          ))}
-        </View>
+        <PressableScale style={styles.dropdown} onPress={() => setThemeOpen(true)}>
+          <Ionicons
+            name={themeIcon(theme)}
+            size={18}
+            color={colors.accent}
+          />
+          <Text style={[styles.dropdownText, { color: colors.text }]}>{THEME_LABELS[theme]}</Text>
+          <Ionicons name="chevron-down" size={16} color={colors.textDim} />
+        </PressableScale>
 
         {theme === "auto" && (
           <View style={styles.autoRow}>
@@ -214,6 +199,30 @@ export default function SettingsScreen() {
             ? "Светлая тема включается автоматически в выбранное время"
             : "Тема применяется сразу, без перезагрузки"}
         </Text>
+
+        <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
+          <PressableScale style={styles.modalBackdrop} onPress={() => setThemeOpen(false)}>
+            <PressableScale style={styles.themeSheet} onPress={() => {}}>
+              <Text style={styles.themeSheetTitle}>Тема оформления</Text>
+              {THEME_ORDER.map((t: ThemeName) => (
+                <PressableScale
+                  key={t}
+                  style={[styles.themeOption, theme === t && styles.themeOptionOn]}
+                  onPress={() => {
+                    changeTheme(t);
+                    setThemeOpen(false);
+                  }}
+                >
+                  <Ionicons name={themeIcon(t)} size={18} color={theme === t ? colors.accent : colors.textDim} />
+                  <Text style={[styles.themeOptionText, { color: theme === t ? colors.accent : colors.text }]}>
+                    {THEME_LABELS[t]}
+                  </Text>
+                  <View style={[styles.radio, theme === t && styles.radioOn]} />
+                </PressableScale>
+              ))}
+            </PressableScale>
+          </PressableScale>
+        </Modal>
       </Card>
 
       <Card>
@@ -317,7 +326,23 @@ function AlertFallback(msg: string) {
   console.warn("core download:", msg);
 }
 
-const styles = StyleSheet.create({
+function themeIcon(t: ThemeName): any {
+  switch (t) {
+    case "auto": return "time-outline";
+    case "light": return "sunny-outline";
+    case "dark": return "moon-outline";
+    case "default": return "sparkles-outline";
+    case "minimalist": return "brightness-2-outline";
+    case "v2ray": return "hub-outline";
+    case "glass": return "blur-on-outline";
+    case "foxcloud": return "local-fire-department-outline" as any;
+    case "pickme": return "heart-outline";
+    case "happ": return "sunny-sharp";
+    default: return "sparkles-outline";
+  }
+}
+
+const makeStyles = () => StyleSheet.create({
   sectionTitle: {
     color: colors.text,
     fontWeight: "800",
@@ -328,26 +353,52 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-  themeBtn: {
-    flex: 1,
+  dropdown: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 14,
+    gap: 10,
     backgroundColor: colors.bgSoft,
     borderWidth: 1.5,
     borderColor: colors.border,
-    gap: 5,
-    height: 64,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  themeBtnOn: {
-    borderColor: colors.accent,
+  dropdownText: {
+    flex: 1,
+    fontWeight: "700",
+    fontSize: 15,
+  },
+  themeSheet: {
+    width: "100%",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 20,
+    padding: 16,
+    maxHeight: "75%",
+  },
+  themeSheetTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
+  themeOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  themeOptionOn: {
     backgroundColor: colors.accentSoft,
   },
-  themeBtnText: {
-    color: colors.textDim,
-    fontWeight: "700",
-    fontSize: 11,
+  themeOptionText: {
+    flex: 1,
+    fontWeight: "600",
+    fontSize: 15,
   },
   autoRow: {
     flexDirection: "row",

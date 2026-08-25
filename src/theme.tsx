@@ -2,7 +2,17 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { getThemeName, getSetting } from "./settings";
 
-export type ThemeName = "auto" | "default" | "dark" | "light";
+export type ThemeName =
+  | "auto"
+  | "default"
+  | "dark"
+  | "light"
+  | "minimalist"
+  | "v2ray"
+  | "glass"
+  | "foxcloud"
+  | "pickme"
+  | "happ";
 
 /** Основная тема — фирменная тёмная с фиолетовым акцентом */
 const defaultColors = {
@@ -60,10 +70,148 @@ const lightColors = {
   gradient: ["#7C3AED", "#A855F7"] as const,
 };
 
-const PALETTES: Record<Exclude<ThemeName, "auto">, typeof defaultColors> = {
+/** Минимализм — тёмная таёжная тема (почти чёрная + фиолетовый акцент), как во Flutter-версии */
+const minimalistColors = {
+  bg: "#08080E",
+  bgSoft: "#0A0A14",
+  card: "#0E0C16",
+  cardLight: "#14121F",
+  border: "#1E1B2C",
+  text: "#FFFFFF",
+  textDim: "#8E88A6",
+  textFaint: "#5C5772",
+  accent: "#9B59B6",
+  accentDeep: "#7B2FBE",
+  accentSoft: "rgba(155,89,182,0.14)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#7B2FBE", "#9B59B6"] as const,
+};
+
+/** v2ray — спокойная сине-циановая техническая палитра в духе v2rayNG */
+const v2rayColors = {
+  bg: "#05111F",
+  bgSoft: "#071A2E",
+  card: "#061522",
+  cardLight: "#0A2036",
+  border: "#12263C",
+  text: "#FFFFFF",
+  textDim: "#8CA6C4",
+  textFaint: "#54708F",
+  accent: "#3B82F6",
+  accentDeep: "#2563EB",
+  accentSoft: "rgba(59,130,246,0.14)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#2563EB", "#3B82F6"] as const,
+};
+
+/** Liquid Glass — нейтральные тёмные полупрозрачные поверхности */
+const glassColors = {
+  bg: "#0C0C12",
+  bgSoft: "#101018",
+  card: "rgba(255,255,255,0.05)",
+  cardLight: "rgba(255,255,255,0.08)",
+  border: "rgba(255,255,255,0.10)",
+  text: "#FFFFFF",
+  textDim: "#9C99AD",
+  textFaint: "#66637A",
+  accent: "#8B5CF6",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(139,92,246,0.13)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#7C3AED", "#8B5CF6"] as const,
+};
+
+/** FoxCloud — тёплые тёмные поверхности с оранжевым акцентом */
+const foxcloudColors = {
+  bg: "#110E0A",
+  bgSoft: "#181410",
+  card: "#1E1A14",
+  cardLight: "#26201A",
+  border: "#2E2820",
+  text: "#FFFFFF",
+  textDim: "#CCBBAA",
+  textFaint: "#8A7A68",
+  accent: "#E8720C",
+  accentDeep: "#C25E00",
+  accentSoft: "rgba(232,114,12,0.14)",
+  green: "#34D399",
+  red: "#EF4444",
+  orange: "#F59E0B",
+  gradient: ["#E8720C", "#F59E0B"] as const,
+};
+
+/** Pink (pickme) — нежная розово-лиловая тема */
+const pickmeColors = {
+  bg: "#170910",
+  bgSoft: "#1F0D16",
+  card: "#26101B",
+  cardLight: "#301524",
+  border: "#3A1A2C",
+  text: "#FFFFFF",
+  textDim: "#C99BB2",
+  textFaint: "#8A6274",
+  accent: "#EC4899",
+  accentDeep: "#D63384",
+  accentSoft: "rgba(236,72,153,0.14)",
+  green: "#4ADE80",
+  red: "#FB7185",
+  orange: "#FF69B4",
+  gradient: ["#D63384", "#EC4899"] as const,
+};
+
+/** Happ — светлая неоморфная тема: белый фон, мягкие тени, индиго-акцент */
+const happColors = {
+  bg: "#ECECF4",
+  bgSoft: "#E4E4EE",
+  card: "#FFFFFF",
+  cardLight: "#F2F2F9",
+  border: "#D4D4E2",
+  text: "#1A1A2E",
+  textDim: "#55556E",
+  textFaint: "#9090AA",
+  accent: "#6C63FF",
+  accentDeep: "#5856D6",
+  accentSoft: "rgba(108,99,255,0.10)",
+  green: "#059669",
+  red: "#DC2626",
+  orange: "#D97706",
+  gradient: ["#5856D6", "#6C63FF"] as const,
+};
+
+type Palette = {
+  bg: string;
+  bgSoft: string;
+  card: string;
+  cardLight: string;
+  border: string;
+  text: string;
+  textDim: string;
+  textFaint: string;
+  accent: string;
+  accentDeep: string;
+  accentSoft: string;
+  green: string;
+  red: string;
+  orange: string;
+  gradient: readonly [string, string];
+};
+
+const PALETTES: Record<Exclude<ThemeName, "auto">, Palette> = {
   default: defaultColors,
   dark: darkColors,
   light: lightColors,
+  minimalist: minimalistColors,
+  v2ray: v2rayColors,
+  glass: glassColors,
+  foxcloud: foxcloudColors,
+  pickme: pickmeColors,
+  happ: happColors,
 };
 
 /** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью */
@@ -85,7 +233,7 @@ function storedTheme(): ThemeName {
   return getThemeName();
 }
 
-function resolveTheme(name: ThemeName): "default" | "dark" | "light" {
+function resolveTheme(name: ThemeName): Exclude<ThemeName, "auto"> {
   return name === "auto" ? resolveAutoTheme() : name;
 }
 
@@ -101,7 +249,33 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   default: "Основная",
   dark: "Тёмная",
   light: "Светлая",
+  minimalist: "Минимализм",
+  v2ray: "v2ray",
+  glass: "Liquid Glass",
+  foxcloud: "FoxCloud",
+  pickme: "Pink",
+  happ: "Happ",
 };
+
+/** Порядок тем в списке выбора — как во Flutter-версии */
+export const THEME_ORDER: ThemeName[] = [
+  "auto",
+  "default",
+  "dark",
+  "light",
+  "minimalist",
+  "glass",
+  "foxcloud",
+  "pickme",
+  "v2ray",
+  "happ",
+];
+
+/** Светлые темы (для авто-переключения и подбора иконки) */
+export function isLightTheme(name: ThemeName): boolean {
+  if (name === "light" || name === "happ") return true;
+  return false;
+}
 
 // ─── Контекст темы: подписка экранов на перерисовку при смене темы ───
 
@@ -126,15 +300,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ name, version: s.version + 1 }));
   };
 
-  // Авто-тема: переоцениваем при возврате в приложение
+  // Авто-тема: переоцениваем при возврате в приложение и раз в минуту
   useEffect(() => {
     if (state.name !== "auto") return;
-    const sub = AppState.addEventListener("change", (s) => {
-      if (s !== "active") return;
+    const reapply = () => {
       applyTheme("auto");
       setState((prev) => ({ name: prev.name, version: prev.version + 1 }));
+    };
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s !== "active") return;
+      reapply();
     });
-    return () => sub.remove();
+    const timer = setInterval(reapply, 60 * 1000);
+    return () => {
+      sub.remove();
+      clearInterval(timer);
+    };
   }, [state.name]);
 
   return (
