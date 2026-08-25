@@ -71,18 +71,21 @@ type BtnProps = {
   loading?: boolean;
   disabled?: boolean;
   variant?: "primary" | "ghost" | "danger";
+  size?: "sm" | "md";
 };
 
-export function Button({ title, onPress, loading, disabled, variant = "primary" }: BtnProps) {
+export function Button({ title, onPress, loading, disabled, variant = "primary", size = "md" }: BtnProps) {
   useTheme();
   const styles = makeStyles();
   const isDisabled = disabled || loading;
+  const compact = size === "sm";
   return (
     <PressableScale
       onPress={onPress}
       disabled={isDisabled}
       style={[
         styles.btn,
+        compact && styles.btnSm,
         variant === "primary" && styles.btnPrimary,
         variant === "ghost" && styles.btnGhost,
         variant === "danger" && styles.btnDanger,
@@ -90,9 +93,15 @@ export function Button({ title, onPress, loading, disabled, variant = "primary" 
       ]}
     >
       {loading ? (
-        <ActivityIndicator color="#fff" />
+        <ActivityIndicator color="#fff" size={compact ? "small" : "large"} />
       ) : (
-        <Text style={[styles.btnText, variant !== "primary" && { color: variant === "danger" ? colors.red : colors.text }]}>
+        <Text
+          style={[
+            styles.btnText,
+            compact && styles.btnTextSm,
+            variant !== "primary" && { color: variant === "danger" ? colors.red : colors.text },
+          ]}
+        >
           {title}
         </Text>
       )}
@@ -185,6 +194,12 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "center",
     marginVertical: 6,
   },
+  btnSm: {
+    borderRadius: 18,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    marginVertical: 4,
+  },
   btnPrimary: {
     backgroundColor: colors.accentDeep,
   },
@@ -199,6 +214,7 @@ const makeStyles = () => StyleSheet.create({
     borderColor: colors.red + "55",
   },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  btnTextSm: { fontSize: 13 },
   input: {
     backgroundColor: colors.bgSoft,
     borderRadius: 14,

@@ -25,6 +25,7 @@ import {
   uploadAvatar,
 } from "../api";
 import { colors, useTheme } from "../theme";
+import { formatDateTime } from "../utils/formatDate";
 
 /** Пульсирующее сердечко спонсора — свечение в духе кнопки VPN */
 function SponsorHeart({ size = 20 }: { size?: number }) {
@@ -359,16 +360,17 @@ export default function ProfileScreen() {
             valueColor={me?.sponsor_device_bonus_claimed ? colors.textDim : colors.green}
           />
           {!me?.sponsor_device_bonus_claimed && (
-            <Button title="Забрать +1 устройство" loading={busy} onPress={claimDeviceBonus} />
+            <Button size="sm" title="Забрать +1 устройство" loading={busy} onPress={claimDeviceBonus} />
           )}
           <Button
+            size="sm"
             title={giftKey ? "Создать новый ключ" : "Ключ доступа для друга"}
             variant="ghost"
             loading={giftBusy}
             onPress={loadGiftKey}
           />
-          <Button title="Скопировать ключ" variant="ghost" onPress={copyGiftKey} />
-          <Button title="Зеркало новостей" variant="ghost" onPress={openNewsMirror} />
+          <Button size="sm" title="Скопировать ключ" variant="ghost" onPress={copyGiftKey} />
+          <Button size="sm" title="Зеркало новостей" variant="ghost" onPress={openNewsMirror} />
           <Text style={styles.perksHint}>
             Спасибо за поддержку сервиса! Статус спонсора действует навсегда.
           </Text>
@@ -389,7 +391,7 @@ export default function ProfileScreen() {
           <Text style={styles.perksHint}>
             Статус выдаётся навсегда после пополнения от 444 ₽ одной транзакцией.
           </Text>
-          <Button title="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
+          <Button size="sm" title="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
         </Card>
       )}
 
@@ -408,7 +410,7 @@ export default function ProfileScreen() {
             placeholder="Введите промокод"
             placeholderTextColor={colors.textFaint}
           />
-          <Button title="ОК" loading={busy} onPress={applyPromoCode} />
+          <Button size="sm" title="ОК" loading={busy} onPress={applyPromoCode} />
         </View>
         <Text style={styles.fieldLabel}>Активировать подарочный ключ (24 ч.)</Text>
         <View style={{ flexDirection: "row", gap: 8 }}>
@@ -420,7 +422,7 @@ export default function ProfileScreen() {
             placeholder="Ключ от друга"
             placeholderTextColor={colors.textFaint}
           />
-          <Button title="ОК" loading={busy} onPress={activateGift} />
+          <Button size="sm" title="ОК" loading={busy} onPress={activateGift} />
         </View>
       </Card>
 
@@ -428,7 +430,7 @@ export default function ProfileScreen() {
 
       <Card>
         <Row label="Баланс" value={`${((me?.balance || 0) / 100).toFixed(0)} ₽`} valueColor={colors.accent} />
-        <Row label="Действует до" value={String(me?.expire_at || "—").slice(0, 16)} />
+        <Row label="Действует до" value={formatDateTime(me?.expire_at)} />
         <Row label="Устройства" value={`${me?.device_count ?? 0} / ${me?.device_limit ?? 6}`} />
       </Card>
 
@@ -440,9 +442,9 @@ export default function ProfileScreen() {
       <Card>
         <Row label="Telegram" value={me?.telegram_linked ? "привязан" : "не привязан"} />
         {me?.telegram_linked ? (
-          <Button title="Отвязать Telegram" variant="ghost" onPress={unlinkTelegram} />
+          <Button size="sm" title="Отвязать Telegram" variant="ghost" onPress={unlinkTelegram} />
         ) : (
-          <Button title="Привязать Telegram" variant="ghost" onPress={linkTelegram} />
+          <Button size="sm" title="Привязать Telegram" variant="ghost" onPress={linkTelegram} />
         )}
       </Card>
 
@@ -459,7 +461,7 @@ export default function ProfileScreen() {
         </PressableScale>
       </Card>
 
-      <Button title="Выйти из аккаунта" variant="danger" onPress={signOut} />
+      <Button size="sm" title="Выйти из аккаунта" variant="danger" onPress={signOut} />
 
       <Modal visible={lbOpen} transparent animationType="fade" onRequestClose={() => setLbOpen(false)}>
         <PressableScale style={styles.modalBackdrop} onPress={() => setLbOpen(false)}>
@@ -509,7 +511,7 @@ export default function ProfileScreen() {
                 )}
               </>
             ) : null}
-            <Button title="Закрыть" variant="ghost" onPress={() => setLbOpen(false)} />
+            <Button size="sm" title="Закрыть" variant="ghost" onPress={() => setLbOpen(false)} />
           </PressableScale>
         </PressableScale>
       </Modal>
@@ -546,10 +548,10 @@ export default function ProfileScreen() {
 
             <View style={{ flexDirection: "row", gap: 8 }}>
               <View style={{ flex: 1 }}>
-                <Button title="Отмена" variant="ghost" onPress={() => setEditOpen(false)} />
+                <Button size="sm" title="Отмена" variant="ghost" onPress={() => setEditOpen(false)} />
               </View>
               <View style={{ flex: 1 }}>
-                <Button title="Сохранить" loading={busy} onPress={saveProfile} />
+                <Button size="sm" title="Сохранить" loading={busy} onPress={saveProfile} />
               </View>
             </View>
           </PressableScale>
