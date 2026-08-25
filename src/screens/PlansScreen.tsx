@@ -7,6 +7,7 @@ import { PressableScale } from "../components/PressableScale";
 import { createPayment, extendFromBalance, getPrices, paymentStatus } from "../api";
 import { useApp } from "../context";
 import { colors, useTheme } from "../theme";
+import { formatDate } from "../utils/formatDate";
 
 export default function PlansScreen() {
   useTheme();
@@ -174,11 +175,6 @@ function planDays(key: string): string {
   return (
     { trial: "2 дня доступа", "1_month": "30 дней", "2_months": "60 дней", "3_months": "90 дней" }[key] || ""
   );
-}
-
-function formatDate(v?: string): string {
-  if (!v) return "истекла";
-  return String(v).slice(0, 16);
 }
 
 const makeStyles = () => StyleSheet.create({

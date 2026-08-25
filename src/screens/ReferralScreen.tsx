@@ -7,6 +7,7 @@ import { Button, Card, ErrorText, Input, Row, Screen, Subtitle, Title } from "..
 import { PressableScale } from "../components/PressableScale";
 import { referralApply, referralInfo } from "../api";
 import { colors, useTheme } from "../theme";
+import { formatDateTime } from "../utils/formatDate";
 
 type Referral = {
   email: string;
@@ -199,8 +200,8 @@ export default function ReferralScreen() {
             </View>
             {!!r.created_at && (
               <Text style={{ color: colors.textFaint, fontSize: 10, marginTop: 2 }}>
-                {String(r.created_at).slice(0, 16)}
-                {r.confirmed_at ? ` · подтверждён ${String(r.confirmed_at).slice(5, 16)}` : ""}
+                {formatDateTime(r.created_at)}
+                {r.confirmed_at ? ` · подтверждён ${formatDateTime(r.confirmed_at)}` : ""}
               </Text>
             )}
           </View>
