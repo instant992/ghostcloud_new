@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
@@ -39,12 +39,12 @@ import {
 const CORES_REPO_MANIFEST = "https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/manifest.json";
 
 const CORES: Array<{ key: CoreName; label: string; file: string; lib: "mihomo" | "singbox" | null; note: string; mb: number }> = [
-  { key: "xray", label: "Xray", file: "", lib: null, note: "Ð²ÑÑ‚Ñ€Ð¾ÐµÐ½ Â· VLESS, VMess, Trojan, SS", mb: 0 },
+  { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS", mb: 0 },
   { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "+ Hysteria2", mb: 36 },
-  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "Ð²ÑÐµ Ð¿Ñ€Ð¾Ñ‚Ð¾ÐºÐ¾Ð»Ñ‹", mb: 53 },
+  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "все протоколы", mb: 53 },
 ];
 
-// Ð¤Ð¾Ð»Ð±ÑÐº, ÐµÑÐ»Ð¸ Ð¼Ð°Ð½Ð¸Ñ„ÐµÑÑ‚ Ð½ÐµÐ´Ð¾ÑÑ‚ÑƒÐ¿ÐµÐ½
+// Фолбэк, если манифест недоступен
 const FALLBACK: Record<string, Record<string, { url: string; sha256: string; size: number }>> = {
   "sing-box": {
     "arm64-v8a": {
@@ -151,31 +151,31 @@ export default function SettingsScreen() {
   const changeMode = (next: ThemeMode) => {
     setMode(next);
     setThemeMode(next);
-    switchTheme(theme); // Ð¿ÐµÑ€ÐµÑ€Ð¸ÑÐ¾Ð²Ð°Ñ‚ÑŒ Ñ ÑƒÑ‡Ñ‘Ñ‚Ð¾Ð¼ Ð½Ð¾Ð²Ð¾Ð³Ð¾ Ñ€ÐµÐ¶Ð¸Ð¼Ð°
+    switchTheme(theme); // перерисовать с учётом нового режима
   };
 
   const changeAppIcon = (next: AppIcon) => {
     if (next === appIcon) return;
     Alert.alert(
-      "Ð¡Ð¼ÐµÐ½Ð° Ð¸ÐºÐ¾Ð½ÐºÐ¸",
+      "Смена иконки",
       next === "ghostvpn"
-        ? "Ð˜ÐºÐ¾Ð½ÐºÐ° GhostVPN Ð±ÑƒÐ´ÐµÑ‚ ÑƒÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð°. ÐŸÑ€Ð¸Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð¿ÐµÑ€ÐµÐ·Ð°Ð¿ÑƒÑÑ‚Ð¸Ñ‚ÑÑ."
-        : "Ð¡Ñ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð°Ñ Ð¸ÐºÐ¾Ð½ÐºÐ° GhostCloud Ð±ÑƒÐ´ÐµÑ‚ Ð²Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð°. ÐŸÑ€Ð¸Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ Ð¿ÐµÑ€ÐµÐ·Ð°Ð¿ÑƒÑÑ‚Ð¸Ñ‚ÑÑ.",
+        ? "Иконка GhostVPN будет установлена. Приложение перезапустится."
+        : "Стандартная иконка GhostCloud будет восстановлена. Приложение перезапустится.",
       [
-        { text: "ÐžÑ‚Ð¼ÐµÐ½Ð°", style: "cancel" },
+        { text: "Отмена", style: "cancel" },
         {
-          text: "ÐŸÑ€Ð¸Ð¼ÐµÐ½Ð¸Ñ‚ÑŒ",
+          text: "Применить",
           onPress: () => {
             if (!setLauncherIcon(next)) {
-              Alert.alert("ÐžÑˆÐ¸Ð±ÐºÐ°", "ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ ÑÐ¼ÐµÐ½Ð¸Ñ‚ÑŒ Ð¸ÐºÐ¾Ð½ÐºÑƒ");
+              Alert.alert("Ошибка", "Не удалось сменить иконку");
               return;
             }
             setAppIcon(next);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
             Alert.alert(
-              "Ð˜ÐºÐ¾Ð½ÐºÐ° Ð¿Ñ€Ð¸Ð¼ÐµÐ½ÐµÐ½Ð°",
-              "Ð›Ð°ÑƒÐ½Ñ‡ÐµÑ€ Ð¾Ð±Ð½Ð¾Ð²Ð¸Ñ‚ Ð¸ÐºÐ¾Ð½ÐºÑƒ Ð¿Ð¾ÑÐ»Ðµ Ð¿ÐµÑ€ÐµÐ·Ð°Ð¿ÑƒÑÐºÐ° Ð¿Ñ€Ð¸Ð»Ð¾Ð¶ÐµÐ½Ð¸Ñ.",
-              [{ text: "ÐŸÐµÑ€ÐµÐ·Ð°Ð¿ÑƒÑÑ‚Ð¸Ñ‚ÑŒ", onPress: () => restartApp() }]
+              "Иконка применена",
+              "Лаунчер обновит иконку после перезапуска приложения.",
+              [{ text: "Перезапустить", onPress: () => restartApp() }]
             );
           },
         },
@@ -198,14 +198,14 @@ export default function SettingsScreen() {
     (async () => {
       try {
         const meta = (await fetchCoreMeta(c.key, abi)) || FALLBACK[c.key]?.[abi];
-        if (!meta) throw new Error("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¿Ð¾Ð»ÑƒÑ‡Ð¸Ñ‚ÑŒ Ð´Ð°Ð½Ð½Ñ‹Ðµ ÑÐ´Ñ€Ð°");
+        if (!meta) throw new Error("Не удалось получить данные ядра");
         await downloadCore(c.file, meta.url, meta.sha256, meta.size);
         setDownloaded((d) => ({ ...d, [c.file]: true }));
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         const v = await loadLibCore(lib).catch(() => "");
         if (v) setVersions((vv) => ({ ...vv, [c.key]: v }));
       } catch (e: any) {
-        AlertFallback(e?.message || "ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ ÑÐºÐ°Ñ‡Ð°Ñ‚ÑŒ ÑÐ´Ñ€Ð¾");
+        AlertFallback(e?.message || "Не удалось скачать ядро");
       } finally {
         setProgress((p) => {
           const n = { ...p };
@@ -218,10 +218,10 @@ export default function SettingsScreen() {
 
   return (
     <Screen style={{ paddingTop: 64 }}>
-      <Title>ÐÐ°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸</Title>
+      <Title>Настройки</Title>
 
       <Card>
-        <Text style={styles.sectionTitle}>Ð¢ÐµÐ¼Ð° Ð¾Ñ„Ð¾Ñ€Ð¼Ð»ÐµÐ½Ð¸Ñ</Text>
+        <Text style={styles.sectionTitle}>Тема оформления</Text>
         <PressableScale style={styles.dropdown} onPress={() => setThemeOpen(true)}>
           <Ionicons
             name={themeIcon(theme)}
@@ -236,9 +236,9 @@ export default function SettingsScreen() {
           <View style={styles.modeRow}>
             {(
               [
-                { key: "auto", label: "ÐÐ²Ñ‚Ð¾", icon: "time-outline" },
-                { key: "light", label: "Ð¡Ð²ÐµÑ‚Ð»Ð°Ñ", icon: "sunny-outline" },
-                { key: "dark", label: "Ð¢Ñ‘Ð¼Ð½Ð°Ñ", icon: "moon-outline" },
+                { key: "auto", label: "Авто", icon: "time-outline" },
+                { key: "light", label: "Светлая", icon: "sunny-outline" },
+                { key: "dark", label: "Тёмная", icon: "moon-outline" },
               ] as Array<{ key: ThemeMode; label: string; icon: any }>
             ).map((m) => (
               <PressableScale
@@ -266,7 +266,7 @@ export default function SettingsScreen() {
 
         {(theme === "auto" || (themeUsesMode(theme) && mode === "auto")) && (
           <View style={styles.autoRow}>
-            <Text style={styles.autoLabel}>Ð¡Ð²ÐµÑ‚Ð»Ð°Ñ Ñ</Text>
+            <Text style={styles.autoLabel}>Светлая с</Text>
             <TextInput
               style={styles.autoInput}
               value={sunrise}
@@ -276,7 +276,7 @@ export default function SettingsScreen() {
               keyboardType="numbers-and-punctuation"
               maxLength={5}
             />
-            <Text style={styles.autoLabel}>Ð´Ð¾</Text>
+            <Text style={styles.autoLabel}>до</Text>
             <TextInput
               style={styles.autoInput}
               value={sunset}
@@ -290,16 +290,16 @@ export default function SettingsScreen() {
         )}
         <Text style={styles.hint}>
           {theme === "auto" || (themeUsesMode(theme) && mode === "auto")
-            ? "Ð¡Ð²ÐµÑ‚Ð»Ð°Ñ Ñ‚ÐµÐ¼Ð° Ð²ÐºÐ»ÑŽÑ‡Ð°ÐµÑ‚ÑÑ Ð°Ð²Ñ‚Ð¾Ð¼Ð°Ñ‚Ð¸Ñ‡ÐµÑÐºÐ¸ Ð² Ð²Ñ‹Ð±Ñ€Ð°Ð½Ð½Ð¾Ðµ Ð²Ñ€ÐµÐ¼Ñ"
+            ? "Светлая тема включается автоматически в выбранное время"
             : themeUsesMode(theme)
-              ? "Ð¡Ñ‚Ð°Ð½Ð´Ð°Ñ€Ñ‚Ð½Ð°Ñ Ñ‚ÐµÐ¼Ð° Ð¿Ð¾Ð´Ð´ÐµÑ€Ð¶Ð¸Ð²Ð°ÐµÑ‚ ÑÐ²ÐµÑ‚Ð»Ñ‹Ð¹ Ð¸ Ñ‚Ñ‘Ð¼Ð½Ñ‹Ð¹ Ð²Ð°Ñ€Ð¸Ð°Ð½Ñ‚Ñ‹"
-              : "Ð¢ÐµÐ¼Ð° Ð¿Ñ€Ð¸Ð¼ÐµÐ½ÑÐµÑ‚ÑÑ ÑÑ€Ð°Ð·Ñƒ, Ð±ÐµÐ· Ð¿ÐµÑ€ÐµÐ·Ð°Ð³Ñ€ÑƒÐ·ÐºÐ¸"}
+              ? "Стандартная тема поддерживает светлый и тёмный варианты"
+              : "Тема применяется сразу, без перезагрузки"}
         </Text>
 
         <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
           <PressableScale style={styles.modalBackdrop} onPress={() => setThemeOpen(false)}>
             <PressableScale style={styles.themeSheet} onPress={() => {}}>
-              <Text style={styles.themeSheetTitle}>Ð¢ÐµÐ¼Ð° Ð¾Ñ„Ð¾Ñ€Ð¼Ð»ÐµÐ½Ð¸Ñ</Text>
+              <Text style={styles.themeSheetTitle}>Тема оформления</Text>
               {THEME_ORDER.map((t: ThemeName) => (
                 <PressableScale
                   key={t}
@@ -322,7 +322,7 @@ export default function SettingsScreen() {
       </Card>
 
       <Card>
-        <Text style={styles.sectionTitle}>Ð˜ÐºÐ¾Ð½ÐºÐ° Ð½Ð° Ñ€Ð°Ð±Ð¾Ñ‡ÐµÐ¼ ÑÑ‚Ð¾Ð»Ðµ</Text>
+        <Text style={styles.sectionTitle}>Иконка на рабочем столе</Text>
         <View style={styles.iconRow}>
           {ICONS.map((ic) => {
             const active = appIcon === ic.key;
@@ -344,12 +344,12 @@ export default function SettingsScreen() {
           })}
         </View>
         <Text style={styles.hint}>
-          ÐÐ° Ð½ÐµÐºÐ¾Ñ‚Ð¾Ñ€Ñ‹Ñ… Ð¾Ð±Ð¾Ð»Ð¾Ñ‡ÐºÐ°Ñ… Ð¸ÐºÐ¾Ð½ÐºÐ° Ð¾Ð±Ð½Ð¾Ð²Ð¸Ñ‚ÑÑ Ð¿Ð¾ÑÐ»Ðµ Ð²Ð¾Ð·Ð²Ñ€Ð°Ñ‚Ð° Ð½Ð° Ð³Ð»Ð°Ð²Ð½Ñ‹Ð¹ ÑÐºÑ€Ð°Ð½.
+          На некоторых оболочках иконка обновится после возврата на главный экран.
         </Text>
       </Card>
 
       <Card>
-        <Text style={styles.sectionTitle}>Ð¯Ð´Ñ€Ð¾ VPN</Text>
+        <Text style={styles.sectionTitle}>Ядро VPN</Text>
         {CORES.map((c) => {
           const active = core === c.key;
           const needDownload = !!c.file && !downloaded[c.file];
@@ -366,17 +366,17 @@ export default function SettingsScreen() {
                 <Text style={styles.coreName}>
                   {c.label}
                   {c.key === "xray" && xrayVersion ? (
-                    <Text style={styles.coreVersion}> Â· {xrayVersion}</Text>
+                    <Text style={styles.coreVersion}> · {xrayVersion}</Text>
                   ) : null}
                   {versions[c.key] ? (
-                    <Text style={styles.coreVersion}> Â· {versions[c.key]}</Text>
+                    <Text style={styles.coreVersion}> · {versions[c.key]}</Text>
                   ) : null}
                 </Text>
                 <Text style={styles.coreNote}>
                   {c.file
                     ? downloaded[c.file]
-                      ? "ÑƒÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾"
-                      : `Ð½Ðµ ÑƒÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ Â· ~${c.mb} ÐœÐ‘`
+                      ? "установлено"
+                      : `не установлено · ~${c.mb} МБ`
                     : c.note}
                 </Text>
                 {busy && (
@@ -391,7 +391,7 @@ export default function SettingsScreen() {
                   hitSlop={6}
                   onPress={() => setConfirmCore(c)}
                 >
-                  <Text style={styles.downloadBtnText}>â†“</Text>
+                  <Text style={styles.downloadBtnText}>↓</Text>
                 </PressableScale>
               )}
               {busy && <Text style={styles.progressPct}>{pct}%</Text>}
@@ -400,40 +400,40 @@ export default function SettingsScreen() {
           );
         })}
         <Text style={styles.hint}>
-          Xray Ð²ÑÑ‚Ñ€Ð¾ÐµÐ½ Ð² Ð¿Ñ€Ð¸Ð»Ð¾Ð¶ÐµÐ½Ð¸Ðµ. Sing-box Ð¸ Mihomo Ð´Ð¾ÐºÐ°Ñ‡Ð¸Ð²Ð°ÑŽÑ‚ÑÑ Ñ GitHub Ð¿Ñ€Ð¸ Ð¿ÐµÑ€Ð²Ð¾Ð¼ Ð¸ÑÐ¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ð½Ð¸Ð¸.
+          Xray встроен в приложение. Sing-box и Mihomo докачиваются с GitHub при первом использовании.
         </Text>
       </Card>
 
       <Card>
-        <Row label="Ð’ÐµÑ€ÑÐ¸Ñ Ð¿Ñ€Ð¸Ð»Ð¾Ð¶ÐµÐ½Ð¸Ñ" value={`${Application.nativeApplicationVersion || "?"} (${Application.nativeBuildVersion || "?"})`} />
-        {!!xrayVersion && <Row label="Ð¯Ð´Ñ€Ð¾ Xray" value={xrayVersion} />}
+        <Row label="Версия приложения" value={`${Application.nativeApplicationVersion || "?"} (${Application.nativeBuildVersion || "?"})`} />
+        {!!xrayVersion && <Row label="Ядро Xray" value={xrayVersion} />}
       </Card>
 
-      {/* Ð¡Ñ‚Ð¸Ð»Ð¸Ð·Ð¾Ð²Ð°Ð½Ð½Ð¾Ðµ Ð¿Ð¾Ð´Ñ‚Ð²ÐµÑ€Ð¶Ð´ÐµÐ½Ð¸Ðµ Ð·Ð°Ð³Ñ€ÑƒÐ·ÐºÐ¸ ÑÐ´Ñ€Ð° */}
+      {/* Стилизованное подтверждение загрузки ядра */}
       <Modal visible={!!confirmCore} transparent animationType="fade" onRequestClose={() => setConfirmCore(null)}>
         <PressableScale style={styles.modalBackdrop} onPress={() => setConfirmCore(null)}>
           <PressableScale style={styles.modalCard} onPress={() => {}}>
             <View style={styles.modalIcon}>
-              <Text style={{ fontSize: 30 }}>â¬‡ï¸</Text>
+              <Text style={{ fontSize: 30 }}>⬇️</Text>
             </View>
             <Text style={styles.modalTitle}>
-              Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ ÑÐ´Ñ€Ð¾ {confirmCore?.label}
+              Скачать ядро {confirmCore?.label}
             </Text>
             <Text style={styles.modalText}>
-              Ð¯Ð´Ñ€Ð¾ Ð±ÑƒÐ´ÐµÑ‚ ÑÐºÐ°Ñ‡Ð°Ð½Ð¾ Ñ GitHub Ð¸ ÑƒÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½Ð¾ Ð² Ð¿Ð°Ð¼ÑÑ‚ÑŒ Ð¿Ñ€Ð¸Ð»Ð¾Ð¶ÐµÐ½Ð¸Ñ.
+              Ядро будет скачано с GitHub и установлено в память приложения.
             </Text>
             <View style={styles.modalSizeBadge}>
-              <Text style={styles.modalSizeText}>â‰ˆ {confirmCore?.mb} ÐœÐ‘ Ð½Ð° ÑƒÑÑ‚Ñ€Ð¾Ð¹ÑÑ‚Ð²Ðµ</Text>
+              <Text style={styles.modalSizeText}>≈ {confirmCore?.mb} МБ на устройстве</Text>
             </View>
             <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
               <View style={{ flex: 1 }}>
                 <PressableScale style={styles.modalBtnGhost} onPress={() => setConfirmCore(null)}>
-                  <Text style={styles.modalBtnGhostText}>ÐžÑ‚Ð¼ÐµÐ½Ð°</Text>
+                  <Text style={styles.modalBtnGhostText}>Отмена</Text>
                 </PressableScale>
               </View>
               <View style={{ flex: 1 }}>
                 <PressableScale style={styles.modalBtnPrimary} onPress={() => confirmCore && startDownload(confirmCore)}>
-                  <Text style={styles.modalBtnPrimaryText}>Ð¡ÐºÐ°Ñ‡Ð°Ñ‚ÑŒ</Text>
+                  <Text style={styles.modalBtnPrimaryText}>Скачать</Text>
                 </PressableScale>
               </View>
             </View>
@@ -445,7 +445,7 @@ export default function SettingsScreen() {
 }
 
 function AlertFallback(msg: string) {
-  // Ð¿Ñ€Ð¾ÑÑ‚Ð°Ñ Ð·Ð°Ð³Ð»ÑƒÑˆÐºÐ° Ð¾ÑˆÐ¸Ð±ÐºÐ¸ Ñ‡ÐµÑ€ÐµÐ· ÐºÐ¾Ð½ÑÐ¾Ð»ÑŒ â€” Ð¾ÑˆÐ¸Ð±ÐºÐ¸ Ð·Ð°Ð³Ñ€ÑƒÐ·ÐºÐ¸ Ð¿Ð¾ÐºÐ°Ð·Ñ‹Ð²Ð°ÑŽÑ‚ÑÑ Ð² UI Ð¿Ñ€Ð¾Ð³Ñ€ÐµÑÑÐ°
+  // простая заглушка ошибки через консоль — ошибки загрузки показываются в UI прогресса
   console.warn("core download:", msg);
 }
 
