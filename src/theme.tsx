@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
-import { getThemeName, getSetting } from "./settings";
+import { getThemeName, getThemeMode, getSetting } from "./settings";
 
 export type ThemeName =
+  | "standard"
+  | "standardOld"
   | "auto"
   | "default"
   | "dark"
@@ -13,6 +15,82 @@ export type ThemeName =
   | "foxcloud"
   | "pickme"
   | "happ";
+
+/** Стандартная тема (тёмный вариант) — глубокие фиолетово-чёрные поверхности, как во Flutter-версии */
+const standardDarkColors = {
+  bg: "#0D0B14",
+  bgSoft: "#12101E",
+  card: "#1A1025",
+  cardLight: "#1E1735",
+  border: "#3D2D5C",
+  text: "#FFFFFF",
+  textDim: "#BBBBBB",
+  textFaint: "#8A80A0",
+  accent: "#8B5CF6",
+  accentDeep: "#6D28D9",
+  accentSoft: "rgba(139,92,246,0.18)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#6D28D9", "#8B5CF6"] as const,
+};
+
+/** Стандартная тема (светлый вариант) — белые поверхности, фиолетовый акцент */
+const standardLightColors = {
+  bg: "#FFFFFF",
+  bgSoft: "#F5F5F5",
+  card: "#F0F0F0",
+  cardLight: "#EAEAEA",
+  border: "#E0E0E0",
+  text: "#000000",
+  textDim: "#444444",
+  textFaint: "#777777",
+  accent: "#8B5CF6",
+  accentDeep: "#6D28D9",
+  accentSoft: "rgba(139,92,246,0.10)",
+  green: "#059669",
+  red: "#DC2626",
+  orange: "#D97706",
+  gradient: ["#6D28D9", "#8B5CF6"] as const,
+};
+
+/** Стандартная (old) — нейтральная Material 3 палитра из seed, тёмный вариант */
+const standardOldDarkColors = {
+  bg: "#141218",
+  bgSoft: "#1D1B20",
+  card: "#211F26",
+  cardLight: "#2B2930",
+  border: "#36343B",
+  text: "#E6E0E9",
+  textDim: "#CAC4D0",
+  textFaint: "#938F99",
+  accent: "#D0BCFF",
+  accentDeep: "#4F378B",
+  accentSoft: "rgba(208,188,255,0.16)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#6750A4", "#D0BCFF"] as const,
+};
+
+/** Стандартная (old) — нейтральная Material 3 палитра из seed, светлый вариант */
+const standardOldLightColors = {
+  bg: "#FEF7FF",
+  bgSoft: "#F7F2FA",
+  card: "#F3EDF7",
+  cardLight: "#ECE6F0",
+  border: "#E6E0E9",
+  text: "#1D1B20",
+  textDim: "#49454F",
+  textFaint: "#79747E",
+  accent: "#6750A4",
+  accentDeep: "#4F378B",
+  accentSoft: "rgba(103,80,164,0.10)",
+  green: "#059669",
+  red: "#DC2626",
+  orange: "#D97706",
+  gradient: ["#4F378B", "#6750A4"] as const,
+};
 
 /** Основная тема — фирменная тёмная с фиолетовым акцентом */
 const defaultColors = {
@@ -202,7 +280,20 @@ type Palette = {
   gradient: readonly [string, string];
 };
 
-const PALETTES: Record<Exclude<ThemeName, "auto">, Palette> = {
+/** Ключи внутренних палитр: day/night-варианты стандартных тем + остальные темы списка.
+ *  standard/standardOld резолвятся в свои day/night-варианты и собственной палитры не имеют. */
+type PaletteKey =
+  | "standardDark"
+  | "standardLight"
+  | "standardOldDark"
+  | "standardOldLight"
+  | Exclude<ThemeName, "auto" | "standard" | "standardOld">;
+
+const PALETTES: Record<PaletteKey, Palette> = {
+  standardDark: standardDarkColors,
+  standardLight: standardLightColors,
+  standardOldDark: standardOldDarkColors,
+  standardOldLight: standardOldLightColors,
   default: defaultColors,
   dark: darkColors,
   light: lightColors,
@@ -233,8 +324,22 @@ function storedTheme(): ThemeName {
   return getThemeName();
 }
 
-function resolveTheme(name: ThemeName): Exclude<ThemeName, "auto"> {
+/** Резолвит имя темы в конкретную палитру.
+ *  standard/standardOld выбирают светлую или тёмную палитру по режиму (авто — по времени суток). */
+function resolveTheme(name: ThemeName): PaletteKey {
+  if (name === "standard" || name === "standardOld") {
+    const mode = getThemeMode();
+    const light =
+      mode === "light" || (mode !== "dark" && resolveAutoTheme() === "light");
+    if (name === "standard") return light ? "standardLight" : "standardDark";
+    return light ? "standardOldLight" : "standardOldDark";
+  }
   return name === "auto" ? resolveAutoTheme() : name;
+}
+
+/** Тема использует режим день/ночь */
+export function themeUsesMode(name: ThemeName): boolean {
+  return name === "standard" || name === "standardOld";
 }
 
 export const colors: any = { ...PALETTES[resolveTheme(storedTheme())] };
@@ -245,6 +350,8 @@ export function applyTheme(name: ThemeName) {
 }
 
 export const THEME_LABELS: Record<ThemeName, string> = {
+  standard: "Стандартная",
+  standardOld: "Стандартная (old)",
   auto: "Авто",
   default: "Основная",
   dark: "Тёмная",
@@ -257,8 +364,10 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   happ: "Happ",
 };
 
-/** Порядок тем в списке выбора — как во Flutter-версии */
+/** Порядок тем в списке выбора — перенесённые стили идут первыми */
 export const THEME_ORDER: ThemeName[] = [
+  "standard",
+  "standardOld",
   "auto",
   "default",
   "dark",
@@ -273,8 +382,13 @@ export const THEME_ORDER: ThemeName[] = [
 
 /** Светлые темы (для авто-переключения и подбора иконки) */
 export function isLightTheme(name: ThemeName): boolean {
-  if (name === "light" || name === "happ") return true;
-  return false;
+  const resolved = resolveTheme(name);
+  return (
+    resolved === "light" ||
+    resolved === "happ" ||
+    resolved === "standardLight" ||
+    resolved === "standardOldLight"
+  );
 }
 
 // ─── Контекст темы: подписка экранов на перерисовку при смене темы ───
@@ -300,11 +414,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setState((s) => ({ name, version: s.version + 1 }));
   };
 
-  // Авто-тема: переоцениваем при возврате в приложение и раз в минуту
+  // Авто-режим (тема «Авто» или стандартные темы в режиме «Авто»):
+  // переоцениваем при возврате в приложение и раз в минуту
   useEffect(() => {
-    if (state.name !== "auto") return;
+    const auto = state.name === "auto" || themeUsesMode(state.name);
+    if (!auto) return;
     const reapply = () => {
-      applyTheme("auto");
+      applyTheme(state.name);
       setState((prev) => ({ name: prev.name, version: prev.version + 1 }));
     };
     const sub = AppState.addEventListener("change", (s) => {

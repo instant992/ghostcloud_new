@@ -14,6 +14,12 @@ class XrayCoreModule : Module() {
   private val context
     get() = requireNotNull(appContext.reactContext)
 
+  // Алиасы иконки лаунчера: ключ -> имя activity-alias
+  private val launcherAliases = mapOf(
+    "ghostcloud" to ".DEFAULT",
+    "ghostvpn" to ".icon_ghostvpn"
+  )
+
   override fun definition() = ModuleDefinition {
     Name("XrayCore")
 
@@ -126,6 +132,56 @@ class XrayCoreModule : Module() {
     Function("setSetting") { key: String, value: String ->
       val prefs = context.getSharedPreferences("gc_settings", android.content.Context.MODE_PRIVATE)
       prefs.edit().putString(key, value).apply()
+    }
+
+    // ---- Смена иконки лаунчера (activity-alias) ----
+
+    Function("getLauncherIcon") {
+      val pm = context.packageManager
+      val pkg = context.packageName
+      for ((key, alias) in launcherAliases) {
+        val cn = android.content.ComponentName(pkg, "$pkg$alias")
+        val state = pm.getComponentEnabledSetting(cn)
+        if (state == android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+          return@Function key
+        }
+      }
+      "ghostcloud"
+    }
+
+    Function("setLauncherIcon") { key: String ->
+      val target = launcherAliases[key] ?: throw IllegalStateException("Неизвестная иконка: $key")
+      val pm = context.packageManager
+      val pkg = context.packageName
+      for ((aliasKey, alias) in launcherAliases) {
+        val cn = android.content.ComponentName(pkg, "$pkg$alias")
+        val newState = if (aliasKey == key)
+          android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        else
+          android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        pm.setComponentEnabledSetting(
+          cn,
+          newState,
+          android.content.pm.PackageManager.DONT_KILL_APP
+        )
+      }
+      true
+    }
+
+    // Перезапуск процесса: лаунчеры подхватывают новый alias только у нового процесса
+    Function("restartApp") {
+      val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+      mainHandler.postDelayed({
+        try {
+          val pm = context.packageManager
+          val intent = pm.getLaunchIntentForPackage(context.packageName)
+          intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+          if (intent != null) context.startActivity(intent)
+        } catch (_: Throwable) {
+        }
+        Runtime.getRuntime().exit(0)
+      }, 350L)
+      true
     }
 
     // ---- Внешние ядра (sing-box) ----

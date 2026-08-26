@@ -10,6 +10,8 @@ if (Platform.OS === "android") {
 }
 
 export type ThemeName =
+  | "standard"
+  | "standardOld"
   | "auto"
   | "default"
   | "dark"
@@ -21,6 +23,8 @@ export type ThemeName =
   | "pickme"
   | "happ";
 export type CoreName = "xray" | "sing-box" | "mihomo";
+/** Режим день/ночь — действует для тем standard и standardOld */
+export type ThemeMode = "auto" | "light" | "dark";
 
 export function getSetting(key: string, fallback: string): string {
   try {
@@ -38,6 +42,8 @@ export function setSetting(key: string, value: string) {
 }
 
 const THEME_NAMES: ThemeName[] = [
+  "standard",
+  "standardOld",
   "auto",
   "default",
   "dark",
@@ -51,8 +57,19 @@ const THEME_NAMES: ThemeName[] = [
 ];
 
 export function getThemeName(): ThemeName {
-  const v = getSetting("theme", "default");
-  return (THEME_NAMES as string[]).includes(v) ? (v as ThemeName) : "default";
+  const v = getSetting("theme", "standard");
+  return (THEME_NAMES as string[]).includes(v) ? (v as ThemeName) : "standard";
+}
+
+const THEME_MODES: ThemeMode[] = ["auto", "light", "dark"];
+
+export function getThemeMode(): ThemeMode {
+  const v = getSetting("theme_mode", "auto");
+  return (THEME_MODES as string[]).includes(v) ? (v as ThemeMode) : "auto";
+}
+
+export function setThemeMode(mode: ThemeMode) {
+  setSetting("theme_mode", mode);
 }
 
 export function getSelectedCore(): CoreName {

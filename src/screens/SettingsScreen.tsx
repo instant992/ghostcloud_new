@@ -1,12 +1,30 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
 import { Card, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
-import { colors, THEME_LABELS, THEME_ORDER, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
-import { getSelectedCore, getSetting, getThemeName, setSetting, type CoreName } from "../settings";
+import {
+  colors,
+  THEME_LABELS,
+  THEME_ORDER,
+  themeUsesMode,
+  useTheme,
+  useThemeSwitcher,
+  type ThemeName,
+} from "../theme";
+import {
+  getSelectedCore,
+  getSetting,
+  getThemeMode,
+  getThemeName,
+  setSetting,
+  setThemeMode,
+  type CoreName,
+  type ThemeMode,
+} from "../settings";
+import { getLauncherIcon, restartApp, setLauncherIcon, type AppIcon } from "../appIcon";
 import {
   downloadCore,
   getCpuAbi,
@@ -82,11 +100,18 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
   }
 }
 
+const ICONS: Array<{ key: AppIcon; label: string; source: any }> = [
+  { key: "ghostcloud", label: "GhostCloud", source: require("../../assets/icon.png") },
+  { key: "ghostvpn", label: "GhostVPN", source: require("../../assets/ghostvpn-icon.png") },
+];
+
 export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
   const [theme, setTheme] = useState<ThemeName>(getThemeName());
+  const [mode, setMode] = useState<ThemeMode>(getThemeMode());
+  const [appIcon, setAppIcon] = useState<AppIcon>(getLauncherIcon());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
   const [xrayVersion, setXrayVersion] = useState("");
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
@@ -119,6 +144,41 @@ export default function SettingsScreen() {
     setTheme(next);
     setSetting("theme", next);
     switchTheme(next);
+  };
+
+  const changeMode = (next: ThemeMode) => {
+    setMode(next);
+    setThemeMode(next);
+    switchTheme(theme); // перерисовать с учётом нового режима
+  };
+
+  const changeAppIcon = (next: AppIcon) => {
+    if (next === appIcon) return;
+    Alert.alert(
+      "Смена иконки",
+      next === "ghostvpn"
+        ? "Иконка GhostVPN будет установлена. Приложение перезапустится."
+        : "Стандартная иконка GhostCloud будет восстановлена. Приложение перезапустится.",
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: "Применить",
+          onPress: () => {
+            if (!setLauncherIcon(next)) {
+              Alert.alert("Ошибка", "Не удалось сменить иконку");
+              return;
+            }
+            setAppIcon(next);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            Alert.alert(
+              "Иконка применена",
+              "Лаунчер обновит иконку после перезапуска приложения.",
+              [{ text: "Перезапустить", onPress: () => restartApp() }]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const changeCore = (next: CoreName) => {
@@ -170,7 +230,39 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-down" size={16} color={colors.textDim} />
         </PressableScale>
 
-        {theme === "auto" && (
+        {themeUsesMode(theme) && (
+          <View style={styles.modeRow}>
+            {(
+              [
+                { key: "auto", label: "Авто", icon: "time-outline" },
+                { key: "light", label: "Светлая", icon: "sunny-outline" },
+                { key: "dark", label: "Тёмная", icon: "moon-outline" },
+              ] as Array<{ key: ThemeMode; label: string; icon: any }>
+            ).map((m) => (
+              <PressableScale
+                key={m.key}
+                style={[styles.modeBtn, mode === m.key && styles.modeBtnOn]}
+                onPress={() => changeMode(m.key)}
+              >
+                <Ionicons
+                  name={m.icon}
+                  size={15}
+                  color={mode === m.key ? colors.accent : colors.textDim}
+                />
+                <Text
+                  style={[
+                    styles.modeBtnText,
+                    { color: mode === m.key ? colors.accent : colors.textDim },
+                  ]}
+                >
+                  {m.label}
+                </Text>
+              </PressableScale>
+            ))}
+          </View>
+        )}
+
+        {(theme === "auto" || (themeUsesMode(theme) && mode === "auto")) && (
           <View style={styles.autoRow}>
             <Text style={styles.autoLabel}>Светлая с</Text>
             <TextInput
@@ -195,9 +287,11 @@ export default function SettingsScreen() {
           </View>
         )}
         <Text style={styles.hint}>
-          {theme === "auto"
+          {theme === "auto" || (themeUsesMode(theme) && mode === "auto")
             ? "Светлая тема включается автоматически в выбранное время"
-            : "Тема применяется сразу, без перезагрузки"}
+            : themeUsesMode(theme)
+              ? "Стандартная тема поддерживает светлый и тёмный варианты"
+              : "Тема применяется сразу, без перезагрузки"}
         </Text>
 
         <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
@@ -223,6 +317,33 @@ export default function SettingsScreen() {
             </PressableScale>
           </PressableScale>
         </Modal>
+      </Card>
+
+      <Card>
+        <Text style={styles.sectionTitle}>Иконка на рабочем столе</Text>
+        <View style={styles.iconRow}>
+          {ICONS.map((ic) => {
+            const active = appIcon === ic.key;
+            return (
+              <PressableScale
+                key={ic.key}
+                style={[styles.iconChoice, active && styles.iconChoiceOn]}
+                onPress={() => changeAppIcon(ic.key)}
+              >
+                <Image source={ic.source} style={styles.iconPreview} resizeMode="contain" />
+                <Text
+                  style={[styles.iconChoiceText, { color: active ? colors.accent : colors.text }]}
+                >
+                  {ic.label}
+                </Text>
+                <View style={[styles.radio, active && styles.radioOn]} />
+              </PressableScale>
+            );
+          })}
+        </View>
+        <Text style={styles.hint}>
+          На некоторых оболочках иконка обновится после возврата на главный экран.
+        </Text>
       </Card>
 
       <Card>
@@ -328,6 +449,8 @@ function AlertFallback(msg: string) {
 
 function themeIcon(t: ThemeName): any {
   switch (t) {
+    case "standard": return "sparkles-outline";
+    case "standardOld": return "palette-outline" as any;
     case "auto": return "time-outline";
     case "light": return "sunny-outline";
     case "dark": return "moon-outline";
@@ -399,6 +522,59 @@ const makeStyles = () => StyleSheet.create({
     flex: 1,
     fontWeight: "600",
     fontSize: 15,
+  },
+  modeRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+  modeBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.bgSoft,
+  },
+  modeBtnOn: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  modeBtnText: {
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  iconRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  iconChoice: {
+    flex: 1,
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.bgSoft,
+  },
+  iconChoiceOn: {
+    borderColor: colors.accent,
+    backgroundColor: colors.accentSoft,
+  },
+  iconPreview: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+  },
+  iconChoiceText: {
+    fontWeight: "700",
+    fontSize: 13,
   },
   autoRow: {
     flexDirection: "row",
