@@ -107,6 +107,41 @@ const ICONS: Array<{ key: AppIcon; label: string; source: any }> = [
   { key: "ghostvpn", label: "GhostVPN", source: require("../../assets/ghostvpn-icon.png") },
 ];
 
+/** PNG-иконки тем из Flutter-версии (assets/images/icons/sponsor) */
+const THEME_IMAGES: Partial<Record<ThemeName, any>> = {
+  standard: require("../../assets/theme-icons/default.png"),
+  auto: require("../../assets/theme-icons/default.png"),
+  default: require("../../assets/theme-icons/default.png"),
+  dark: require("../../assets/theme-icons/default.png"),
+  light: require("../../assets/theme-icons/default.png"),
+  minimalist: require("../../assets/theme-icons/minimal.png"),
+  glass: require("../../assets/theme-icons/liquid.png"),
+  pickme: require("../../assets/theme-icons/cute.png"),
+  v2ray: require("../../assets/theme-icons/v2rayng.png"),
+  happ: require("../../assets/theme-icons/happ.png"),
+};
+
+function ThemeIcon({ t, active }: { t: ThemeName; active: boolean }) {
+  const img = THEME_IMAGES[t];
+  if (img) {
+    return (
+      <View
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 8,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: active ? withAlpha(colors.accent, 0.15) : withAlpha(colors.text, 0.06),
+        }}
+      >
+        <Image source={img} style={{ width: 18, height: 18 }} resizeMode="contain" />
+      </View>
+    );
+  }
+  return <Ionicons name={themeIcon(t)} size={18} color={active ? colors.accent : colors.textDim} />;
+}
+
 export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
@@ -223,11 +258,7 @@ export default function SettingsScreen() {
       <Card>
         <Text style={styles.sectionTitle}>Тема оформления</Text>
         <PressableScale style={styles.dropdown} onPress={() => setThemeOpen(true)}>
-          <Ionicons
-            name={themeIcon(theme)}
-            size={18}
-            color={colors.accent}
-          />
+          <ThemeIcon t={theme} active />
           <Text style={[styles.dropdownText, { color: colors.text }]}>{THEME_LABELS[theme]}</Text>
           <Ionicons name="chevron-down" size={16} color={colors.textDim} />
         </PressableScale>
@@ -309,7 +340,7 @@ export default function SettingsScreen() {
                     setThemeOpen(false);
                   }}
                 >
-                  <Ionicons name={themeIcon(t)} size={18} color={theme === t ? colors.accent : colors.textDim} />
+                  <ThemeIcon t={t} active={theme === t} />
                   <Text style={[styles.themeOptionText, { color: theme === t ? colors.accent : colors.text }]}>
                     {THEME_LABELS[t]}
                   </Text>
@@ -452,7 +483,6 @@ function AlertFallback(msg: string) {
 function themeIcon(t: ThemeName): any {
   switch (t) {
     case "standard": return "sparkles-outline";
-    case "standardOld": return "palette-outline" as any;
     case "auto": return "time-outline";
     case "light": return "sunny-outline";
     case "dark": return "moon-outline";

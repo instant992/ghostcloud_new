@@ -22,6 +22,31 @@ export type AppInfo = {
   system: boolean;
 };
 
+export type AppTrafficEntry = {
+  packageName: string;
+  appName: string;
+  uid: number;
+  rx: number;
+  tx: number;
+};
+
+/** Фиксирует базовые счётчики трафика по UID (вызывается при подключении VPN) */
+export function resetAppTraffic(): void {
+  try {
+    XrayNative?.resetAppTraffic();
+  } catch {}
+}
+
+/** Трафик приложений с момента последнего resetAppTraffic */
+export async function getAppTraffic(): Promise<AppTrafficEntry[] | null> {
+  try {
+    const r = await XrayNative?.getAppTraffic();
+    return Array.isArray(r) ? r : null;
+  } catch {
+    return null;
+  }
+}
+
 const emitter: any = XrayNative ? new EventEmitter(XrayNative) : null;
 
 export function onCoreDownloadProgress(

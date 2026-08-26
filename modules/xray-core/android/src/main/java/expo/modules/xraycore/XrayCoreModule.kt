@@ -20,6 +20,9 @@ class XrayCoreModule : Module() {
     "ghostvpn" to ".icon_ghostvpn"
   )
 
+  // Базовые счётчики трафика по UID (зафиксированы при подключении VPN)
+  private val appTrafficBaseline = java.util.concurrent.ConcurrentHashMap<Int, LongArray>()
+
   override fun definition() = ModuleDefinition {
     Name("XrayCore")
 
@@ -166,6 +169,54 @@ class XrayCoreModule : Module() {
         )
       }
       true
+    }
+
+    // ---- Трафик по приложениям (с момента последнего resetAppTraffic) ----
+
+    Function("resetAppTraffic") {
+      val pm = context.packageManager
+      for (app in pm.getInstalledPackages(0)) {
+        val ai = app.applicationInfo ?: continue
+        val uid = ai.uid
+        appTrafficBaseline[uid] = longArrayOf(
+          android.net.TrafficStats.getUidRxBytes(uid),
+          android.net.TrafficStats.getUidTxBytes(uid)
+        )
+      }
+      true
+    }
+
+    AsyncFunction("getAppTraffic") { promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-app-traffic") {
+        try {
+          val pm = context.packageManager
+          val out = mutableListOf<Map<String, Any>>()
+          for (app in pm.getInstalledPackages(0)) {
+            val ai = app.applicationInfo ?: continue
+            val uid = ai.uid
+            val rx = android.net.TrafficStats.getUidRxBytes(uid)
+            val tx = android.net.TrafficStats.getUidTxBytes(uid)
+            if (rx <= 0 && tx <= 0) continue
+            val base = appTrafficBaseline[uid]
+            val drx = if (base != null) (rx - base[0]).coerceAtLeast(0L) else 0L
+            val dtx = if (base != null) (tx - base[1]).coerceAtLeast(0L) else 0L
+            if (drx <= 0 && dtx <= 0) continue
+            out.add(
+              mapOf(
+                "packageName" to app.packageName,
+                "appName" to (ai.loadLabel(pm)?.toString() ?: app.packageName),
+                "uid" to uid,
+                "rx" to drx,
+                "tx" to dtx
+              )
+            )
+          }
+          out.sortByDescending { (it["rx"] as Long) + (it["tx"] as Long) }
+          promise.resolve(out.take(50))
+        } catch (e: Throwable) {
+          promise.reject("ERR_APP_TRAFFIC", e.message ?: "Ошибка получения трафика", e)
+        }
+      }
     }
 
     // Перезапуск процесса: лаунчеры подхватывают новый alias только у нового процесса

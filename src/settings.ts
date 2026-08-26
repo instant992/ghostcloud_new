@@ -11,7 +11,6 @@ if (Platform.OS === "android") {
 
 export type ThemeName =
   | "standard"
-  | "standardOld"
   | "auto"
   | "default"
   | "dark"
@@ -23,7 +22,7 @@ export type ThemeName =
   | "pickme"
   | "happ";
 export type CoreName = "xray" | "sing-box" | "mihomo";
-/** Режим день/ночь — действует для тем standard и standardOld */
+/** Режим день/ночь — действует для тем standard, happ и v2ray */
 export type ThemeMode = "auto" | "light" | "dark";
 
 export function getSetting(key: string, fallback: string): string {
@@ -43,7 +42,6 @@ export function setSetting(key: string, value: string) {
 
 const THEME_NAMES: ThemeName[] = [
   "standard",
-  "standardOld",
   "auto",
   "default",
   "dark",

@@ -1,11 +1,12 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
-import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, withAlpha } from "../theme";
 import * as stats from "../stats";
+import { getAppTraffic, type AppTrafficEntry } from "../vpn/native";
 
 type Period = 1 | 7 | 30;
 
@@ -13,11 +14,28 @@ export default function StatsScreen() {
   useTheme();
   const styles = makeStyles();
 
-  const { nodes } = useApp();
+  const { nodes, vpnRunning } = useApp();
   const [period, setPeriod] = useState<Period>(1);
   const [total, setTotal] = useState<stats.DayStat>({ rx: 0, tx: 0 });
   const [chart, setChart] = useState<Array<{ date: string; stat: stats.DayStat }>>([]);
   const [byNode, setByNode] = useState<Array<{ nodeId: string; rx: number; tx: number }>>([]);
+  const [appTraffic, setAppTraffic] = useState<AppTrafficEntry[] | null>(null);
+
+  // Трафик по приложениям — опрос каждые 10 секунд
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      getAppTraffic().then((r) => {
+        if (alive) setAppTraffic(r);
+      });
+    };
+    load();
+    const t = setInterval(load, 10000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -134,8 +152,68 @@ export default function StatsScreen() {
         )}
       </View>
 
+      <Text style={styles.chartTitle}>Трафик по приложениям</Text>
+      <View style={styles.chartCard}>
+        {appTraffic === null ? (
+          <Text style={{ color: colors.textFaint, fontSize: 13, textAlign: "center", paddingVertical: 10 }}>
+            Недоступно на этом устройстве
+          </Text>
+        ) : appTraffic.length === 0 ? (
+          <Text style={{ color: colors.textFaint, fontSize: 13, textAlign: "center", paddingVertical: 10 }}>
+            {vpnRunning
+              ? "Данные появятся через несколько секунд после подключения"
+              : "Подключитесь к VPN — счётчики зафиксируются с момента подключения"}
+          </Text>
+        ) : (
+          (() => {
+            const maxApp = Math.max(...appTraffic.map((a) => a.rx + a.tx), 1);
+            return appTraffic.slice(0, 20).map((a) => {
+              const sum = a.rx + a.tx;
+              const share = sum / maxApp;
+              const letter = (a.appName[0] || "?").toUpperCase();
+              return (
+                <View key={a.packageName} style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <View
+                      style={{
+                        width: 30,
+                        height: 30,
+                        borderRadius: 15,
+                        backgroundColor: colors.accentSoft,
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "800" }}>{letter}</Text>
+                    </View>
+                    <Text
+                      style={{ color: colors.text, fontSize: 13, fontWeight: "600", flex: 1 }}
+                      numberOfLines={1}
+                    >
+                      {a.appName}
+                    </Text>
+                    <Text style={{ color: colors.textDim, fontSize: 12 }}>{formatBytes(sum)}</Text>
+                  </View>
+                  <View style={[styles.progressBg, { marginLeft: 40, marginTop: 5 }]}>
+                    <View
+                      style={[
+                        styles.progressBar,
+                        { width: `${Math.max(3, Math.round(share * 100))}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={{ color: colors.textFaint, fontSize: 9, marginTop: 3, marginLeft: 40 }}>
+                    ↓ {formatBytes(a.rx)} · ↑ {formatBytes(a.tx)}
+                  </Text>
+                </View>
+              );
+            });
+          })()
+        )}
+      </View>
+
       <Text style={styles.note}>
-        Трафик считается системным счётчиком приложения во время активного VPN-подключения.
+        Трафик по приложениям считается системным счётчиком с момента последнего подключения VPN.
       </Text>
     </Screen>
   );

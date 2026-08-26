@@ -25,12 +25,15 @@ import * as appFilterMod from "../vpn/appFilter";
 import { getInstalledApps, getAppIcon, type AppInfo } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes, isFlutterStyleTheme, withAlpha, useTheme } from "../theme";
+import { colors, splitNameFlag, formatBytes, isFlutterStyleTheme, isHappTheme, isV2rayTheme, withAlpha, useTheme } from "../theme";
 
 export default function HomeScreen() {
   useTheme();
   const styles = makeStyles();
   const fl = isFlutterStyleTheme();
+  const happ = isHappTheme();
+  const v2r = isV2rayTheme();
+  const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
 
   const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes } = useApp();
@@ -172,6 +175,194 @@ export default function HomeScreen() {
     return Math.max(0, Math.ceil((d - Date.now()) / 86400000));
   }, [me]);
 
+  /** Выбор сервера с переподключением на лету */
+  const reconnectTo = async (id: string) => {
+    const node = nodes.find((n) => n.id === id);
+    if (!node || busy) return;
+    selectNode(id);
+    setBusy(true);
+    setError(null);
+    try {
+      if (vpnRunning) {
+        await disconnect();
+        await connect(node);
+        setSeconds(0);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Ошибка переподключения");
+      setVpnRunning(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // ─── Дашборд v2rayNG: синяя полоса + инлайн-список серверов ───
+  if (v2r) {
+    const delayColor = (d?: number) =>
+      d == null ? colors.textDim : d < 120 ? "#16A34A" : d < 260 ? "#F59E0B" : "#EF4444";
+    const totalToday = todayStat.tx + todayStat.rx;
+    return (
+      <View style={styles.screen}>
+        <View style={styles.v2Header}>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={styles.v2Metric}>
+              <Ionicons name="arrow-up" size={18} color="#fff" />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.v2MetricTitle}>Отправлено</Text>
+                <Text style={styles.v2MetricValue}>{formatBytes(todayStat.tx)}</Text>
+              </View>
+            </View>
+            <View style={styles.v2Metric}>
+              <Ionicons name="arrow-down" size={18} color="#fff" />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.v2MetricTitle}>Получено</Text>
+                <Text style={styles.v2MetricValue}>{formatBytes(todayStat.rx)}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={{ alignItems: "center", marginTop: 14 }}>
+            <View style={styles.v2SphereWrap}>
+              <Pressable onPress={toggle} disabled={busy}>
+                <Svg width={150} height={150}>
+                  <Circle cx={75} cy={75} r={74} fill={"#7C3AED"} opacity={connected ? 0.2 : 0.1} />
+                  <Circle cx={75} cy={75} r={70} fill={"#7C3AED"} opacity={connected ? 0.28 : 0.16} />
+                  <Circle
+                    cx={75}
+                    cy={75}
+                    r={64}
+                    fill={connected ? "#22C55E" : "#7C3AED"}
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeWidth={1.5}
+                  />
+                </Svg>
+                <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" }} pointerEvents="none">
+                  <Ionicons name="power" size={48} color="rgba(255,255,255,0.96)" />
+                </View>
+              </Pressable>
+            </View>
+
+            <View style={styles.v2StatusPill}>
+              <View style={[styles.v2Dot, { backgroundColor: connected ? "#22C55E" : "#FFB020" }]} />
+              <Text style={styles.v2StatusText}>
+                {busy ? "Подключение…" : connected ? `Подключено ${formatTimer(seconds)}` : "Нет подключения"}
+              </Text>
+            </View>
+
+            <Text style={styles.v2Brand}>GhostCloud</Text>
+
+            <View style={{ flexDirection: "row", gap: 10, alignSelf: "stretch", paddingHorizontal: 6, marginTop: 12 }}>
+              <View style={styles.v2Chip}>
+                <Ionicons name="analytics" size={16} color="#fff" />
+                <View style={{ marginLeft: 8, flex: 1 }}>
+                  <Text style={styles.v2ChipTitle}>Трафик сегодня</Text>
+                  <Text style={styles.v2ChipValue}>{formatBytes(totalToday)}</Text>
+                </View>
+              </View>
+              <View style={styles.v2Chip}>
+                <Ionicons name="calendar" size={16} color="#fff" />
+                <View style={{ marginLeft: 8, flex: 1 }}>
+                  <Text style={styles.v2ChipTitle}>Действует</Text>
+                  <Text style={styles.v2ChipValue}>{daysLeft} дн.</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.v2SectionHead}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.v2SectionTitle}>Серверы</Text>
+            <Text style={styles.v2SectionCount}>{nodes.length} доступно</Text>
+          </View>
+          <PressableScale style={styles.v2CircleBtn} onPress={refreshNodes} disabled={refreshingNodes}>
+            {refreshingNodes ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Ionicons name="sync" size={19} color={colors.accent} />
+            )}
+          </PressableScale>
+          <PressableScale style={styles.v2CircleBtn} onPress={() => pingStore.pingAll(nodes)}>
+            <Ionicons name="speedometer" size={19} color={colors.accent} />
+          </PressableScale>
+        </View>
+
+        <View style={styles.v2ListCard}>
+          <FlatList
+            data={nodes}
+            keyExtractor={(n: any) => n.id}
+            initialNumToRender={12}
+            renderItem={({ item }: any) => {
+              const info = splitNameFlag(item.name);
+              const selected = item.id === (selectedNodeId || nodes[0]?.id);
+              const ping = pings[item.id];
+              return (
+                <PressableScale style={styles.v2Tile} onPress={() => reconnectTo(item.id)}>
+                  {selected ? (
+                    <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+                  ) : (
+                    <Text style={{ fontSize: 19, width: 26, textAlign: "center" }}>{info.flag}</Text>
+                  )}
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <MarqueeText
+                      text={info.name}
+                      style={[styles.v2TileName, selected && { color: colors.accent, fontWeight: "800" }]}
+                    />
+                    <Text style={styles.v2TileSub} numberOfLines={1}>
+                      {transportLabel(item)}
+                    </Text>
+                  </View>
+                  {ping?.status === "pending" && <ActivityIndicator size="small" color={colors.accent} />}
+                  {ping?.status === "done" && !ping.error && (
+                    <View style={[styles.v2DelayPill, { backgroundColor: withAlpha(delayColor(ping.delay), 0.12) }]}>
+                      <Text style={{ color: delayColor(ping.delay), fontSize: 11, fontWeight: "800" }}>
+                        {ping.delay} мс
+                      </Text>
+                    </View>
+                  )}
+                </PressableScale>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={{ alignItems: "center", paddingVertical: 26, gap: 8 }}>
+                <Ionicons name="server-outline" size={40} color={colors.textFaint} />
+                <Text style={{ color: colors.textFaint }}>Серверы не найдены — обновите подписку</Text>
+              </View>
+            }
+          />
+        </View>
+
+        <PressableScale style={[styles.appsRowCard, fl && styles.serverCardFl]} onPress={() => setAppsOpen(true)}>
+          <View style={[styles.serverIcon, fl && styles.serverIconFl]}>
+            <Ionicons name="apps" size={20} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.serverName}>Приложения</Text>
+            <Text style={styles.serverSub} numberOfLines={1}>
+              {allowedCount > 0
+                ? `Через VPN: ${allowedCount} · белый список`
+                : blockedCount > 0
+                  ? `Мимо VPN: ${blockedCount}`
+                  : "Все приложения через VPN"}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={withAlpha(colors.text, 0.3)} />
+        </PressableScale>
+
+        {!!error && <Text style={styles.error}>{error}</Text>}
+
+        <AppFilterModal
+          visible={appsOpen}
+          onClose={() => setAppsOpen(false)}
+          onChange={(allowed, blocked) => {
+            setAllowedCount(allowed.length);
+            setBlockedCount(blocked.length);
+          }}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -217,6 +408,9 @@ export default function HomeScreen() {
       )}
 
       <View style={styles.powerArea}>
+        {happ ? (
+          <HappPowerButton on={connected} busy={busy} onPress={toggle} timer={formatTimer(seconds)} />
+        ) : (
         <PressableScale onPress={toggle} disabled={busy} style={styles.pressable}>
           <Animated.View
             pointerEvents="none"
@@ -289,7 +483,8 @@ export default function HomeScreen() {
             <PowerIcon on={connected} />
           </View>
         </PressableScale>
-        {!fl && !!connected && (
+        )}
+        {!fl && !happ && !!connected && (
           <Text style={styles.timer}>
             {formatTimer(seconds)}
           </Text>
@@ -298,7 +493,7 @@ export default function HomeScreen() {
       </View>
 
       {/* Сервер + приложения — единый блок */}
-      <View style={styles.serverCard}>
+      <View style={[styles.serverCard, happ && styles.neu]}>
         <PressableScale
           style={styles.serverRow}
           onPress={() => setPickerOpen(true)}
@@ -368,18 +563,8 @@ export default function HomeScreen() {
         </PressableScale>
       </View>
 
-      <PressableScale
-        style={[styles.connectPill, busy && { opacity: 0.7 }]}
-        onPress={toggle}
-        disabled={busy}
-      >
-        <Text style={styles.connectPillText}>
-          {busy ? "Подключение…" : connected ? "Отключить" : "Подключить"}
-        </Text>
-      </PressableScale>
-
       <View style={styles.statsRow}>
-        <PressableScale style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+        <PressableScale style={[styles.statCard, happ && styles.neu]} onPress={() => nav.navigate("Статистика")}>
           <View style={[styles.statIcon, { backgroundColor: "rgba(52,211,153,0.12)" }]}>
             <Ionicons name="arrow-up" size={15} color={colors.green} />
           </View>
@@ -388,7 +573,7 @@ export default function HomeScreen() {
             <Text style={styles.statValue}>{formatBytes(todayStat.tx)}</Text>
           </View>
         </PressableScale>
-        <PressableScale style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+        <PressableScale style={[styles.statCard, happ && styles.neu]} onPress={() => nav.navigate("Статистика")}>
           <View style={[styles.statIcon, { backgroundColor: colors.accentSoft }]}>
             <Ionicons name="arrow-down" size={15} color={colors.accent} />
           </View>
@@ -826,6 +1011,88 @@ function pluralDays(n: number): string {
   return "дней";
 }
 
+/** Happ: неоморфная кнопка-«лунка» 164/112dp с двойными тенями */
+function HappPowerButton({
+  on,
+  busy,
+  onPress,
+  timer,
+}: {
+  on: boolean;
+  busy: boolean;
+  onPress: () => void;
+  timer: string;
+}) {
+  const dark = colors.text === "#FFFFFF";
+  const [pressed, setPressed] = useState(false);
+  const shadowDark = dark ? "rgba(0,0,0,0.38)" : "rgba(144,144,184,0.34)";
+  const shadowLight = dark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.9)";
+  const glow = withAlpha(on ? "#22C55E" : colors.accent, on ? 0.16 : 0.05);
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={{ alignItems: "center", justifyContent: "center", marginTop: 10, opacity: busy ? 0.72 : 1 }}
+    >
+      <View style={{ width: 214, height: 214, alignItems: "center", justifyContent: "center" }}>
+        {/* пульсирующее внешнее кольцо */}
+        <View
+          style={{
+            position: "absolute",
+            width: on ? 208 : 198,
+            height: on ? 208 : 198,
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: withAlpha(on ? "#22C55E" : colors.accent, on ? 0.18 : 0.08),
+          }}
+        />
+        {/* основной круг */}
+        <View
+          style={{
+            width: pressed ? 158 : 164,
+            height: pressed ? 158 : 164,
+            borderRadius: 999,
+            backgroundColor: colors.bg,
+            borderWidth: 1.15,
+            borderColor: dark ? withAlpha("#FFFFFF", 0.08) : withAlpha("#BEB7D8", 0.72),
+            boxShadow: `8px 8px 24px ${shadowDark}, -8px -8px 24px ${shadowLight}, 0px 0px ${on ? 28 : 14}px ${glow}`,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {/* внутренняя лунка */}
+          <View
+            style={{
+              width: 112,
+              height: 112,
+              borderRadius: 56,
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: `4px 4px 13px ${dark ? "rgba(0,0,0,0.32)" : "rgba(144,144,184,0.22)"}, -4px -4px 13px ${shadowLight}`,
+            }}
+          >
+            {on ? (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="power" size={34} color={colors.accent} />
+                <Text style={{ color: withAlpha(colors.text, 0.36), fontSize: 12, marginTop: 2 }}>
+                  Подключено
+                </Text>
+                <Text style={{ color: withAlpha(colors.text, 0.78), fontSize: 13, fontWeight: "600" }}>
+                  {timer}
+                </Text>
+              </View>
+            ) : (
+              <Ionicons name="power" size={54} color={withAlpha(colors.accent, 0.22)} />
+            )}
+          </View>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 function PowerIcon({ on }: { on: boolean }) {
   return (
     <Ionicons
@@ -1081,6 +1348,111 @@ const makeStyles = () => StyleSheet.create({
     marginVertical: 10,
   },
   serverNameFl: { fontSize: 14, fontWeight: "600" },
+  // ─── Happ неоморфизм ───
+  neu: {
+    backgroundColor: colors.bg,
+    borderRadius: 18,
+    borderWidth: 1.15,
+    borderColor: colors.text === "#FFFFFF" ? withAlpha("#FFFFFF", 0.08) : withAlpha("#BEB7D8", 0.72),
+    boxShadow:
+      colors.text === "#FFFFFF"
+        ? "5px 5px 18px rgba(0,0,0,0.45), -5px -5px 18px rgba(255,255,255,0.05)"
+        : "5px 5px 18px rgba(144,144,184,0.55), -5px -5px 18px rgba(255,255,255,1)",
+  } as any,
+  // ─── v2rayNG дашборд ───
+  v2Header: {
+    backgroundColor: "#0088CC",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 54,
+    paddingBottom: 22,
+  },
+  v2Metric: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  v2MetricTitle: { color: "rgba(255,255,255,0.72)", fontSize: 11, fontWeight: "700" },
+  v2MetricValue: { color: "#fff", fontSize: 14, fontWeight: "800", marginTop: 1 },
+  v2SphereWrap: {
+    padding: 10,
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+  v2StatusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    backgroundColor: "rgba(255,255,255,0.14)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  v2Dot: { width: 8, height: 8, borderRadius: 4 },
+  v2StatusText: { color: "#fff", fontSize: 13, fontWeight: "700" },
+  v2Brand: { color: "#fff", fontSize: 17, fontWeight: "800", marginTop: 12 },
+  v2Chip: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.13)",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  v2ChipTitle: { color: "rgba(255,255,255,0.68)", fontSize: 10, fontWeight: "700" },
+  v2ChipValue: { color: "#fff", fontSize: 12, fontWeight: "700", marginTop: 1 },
+  v2SectionHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 8,
+  },
+  v2SectionTitle: { color: colors.text, fontSize: 19, fontWeight: "800" },
+  v2SectionCount: { color: colors.textDim, fontSize: 12, fontWeight: "600", marginTop: 1 },
+  v2CircleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: withAlpha(colors.accent, 0.12),
+    marginLeft: 6,
+  },
+  v2ListCard: {
+    marginHorizontal: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: withAlpha(colors.border, 0.55),
+    backgroundColor: colors.card,
+    overflow: "hidden",
+    maxHeight: 380,
+  },
+  v2Tile: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: withAlpha(colors.border, 0.35),
+  },
+  v2TileName: { color: colors.text, fontSize: 15, fontWeight: "600" },
+  v2TileSub: { color: colors.textDim, fontSize: 12, fontWeight: "500", marginTop: 1 },
+  v2DelayPill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, marginLeft: 8 },
   serverIconFl: {
     width: 38,
     height: 38,
@@ -1100,6 +1472,18 @@ const makeStyles = () => StyleSheet.create({
   },
   serverName: { color: colors.text, fontWeight: "700", fontSize: 15 },
   serverSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+  appsRowCard: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 14,
+    marginHorizontal: 20,
+    marginTop: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 18,
+    padding: 14,
+  },
   appsCard: {
     flexDirection: "row",
     alignItems: "center",

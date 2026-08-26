@@ -4,7 +4,6 @@ import { getThemeName, getThemeMode, getSetting } from "./settings";
 
 export type ThemeName =
   | "standard"
-  | "standardOld"
   | "auto"
   | "default"
   | "dark"
@@ -52,44 +51,6 @@ const standardLightColors = {
   red: "#DC2626",
   orange: "#D97706",
   gradient: ["#6D28D9", "#8B5CF6"] as const,
-};
-
-/** Стандартная (old) — нейтральная Material 3 палитра из seed, тёмный вариант */
-const standardOldDarkColors = {
-  bg: "#141218",
-  bgSoft: "#1D1B20",
-  card: "#211F26",
-  cardLight: "#2B2930",
-  border: "#36343B",
-  text: "#E6E0E9",
-  textDim: "#CAC4D0",
-  textFaint: "#938F99",
-  accent: "#D0BCFF",
-  accentDeep: "#4F378B",
-  accentSoft: "rgba(208,188,255,0.16)",
-  green: "#34D399",
-  red: "#F87171",
-  orange: "#FBBF24",
-  gradient: ["#6750A4", "#D0BCFF"] as const,
-};
-
-/** Стандартная (old) — нейтральная Material 3 палитра из seed, светлый вариант */
-const standardOldLightColors = {
-  bg: "#FEF7FF",
-  bgSoft: "#F7F2FA",
-  card: "#F3EDF7",
-  cardLight: "#ECE6F0",
-  border: "#E6E0E9",
-  text: "#1D1B20",
-  textDim: "#49454F",
-  textFaint: "#79747E",
-  accent: "#6750A4",
-  accentDeep: "#4F378B",
-  accentSoft: "rgba(103,80,164,0.10)",
-  green: "#059669",
-  red: "#DC2626",
-  orange: "#D97706",
-  gradient: ["#4F378B", "#6750A4"] as const,
 };
 
 /** Основная тема — фирменная тёмная с фиолетовым акцентом */
@@ -167,24 +128,7 @@ const minimalistColors = {
   gradient: ["#7B2FBE", "#9B59B6"] as const,
 };
 
-/** v2ray — спокойная сине-циановая техническая палитра в духе v2rayNG */
-const v2rayColors = {
-  bg: "#05111F",
-  bgSoft: "#071A2E",
-  card: "#061522",
-  cardLight: "#0A2036",
-  border: "#12263C",
-  text: "#FFFFFF",
-  textDim: "#8CA6C4",
-  textFaint: "#54708F",
-  accent: "#3B82F6",
-  accentDeep: "#2563EB",
-  accentSoft: "rgba(59,130,246,0.14)",
-  green: "#34D399",
-  red: "#F87171",
-  orange: "#FBBF24",
-  gradient: ["#2563EB", "#3B82F6"] as const,
-};
+
 
 /** Liquid Glass — нейтральные тёмные полупрозрачные поверхности */
 const glassColors = {
@@ -243,23 +187,80 @@ const pickmeColors = {
   gradient: ["#D63384", "#EC4899"] as const,
 };
 
-/** Happ — светлая неоморфная тема: белый фон, мягкие тени, индиго-акцент */
-const happColors = {
+/** Happ (light) — неоморфная светлая тема, точные значения Flutter-версии */
+const happLightColors = {
   bg: "#ECECF4",
   bgSoft: "#E4E4EE",
-  card: "#FFFFFF",
-  cardLight: "#F2F2F9",
-  border: "#D4D4E2",
-  text: "#1A1A2E",
-  textDim: "#55556E",
-  textFaint: "#9090AA",
+  card: "#DCDCE8",
+  cardLight: "#D4D4E2",
+  border: "#B8B8D0",
+  text: "#1C1C2E",
+  textDim: "#4A4A6A",
+  textFaint: "#9090B0",
   accent: "#6C63FF",
   accentDeep: "#5856D6",
-  accentSoft: "rgba(108,99,255,0.10)",
+  accentSoft: "rgba(108,99,255,0.12)",
   green: "#059669",
   red: "#DC2626",
   orange: "#D97706",
   gradient: ["#5856D6", "#6C63FF"] as const,
+};
+
+/** Happ (dark) — неоморфная тёмная */
+const happDarkColors = {
+  bg: "#1A1A2E",
+  bgSoft: "#20203A",
+  card: "#262642",
+  cardLight: "#2C2C4C",
+  border: "#44447A",
+  text: "#F0F0FF",
+  textDim: "#AAAAAC",
+  textFaint: "#6666AA",
+  accent: "#7C74FF",
+  accentDeep: "#7070EE",
+  accentSoft: "rgba(124,116,255,0.15)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#7070EE", "#7C74FF"] as const,
+};
+
+/** v2ray (light) — лавандовые поверхности, точные значения Flutter-версии */
+const v2rayLightColors = {
+  bg: "#F5F3FF",
+  bgSoft: "#EDE9FE",
+  card: "#E5E0FF",
+  cardLight: "#DDD6FF",
+  border: "#CDC4E8",
+  text: "#1A0A2E",
+  textDim: "#5B4A7A",
+  textFaint: "#9B8EC4",
+  accent: "#8B5CF6",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(139,92,246,0.14)",
+  green: "#16A34A",
+  red: "#EF4444",
+  orange: "#F59E0B",
+  gradient: ["#7C3AED", "#8B5CF6"] as const,
+};
+
+/** v2ray (dark) — тёмно-фиолетовый с синими блобами на фоне дашборда */
+const v2rayDarkColors = {
+  bg: "#0D0618",
+  bgSoft: "#110820",
+  card: "#160C28",
+  cardLight: "#1C1030",
+  border: "#3D2D6A",
+  text: "#F0EEFF",
+  textDim: "#B8AEDD",
+  textFaint: "#6B5A9E",
+  accent: "#8B5CF6",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(139,92,246,0.18)",
+  green: "#16A34A",
+  red: "#EF4444",
+  orange: "#F59E0B",
+  gradient: ["#7C3AED", "#8B5CF6"] as const,
 };
 
 type Palette = {
@@ -280,29 +281,31 @@ type Palette = {
   gradient: readonly [string, string];
 };
 
-/** Ключи внутренних палитр: day/night-варианты стандартных тем + остальные темы списка.
- *  standard/standardOld резолвятся в свои day/night-варианты и собственной палитры не имеют. */
+/** Ключи внутренних палитр: day/night-варианты тем с режимом (standard/happ/v2ray) + остальные темы списка.
+ */
 type PaletteKey =
   | "standardDark"
   | "standardLight"
-  | "standardOldDark"
-  | "standardOldLight"
-  | Exclude<ThemeName, "auto" | "standard" | "standardOld">;
+  | "happDark"
+  | "happLight"
+  | "v2rayDark"
+  | "v2rayLight"
+  | Exclude<ThemeName, "auto" | "standard" | "happ" | "v2ray">;
 
 const PALETTES: Record<PaletteKey, Palette> = {
   standardDark: standardDarkColors,
   standardLight: standardLightColors,
-  standardOldDark: standardOldDarkColors,
-  standardOldLight: standardOldLightColors,
+  happDark: happDarkColors,
+  happLight: happLightColors,
+  v2rayDark: v2rayDarkColors,
+  v2rayLight: v2rayLightColors,
   default: defaultColors,
   dark: darkColors,
   light: lightColors,
   minimalist: minimalistColors,
-  v2ray: v2rayColors,
   glass: glassColors,
   foxcloud: foxcloudColors,
   pickme: pickmeColors,
-  happ: happColors,
 };
 
 /** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью */
@@ -325,27 +328,39 @@ function storedTheme(): ThemeName {
 }
 
 /** Резолвит имя темы в конкретную палитру.
- *  standard/standardOld выбирают светлую или тёмную палитру по режиму (авто — по времени суток). */
+ *  standard/happ/v2ray выбирают светлую или тёмную палитру по режиму (авто — по времени суток). */
 function resolveTheme(name: ThemeName): PaletteKey {
-  if (name === "standard" || name === "standardOld") {
-    const mode = getThemeMode();
-    const light =
-      mode === "light" || (mode !== "dark" && resolveAutoTheme() === "light");
-    if (name === "standard") return light ? "standardLight" : "standardDark";
-    return light ? "standardOldLight" : "standardOldDark";
+  const mode = getThemeMode();
+  const light =
+    mode === "light" || (mode !== "dark" && resolveAutoTheme() === "light");
+  switch (name) {
+    case "standard":
+      return light ? "standardLight" : "standardDark";
+    case "happ":
+      return light ? "happLight" : "happDark";
+    case "v2ray":
+      return light ? "v2rayLight" : "v2rayDark";
+    default:
+      return name === "auto" ? resolveAutoTheme() : name;
   }
-  return name === "auto" ? resolveAutoTheme() : name;
 }
 
 /** Тема использует режим день/ночь */
 export function themeUsesMode(name: ThemeName): boolean {
-  return name === "standard" || name === "standardOld";
+  return name === "standard" || name === "happ" || name === "v2ray";
 }
 
 /** Активна ли одна из перенесённых Flutter-тем (включает Flutter-стиль компонентов) */
 export function isFlutterStyleTheme(name?: ThemeName): boolean {
-  const n = name ?? getThemeName();
-  return n === "standard" || n === "standardOld";
+  return getThemeName() === "standard";
+}
+
+export function isHappTheme(name?: ThemeName): boolean {
+  return getThemeName() === "happ";
+}
+
+export function isV2rayTheme(name?: ThemeName): boolean {
+  return getThemeName() === "v2ray";
 }
 
 /** "#RRGGBB" -> rgba(r,g,b,a); rgba/hex8 возвращаются как есть */
@@ -377,7 +392,6 @@ export function applyTheme(name: ThemeName) {
 
 export const THEME_LABELS: Record<ThemeName, string> = {
   standard: "Стандартная",
-  standardOld: "Стандартная (old)",
   auto: "Авто",
   default: "Основная",
   dark: "Тёмная",
@@ -393,7 +407,6 @@ export const THEME_LABELS: Record<ThemeName, string> = {
 /** Порядок тем в списке выбора — перенесённые стили идут первыми */
 export const THEME_ORDER: ThemeName[] = [
   "standard",
-  "standardOld",
   "auto",
   "default",
   "dark",
@@ -411,9 +424,9 @@ export function isLightTheme(name: ThemeName): boolean {
   const resolved = resolveTheme(name);
   return (
     resolved === "light" ||
-    resolved === "happ" ||
-    resolved === "standardLight" ||
-    resolved === "standardOldLight"
+    resolved === "happLight" ||
+    resolved === "v2rayLight" ||
+    resolved === "standardLight"
   );
 }
 

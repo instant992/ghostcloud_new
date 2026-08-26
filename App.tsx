@@ -9,7 +9,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { APP_FONT } from "./src/fontPatch";
 import { AppProvider, useApp } from "./src/context";
-import { colors, isFlutterStyleTheme, withAlpha, ThemeProvider, useTheme } from "./src/theme";
+import { colors, isFlutterStyleTheme, isHappTheme, isV2rayTheme, withAlpha, ThemeProvider, useTheme } from "./src/theme";
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import RegisterScreen from "./src/screens/auth/RegisterScreen";
@@ -72,7 +72,9 @@ const TAB_META: Record<string, { icon: string; outline: string; label: string }>
 function CustomTabBar({ state, navigation }: any) {
   useTheme();
   const insets = useSafeAreaInsets();
-  if (isFlutterStyleTheme()) {
+  if (isFlutterStyleTheme() || isHappTheme() || isV2rayTheme()) {
+    const happ = isHappTheme();
+    const dark = colors.text === "#FFFFFF";
     // Flutter floating dock: радиус 28, активная пилюля primary@0.2 + подпись
     return (
       <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>
@@ -82,15 +84,31 @@ function CustomTabBar({ state, navigation }: any) {
             paddingHorizontal: 6,
             paddingVertical: 6,
             borderRadius: 28,
-            backgroundColor: colors.text === "#FFFFFF" ? colors.card : colors.cardLight,
-            borderWidth: 1,
-            borderColor: withAlpha(colors.border, colors.text === "#FFFFFF" ? 0.5 : 0.7),
+            backgroundColor: happ
+              ? colors.bg
+              : colors.text === "#FFFFFF"
+                ? colors.card
+                : colors.cardLight,
+            borderWidth: happ ? 1.15 : 1,
+            borderColor: happ
+              ? dark
+                ? withAlpha("#FFFFFF", 0.08)
+                : withAlpha("#BEB7D8", 0.72)
+              : withAlpha(colors.border, dark ? (isV2rayTheme() ? 0.55 : 0.5) : 0.7),
+            ...(happ
+              ? {
+                  boxShadow: dark
+                    ? "5px 5px 18px rgba(0,0,0,0.45), -5px -5px 18px rgba(255,255,255,0.05)"
+                    : "5px 5px 18px rgba(144,144,184,0.55), -5px -5px 18px rgba(255,255,255,1)",
+                }
+              : {
+                  shadowColor: "#000",
+                  shadowOpacity: 0.18,
+                  shadowRadius: 14,
+                  shadowOffset: { width: 0, height: 5 },
+                  elevation: 6,
+                }),
             flexDirection: "row",
-            shadowColor: "#000",
-            shadowOpacity: 0.18,
-            shadowRadius: 14,
-            shadowOffset: { width: 0, height: 5 },
-            elevation: 6,
           }}
         >
           {state.routes.map((route: any, index: number) => {

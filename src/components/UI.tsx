@@ -12,7 +12,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, isFlutterStyleTheme, withAlpha, useTheme } from "../theme";
+import { colors, isFlutterStyleTheme, isHappTheme, isV2rayTheme, withAlpha, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
 
 export function Screen({
@@ -176,30 +176,54 @@ export function ErrorText({ children }: { children?: string | null }) {
 
 const makeStyles = () => {
   const fl = isFlutterStyleTheme();
+  const happ = isHappTheme();
+  const v2r = isV2rayTheme();
+  const dark = colors.text === "#FFFFFF";
+  const cardStyle: ViewStyle = happ
+    ? {
+        // Happ: неоморфная карточка — фон surface, двойная тень, тонкая рамка
+        backgroundColor: colors.bg,
+        borderRadius: 18,
+        borderWidth: 1.15,
+        borderColor: dark ? withAlpha("#FFFFFF", 0.08) : withAlpha("#BEB7D8", 0.72),
+        boxShadow: dark
+          ? `5px 5px 18px rgba(0,0,0,0.45), -5px -5px 18px rgba(255,255,255,0.05)`
+          : `5px 5px 18px rgba(144,144,184,0.55), -5px -5px 18px rgba(255,255,255,1)`,
+      } as any
+    : v2r
+      ? {
+          // v2ray: стеклянная карточка (glass-ветка Flutter)
+          backgroundColor: dark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.4)",
+          borderRadius: 16,
+          borderWidth: dark ? 1 : 0.5,
+          borderColor: dark ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.55)",
+        }
+      : {
+          backgroundColor: fl ? withAlpha(colors.card, dark ? 0.72 : 1) : colors.card,
+          borderRadius: fl ? 18 : 22,
+          borderWidth: 1,
+          borderColor: fl ? withAlpha(colors.border, dark ? 0.35 : 0.8) : colors.border,
+        };
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
     content: { padding: 20, paddingBottom: 40 },
     // Flutter: app-bar title 20 w700
     title: { color: colors.text, fontSize: fl ? 22 : 26, fontWeight: "700", marginBottom: 6, letterSpacing: fl ? -0.3 : 0 },
     subtitle: { color: colors.textDim, fontSize: 13, marginBottom: 20 },
-    // Flutter CommonCard: radius 18 для секций, фон surfaceContainer@0.85, обводка outlineVariant
     card: {
-      backgroundColor: fl ? withAlpha(colors.card, colors.text === "#FFFFFF" ? 0.72 : 1) : colors.card,
-      borderRadius: fl ? 18 : 22,
-      borderWidth: 1,
-      borderColor: fl ? withAlpha(colors.border, colors.text === "#FFFFFF" ? 0.35 : 0.8) : colors.border,
+      ...cardStyle,
       padding: 14,
       marginBottom: 12,
-    },
+    } as ViewStyle,
     btn: {
-      borderRadius: fl ? 14 : 28,
-      paddingVertical: fl ? 13 : 15,
+      borderRadius: fl || happ || v2r ? (happ ? 12 : 14) : 28,
+      paddingVertical: fl || happ || v2r ? 13 : 15,
       alignItems: "center",
       justifyContent: "center",
       marginVertical: 6,
     },
     btnSm: {
-      borderRadius: fl ? 12 : 18,
+      borderRadius: 12,
       paddingVertical: 9,
       paddingHorizontal: 14,
       marginVertical: 4,
@@ -208,8 +232,8 @@ const makeStyles = () => {
       backgroundColor: colors.accentDeep,
     },
     btnGhost: {
-      backgroundColor: fl ? colors.accentSoft : "transparent",
-      borderWidth: fl ? 0 : 1,
+      backgroundColor: fl || happ || v2r ? colors.accentSoft : "transparent",
+      borderWidth: fl || happ || v2r ? 0 : 1,
       borderColor: colors.border,
     },
     btnDanger: {
@@ -217,11 +241,11 @@ const makeStyles = () => {
       borderWidth: 1,
       borderColor: colors.red + "55",
     },
-    btnText: { color: "#fff", fontWeight: fl ? "600" : "700", fontSize: fl ? 15 : 16 },
+    btnText: { color: "#fff", fontWeight: fl || happ || v2r ? "600" : "700", fontSize: fl ? 15 : 16 },
     btnTextSm: { fontSize: 13 },
     input: {
-      backgroundColor: colors.bgSoft,
-      borderRadius: fl ? 12 : 14,
+      backgroundColor: happ ? colors.bg : colors.bgSoft,
+      borderRadius: fl || happ || v2r ? 12 : 14,
       borderWidth: 1,
       borderColor: colors.border,
       color: colors.text,

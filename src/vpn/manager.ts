@@ -14,6 +14,7 @@ import {
   startVpn,
   startLibCoreVpn,
   stopVpn,
+  resetAppTraffic,
 } from "./native";
 
 const V2RAY_UA = "v2rayNG/1.10.24";
@@ -123,6 +124,8 @@ export async function ensurePermission(): Promise<boolean> {
 export async function connect(node: VpnNode): Promise<void> {
   const granted = await ensurePermission();
   if (!granted) throw new Error("Нет разрешения на создание VPN-подключения");
+  // Фиксируем базовые счётчики для статистики по приложениям
+  resetAppTraffic();
   const running = await isVpnRunning();
   if (running) {
     await stopVpn();
