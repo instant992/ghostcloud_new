@@ -25,6 +25,7 @@ import DevicesScreen from "./src/screens/DevicesScreen";
 import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
+import ScanQRScreen from "./src/screens/ScanQRScreen";
 import { TabIcon } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 
@@ -173,6 +174,11 @@ function Root() {
             name="Support"
             component={SupportScreen}
             options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+          />
+          <Stack.Screen
+            name="ScanQR"
+            component={ScanQRScreen}
+            options={{ headerShown: true, title: "Сканировать QR", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
           />
         </>
       )}

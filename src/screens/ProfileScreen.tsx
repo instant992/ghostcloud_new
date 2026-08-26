@@ -435,6 +435,7 @@ export default function ProfileScreen() {
       </Card>
 
       <MenuItem icon="📱" label="Устройства и HWID" onPress={() => nav.navigate("Devices")} />
+      <MenuItem icon="📷" label="Подтвердить вход по QR" onPress={() => nav.navigate("ScanQR")} />
       <MenuItem icon="💰" label="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
       <MenuItem icon="🎁" label="Реферальная программа" onPress={() => nav.navigate("Referral")} />
       <MenuItem icon="💬" label="Поддержка" onPress={() => nav.navigate("Support")} />

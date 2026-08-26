@@ -1,18 +1,38 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import QRCode from "react-native-qrcode-svg";
 import { Button, Card, ErrorText, Screen, Subtitle, Title } from "../../components/UI";
 import { saveSession } from "../../storage";
 import { qrCreateSession, qrStatus } from "../../api";
 import { useApp } from "../../context";
 import { colors, useTheme } from "../../theme";
 
+/** Содержимое QR для подтверждения входа на авторизованном устройстве */
+export function qrLoginPayload(sessionId: string): string {
+  return `ghostcloud://qr-login?session=${sessionId}`;
+}
+
+/** Извлекает session_id из отсканированного QR (deep-link или голый id) */
+export function parseQrSession(data: string): string | null {
+  const raw = (data || "").trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol === "ghostcloud:" && url.host === "qr-login") {
+      const s = url.searchParams.get("session");
+      if (s) return s;
+    }
+  } catch {}
+  if (/^[a-zA-Z0-9\-_]{10,80}$/.test(raw)) return raw;
+  return null;
+}
+
 export default function QRLoginScreen() {
   useTheme();
   const nav = useNavigation<any>();
   const { refreshMe, reloadNodes } = useApp();
   const [sessionId, setSessionId] = useState("");
-  const [linkCode, setLinkCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [confirmedUrl, setConfirmedUrl] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -25,7 +45,6 @@ export default function QRLoginScreen() {
         if (!r?.success) throw new Error(r?.error || "Не удалось создать сессию");
         if (cancelled) return;
         setSessionId(r.session_id);
-        setLinkCode(r.session_id);
       } catch (e: any) {
         setError(e?.message || "Ошибка");
       }
@@ -58,31 +77,35 @@ export default function QRLoginScreen() {
     <Screen>
       <Title>Вход по QR-коду</Title>
       <Subtitle>
-        Откройте GhostCloud на устройстве, где вы уже авторизованы: Профиль → Вход по QR-коду,
-        и подтвердите вход для этого устройства
+        Отсканируйте этот код с устройства, где вы уже авторизованы:
+        GhostCloud → Профиль → «Подтвердить вход по QR»
       </Subtitle>
       <Card style={{ alignItems: "center", paddingVertical: 30 }}>
         <View
           style={{
-            width: 220,
-            minHeight: 120,
+            width: 240,
+            minHeight: 240,
             borderRadius: 16,
-            borderWidth: 2,
-            borderColor: colors.accentDeep,
-            borderStyle: "dashed",
             alignItems: "center",
             justifyContent: "center",
-            padding: 14,
-            backgroundColor: colors.bgSoft,
+            padding: 20,
+            backgroundColor: "#FFFFFF",
           }}
         >
-          <Text style={{ color: colors.textDim, fontSize: 12, textAlign: "center", marginBottom: 8 }}>
-            Код подтверждения:
-          </Text>
-          <Text selectable style={{ color: colors.accent, fontSize: 22, fontWeight: "800", letterSpacing: 1.5 }}>
-            {linkCode ? linkCode.slice(0, 8).toUpperCase() : "..."}
-          </Text>
+          {sessionId ? (
+            <QRCode
+              value={qrLoginPayload(sessionId)}
+              size={200}
+              color="#111111"
+              backgroundColor="transparent"
+            />
+          ) : (
+            <Text style={{ color: "#777777", fontSize: 12 }}>Генерация QR…</Text>
+          )}
         </View>
+        <Text style={{ color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: 12 }}>
+          Наведите камеру авторизованного устройства на этот код
+        </Text>
       </Card>
       <ErrorText>{error}</ErrorText>
       {!confirmedUrl && (
