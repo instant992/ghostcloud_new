@@ -6,6 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "../context";
 import {
   BASE_URL,
@@ -24,7 +25,7 @@ import {
   updateLogin,
   uploadAvatar,
 } from "../api";
-import { colors, useTheme } from "../theme";
+import { colors, isFlutterStyleTheme, withAlpha, useTheme } from "../theme";
 import { formatDateTime } from "../utils/formatDate";
 
 /** Пульсирующее сердечко спонсора — свечение в духе кнопки VPN */
@@ -426,7 +427,14 @@ export default function ProfileScreen() {
         </View>
       </Card>
 
-      <MenuItem icon="🏆" label="Топ спонсоров" onPress={openLeaderboard} />
+      <View style={isFlutterStyleTheme() && styles.flGroup}>
+        <MenuItem
+          icon="🏆"
+          ion="trophy-outline"
+          label="Топ спонсоров"
+          onPress={openLeaderboard}
+        />
+      </View>
 
       <Card>
         <Row label="Баланс" value={`${((me?.balance || 0) / 100).toFixed(0)} ₽`} valueColor={colors.accent} />
@@ -434,11 +442,42 @@ export default function ProfileScreen() {
         <Row label="Устройства" value={`${me?.device_count ?? 0} / ${me?.device_limit ?? 6}`} />
       </Card>
 
-      <MenuItem icon="📱" label="Устройства и HWID" onPress={() => nav.navigate("Devices")} />
-      <MenuItem icon="📷" label="Подтвердить вход по QR" onPress={() => nav.navigate("ScanQR")} />
-      <MenuItem icon="💰" label="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
-      <MenuItem icon="🎁" label="Реферальная программа" onPress={() => nav.navigate("Referral")} />
-      <MenuItem icon="💬" label="Поддержка" onPress={() => nav.navigate("Support")} />
+      <View style={isFlutterStyleTheme() && styles.flGroup}>
+        <MenuItem
+          icon="📱"
+          ion="phone-portrait-outline"
+          label="Устройства и HWID"
+          onPress={() => nav.navigate("Devices")}
+        />
+        {isFlutterStyleTheme() && <View style={styles.flDivider} />}
+        <MenuItem
+          icon="📷"
+          ion="scan-outline"
+          label="Подтвердить вход по QR"
+          onPress={() => nav.navigate("ScanQR")}
+        />
+        {isFlutterStyleTheme() && <View style={styles.flDivider} />}
+        <MenuItem
+          icon="💰"
+          ion="wallet-outline"
+          label="Пополнить баланс"
+          onPress={() => nav.navigate("TopUp")}
+        />
+        {isFlutterStyleTheme() && <View style={styles.flDivider} />}
+        <MenuItem
+          icon="🎁"
+          ion="gift-outline"
+          label="Реферальная программа"
+          onPress={() => nav.navigate("Referral")}
+        />
+        {isFlutterStyleTheme() && <View style={styles.flDivider} />}
+        <MenuItem
+          icon="💬"
+          ion="chatbubble-ellipses-outline"
+          label="Поддержка"
+          onPress={() => nav.navigate("Support")}
+        />
+      </View>
 
       <Card>
         <Row label="Telegram" value={me?.telegram_linked ? "привязан" : "не привязан"} />
@@ -562,7 +601,39 @@ export default function ProfileScreen() {
   );
 }
 
-function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPress: () => void }) {
+function MenuItem({
+  icon,
+  ion,
+  label,
+  onPress,
+}: {
+  icon: string;
+  ion?: string;
+  label: string;
+  onPress: () => void;
+}) {
+  if (isFlutterStyleTheme()) {
+    // Flutter ListItem.open: иконка 23 без плашки, title w600, chevron_right @0.3
+    return (
+      <PressableScale
+        onPress={onPress}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+        }}
+      >
+        {ion ? (
+          <Ionicons name={ion as any} size={23} color={colors.textDim} style={{ marginRight: 14 }} />
+        ) : (
+          <Text style={{ fontSize: 20, marginRight: 12 }}>{icon}</Text>
+        )}
+        <Text style={{ color: colors.text, fontWeight: "600", fontSize: 15, flex: 1 }}>{label}</Text>
+        <Ionicons name="chevron-forward" size={20} color={withAlpha(colors.text, 0.3)} />
+      </PressableScale>
+    );
+  }
   return (
     <PressableScale
       onPress={onPress}
@@ -584,8 +655,22 @@ function MenuItem({ icon, label, onPress }: { icon: string; label: string; onPre
   );
 }
 
-const makeStyles = () => StyleSheet.create({
-  avatar: {
+const makeStyles = () =>
+  StyleSheet.create({
+    flGroup: {
+      backgroundColor: withAlpha(colors.card, colors.text === "#FFFFFF" ? 0.72 : 1),
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: withAlpha(colors.border, colors.text === "#FFFFFF" ? 0.35 : 0.8),
+      overflow: "hidden",
+      marginBottom: 12,
+    },
+    flDivider: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: withAlpha(colors.border, 0.3),
+      marginHorizontal: 16,
+    },
+    avatar: {
     width: 76,
     height: 76,
     borderRadius: 38,

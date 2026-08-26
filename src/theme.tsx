@@ -342,6 +342,32 @@ export function themeUsesMode(name: ThemeName): boolean {
   return name === "standard" || name === "standardOld";
 }
 
+/** Активна ли одна из перенесённых Flutter-тем (включает Flutter-стиль компонентов) */
+export function isFlutterStyleTheme(name?: ThemeName): boolean {
+  const n = name ?? getThemeName();
+  return n === "standard" || n === "standardOld";
+}
+
+/** "#RRGGBB" -> rgba(r,g,b,a); rgba/hex8 возвращаются как есть */
+export function withAlpha(color: string, alpha: number): string {
+  if (!color) return color;
+  if (color.startsWith("rgba") || color.startsWith("rgb")) return color;
+  const hex = color.replace("#", "");
+  if (hex.length === 6) {
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  if (hex.length === 8) {
+    const r = parseInt(hex.slice(2, 4), 16);
+    const g = parseInt(hex.slice(4, 6), 16);
+    const b = parseInt(hex.slice(6, 8), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  return color;
+}
+
 export const colors: any = { ...PALETTES[resolveTheme(storedTheme())] };
 
 /** Перекрашивает объект colors на месте — все экраны перерисуются при следующем рендере */

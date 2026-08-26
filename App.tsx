@@ -1,6 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
+import { Ionicons } from "@expo/vector-icons";
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -8,7 +9,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { APP_FONT } from "./src/fontPatch";
 import { AppProvider, useApp } from "./src/context";
-import { colors, ThemeProvider, useTheme } from "./src/theme";
+import { colors, isFlutterStyleTheme, withAlpha, ThemeProvider, useTheme } from "./src/theme";
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import RegisterScreen from "./src/screens/auth/RegisterScreen";
@@ -69,7 +70,72 @@ const TAB_META: Record<string, { icon: string; outline: string; label: string }>
 };
 
 function CustomTabBar({ state, navigation }: any) {
+  useTheme();
   const insets = useSafeAreaInsets();
+  if (isFlutterStyleTheme()) {
+    // Flutter floating dock: радиус 28, активная пилюля primary@0.2 + подпись
+    return (
+      <View style={{ paddingBottom: Math.max(insets.bottom, 8) }}>
+        <View
+          style={{
+            marginHorizontal: 24,
+            paddingHorizontal: 6,
+            paddingVertical: 6,
+            borderRadius: 28,
+            backgroundColor: colors.text === "#FFFFFF" ? colors.card : colors.cardLight,
+            borderWidth: 1,
+            borderColor: withAlpha(colors.border, colors.text === "#FFFFFF" ? 0.5 : 0.7),
+            flexDirection: "row",
+            shadowColor: "#000",
+            shadowOpacity: 0.18,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 5 },
+            elevation: 6,
+          }}
+        >
+          {state.routes.map((route: any, index: number) => {
+            const meta = TAB_META[route.name];
+            if (!meta) return null;
+            const focused = state.index === index;
+            return (
+              <Pressable
+                key={route.key}
+                hitSlop={4}
+                style={{
+                  flex: 1,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  backgroundColor: focused ? withAlpha(colors.accent, 0.2) : "transparent",
+                }}
+                onPress={() => {
+                  Haptics.selectionAsync().catch(() => {});
+                  navigation.navigate(route.name);
+                }}
+              >
+                <Ionicons
+                  name={(focused ? meta.icon : meta.outline) as any}
+                  size={23}
+                  color={focused ? colors.accent : withAlpha(colors.text, 0.4)}
+                />
+                {focused && (
+                  <Text
+                    numberOfLines={1}
+                    style={{ color: colors.accent, fontSize: 13, fontWeight: "600" }}
+                  >
+                    {meta.label}
+                  </Text>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }
   return (
     <View style={[tabStyles.bar, { paddingBottom: 12 + insets.bottom }]}>
       {state.routes.map((route: any, index: number) => {

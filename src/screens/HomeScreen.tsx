@@ -25,11 +25,12 @@ import * as appFilterMod from "../vpn/appFilter";
 import { getInstalledApps, getAppIcon, type AppInfo } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
+import { colors, splitNameFlag, formatBytes, isFlutterStyleTheme, withAlpha, useTheme } from "../theme";
 
 export default function HomeScreen() {
   useTheme();
   const styles = makeStyles();
+  const fl = isFlutterStyleTheme();
 
   const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes } = useApp();
@@ -177,11 +178,11 @@ export default function HomeScreen() {
         <View style={styles.headerLeft}>
           <Image
             source={{ uri: "app_icon" }}
-            style={styles.appBadge}
+            style={fl ? styles.appBadgeFl : styles.appBadge}
             resizeMode="cover"
           />
           <View style={{ flex: 1 }}>
-            <Text style={styles.clientName} numberOfLines={1}>
+            <Text style={fl ? styles.clientNameFl : styles.clientName} numberOfLines={1}>
               GhostCloud
             </Text>
           </View>
@@ -195,6 +196,25 @@ export default function HomeScreen() {
           </Text>
         </PressableScale>
       </View>
+
+      {fl && (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, marginTop: -2 }}>
+          <Text
+            style={{
+              fontSize: 14,
+              fontWeight: "600",
+              color: connected ? "#22C55E" : withAlpha(colors.text, 0.45),
+            }}
+          >
+            {connected ? "Подключено" : "Не подключено"}
+          </Text>
+          {!!connected && (
+            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.text }}>
+              {formatTimer(seconds)}
+            </Text>
+          )}
+        </View>
+      )}
 
       <View style={styles.powerArea}>
         <PressableScale onPress={toggle} disabled={busy} style={styles.pressable}>
@@ -269,7 +289,7 @@ export default function HomeScreen() {
             <PowerIcon on={connected} />
           </View>
         </PressableScale>
-        {!!connected && (
+        {!fl && !!connected && (
           <Text style={styles.timer}>
             {formatTimer(seconds)}
           </Text>
@@ -277,17 +297,26 @@ export default function HomeScreen() {
         {!!error && <Text style={styles.error}>{error}</Text>}
       </View>
 
-      <PressableScale style={styles.serverCard} onPress={() => setPickerOpen(true)}>
-        <View style={styles.serverIcon}>
-          <Ionicons name="flash" size={20} color={colors.accent} />
+      <PressableScale style={[styles.serverCard, fl && styles.serverCardFl]} onPress={() => setPickerOpen(true)}>
+        <View style={[styles.serverIcon, fl && styles.serverIconFl]}>
+          {fl ? (
+            selectedInfo ? (
+              <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>
+            ) : (
+              <Ionicons name="globe-outline" size={20} color={colors.accent} />
+            )
+          ) : (
+            <Ionicons name="flash" size={20} color={colors.accent} />
+          )}
         </View>
         <View style={{ flex: 1 }}>
           {selectedNode && selectedInfo ? (
             <>
-              <Text style={styles.serverName} numberOfLines={1}>
+              <Text style={[styles.serverName, fl && { fontSize: 14, fontWeight: "600" }]} numberOfLines={1}>
                 {selectedInfo.name}
               </Text>
               <Text style={styles.serverSub} numberOfLines={1}>
+                {fl ? "Выбранная локация · " : ""}
                 {transportLabel(selectedNode)}
               </Text>
             </>
@@ -298,14 +327,19 @@ export default function HomeScreen() {
             </>
           )}
         </View>
-        {selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
-        <PressableScale style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
-          {refreshingNodes ? (
-            <ActivityIndicator size="small" color={colors.accent} />
-          ) : (
-            <Ionicons name="refresh" size={16} color={colors.textDim} />
-          )}
-        </PressableScale>
+        {selectedInfo && !fl && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
+        {!fl && (
+          <PressableScale style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
+            {refreshingNodes ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Ionicons name="refresh" size={16} color={colors.textDim} />
+            )}
+          </PressableScale>
+        )}
+        {fl && (
+          <Ionicons name="chevron-forward" size={22} color={withAlpha(colors.text, 0.3)} />
+        )}
       </PressableScale>
 
       <PressableScale
@@ -844,6 +878,8 @@ const makeStyles = () => StyleSheet.create({
     height: 48,
     borderRadius: 13,
   },
+  appBadgeFl: { width: 32, height: 32, borderRadius: 8 },
+  clientNameFl: { color: "#7B2FBE", fontSize: 26, fontWeight: "700", letterSpacing: -0.5 },
   clientName: { color: colors.text, fontSize: 15, fontWeight: "800" },
   subPill: {
     backgroundColor: colors.accentDeep,
@@ -966,6 +1002,20 @@ const makeStyles = () => StyleSheet.create({
     borderColor: colors.border,
     borderRadius: 22,
     padding: 16,
+  },
+  // Flutter DashboardServerCard: radius 20, surfaceContainerHighest/#1E1735
+  serverCardFl: {
+    borderRadius: 20,
+    backgroundColor: colors.text === "#FFFFFF" ? "#1E1735" : colors.cardLight,
+    borderColor: withAlpha(colors.border, 0.5),
+    paddingVertical: 12,
+  },
+  serverIconFl: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 0,
+    backgroundColor: colors.text === "#FFFFFF" ? "#251D3A" : colors.bgSoft,
   },
   infoBtn: {
     width: 28,

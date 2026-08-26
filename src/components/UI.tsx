@@ -12,7 +12,7 @@ import {
   ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, useTheme } from "../theme";
+import { colors, isFlutterStyleTheme, withAlpha, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
 
 export function Screen({
@@ -174,81 +174,86 @@ export function ErrorText({ children }: { children?: string | null }) {
   );
 }
 
-const makeStyles = () => StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 20, paddingBottom: 40 },
-  title: { color: colors.text, fontSize: 26, fontWeight: "800", marginBottom: 6 },
-  subtitle: { color: colors.textDim, fontSize: 14, marginBottom: 20 },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    marginBottom: 12,
-  },
-  btn: {
-    borderRadius: 28,
-    paddingVertical: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 6,
-  },
-  btnSm: {
-    borderRadius: 18,
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    marginVertical: 4,
-  },
-  btnPrimary: {
-    backgroundColor: colors.accentDeep,
-  },
-  btnGhost: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  btnDanger: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: colors.red + "55",
-  },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  btnTextSm: { fontSize: 13 },
-  input: {
-    backgroundColor: colors.bgSoft,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-    fontSize: 15,
-    marginBottom: 10,
-  },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 9,
-  },
-  rowLabel: { color: colors.textDim, fontSize: 14 },
-  rowValue: { fontSize: 14, fontWeight: "700", maxWidth: "60%", textAlign: "right" },
-  eyeBtn: {
-    position: "absolute",
-    right: 14,
-    top: 0,
-    bottom: 10,
-    justifyContent: "center",
-  },
-  errorBox: {
-    backgroundColor: colors.red + "18",
-    borderColor: colors.red + "44",
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  errorText: { color: colors.red, fontSize: 13 },
-});
+const makeStyles = () => {
+  const fl = isFlutterStyleTheme();
+  return StyleSheet.create({
+    screen: { flex: 1, backgroundColor: colors.bg },
+    content: { padding: 20, paddingBottom: 40 },
+    // Flutter: app-bar title 20 w700
+    title: { color: colors.text, fontSize: fl ? 22 : 26, fontWeight: "700", marginBottom: 6, letterSpacing: fl ? -0.3 : 0 },
+    subtitle: { color: colors.textDim, fontSize: 13, marginBottom: 20 },
+    // Flutter CommonCard: radius 18 для секций, фон surfaceContainer@0.85, обводка outlineVariant
+    card: {
+      backgroundColor: fl ? withAlpha(colors.card, colors.text === "#FFFFFF" ? 0.72 : 1) : colors.card,
+      borderRadius: fl ? 18 : 22,
+      borderWidth: 1,
+      borderColor: fl ? withAlpha(colors.border, colors.text === "#FFFFFF" ? 0.35 : 0.8) : colors.border,
+      padding: 14,
+      marginBottom: 12,
+    },
+    btn: {
+      borderRadius: fl ? 14 : 28,
+      paddingVertical: fl ? 13 : 15,
+      alignItems: "center",
+      justifyContent: "center",
+      marginVertical: 6,
+    },
+    btnSm: {
+      borderRadius: fl ? 12 : 18,
+      paddingVertical: 9,
+      paddingHorizontal: 14,
+      marginVertical: 4,
+    },
+    btnPrimary: {
+      backgroundColor: colors.accentDeep,
+    },
+    btnGhost: {
+      backgroundColor: fl ? colors.accentSoft : "transparent",
+      borderWidth: fl ? 0 : 1,
+      borderColor: colors.border,
+    },
+    btnDanger: {
+      backgroundColor: "transparent",
+      borderWidth: 1,
+      borderColor: colors.red + "55",
+    },
+    btnText: { color: "#fff", fontWeight: fl ? "600" : "700", fontSize: fl ? 15 : 16 },
+    btnTextSm: { fontSize: 13 },
+    input: {
+      backgroundColor: colors.bgSoft,
+      borderRadius: fl ? 12 : 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      color: colors.text,
+      paddingHorizontal: 14,
+      paddingVertical: 13,
+      fontSize: 15,
+      marginBottom: 10,
+    },
+    row: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      paddingVertical: 9,
+    },
+    rowLabel: { color: colors.textDim, fontSize: 14 },
+    rowValue: { fontSize: 14, fontWeight: "700", maxWidth: "60%", textAlign: "right" },
+    eyeBtn: {
+      position: "absolute",
+      right: 14,
+      top: 0,
+      bottom: 10,
+      justifyContent: "center",
+    },
+    errorBox: {
+      backgroundColor: colors.red + "18",
+      borderColor: colors.red + "44",
+      borderWidth: 1,
+      borderRadius: 14,
+      padding: 12,
+      marginTop: 4,
+      marginBottom: 8,
+    },
+    errorText: { color: colors.red, fontSize: 13 },
+  });
+};
