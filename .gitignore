@@ -24,3 +24,5 @@ android/tidy_out.txt
 tsc_out.txt
 build_log.txt
 
+build_log*.txt
+
