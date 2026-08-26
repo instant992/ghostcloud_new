@@ -196,158 +196,120 @@ export default function HomeScreen() {
     }
   };
 
-  // ─── Дашборд v2rayNG: синяя полоса + инлайн-список серверов ───
+// ─── Дизайн v2rayNG (Material 3): topbar + список тайлов + статус-бар с FAB ───
   if (v2r) {
-    const delayColor = (d?: number) =>
-      d == null ? colors.textDim : d < 120 ? "#16A34A" : d < 260 ? "#F59E0B" : "#EF4444";
-    const totalToday = todayStat.tx + todayStat.rx;
+    const delayText = (d?: number) => (d == null ? "" : `${d} ms`);
+    const delayColorV = (d?: number) =>
+      d == null ? colors.textDim : d != null && d > 0 && d < 500 ? "#009966" : "#FF0099";
     return (
       <View style={styles.screen}>
-        <View style={styles.v2Header}>
-          <View style={{ flexDirection: "row", gap: 10 }}>
-            <View style={styles.v2Metric}>
-              <Ionicons name="arrow-up" size={18} color="#fff" />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.v2MetricTitle}>Отправлено</Text>
-                <Text style={styles.v2MetricValue}>{formatBytes(todayStat.tx)}</Text>
-              </View>
-            </View>
-            <View style={styles.v2Metric}>
-              <Ionicons name="arrow-down" size={18} color="#fff" />
-              <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.v2MetricTitle}>Получено</Text>
-                <Text style={styles.v2MetricValue}>{formatBytes(todayStat.rx)}</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={{ alignItems: "center", marginTop: 14 }}>
-            <View style={styles.v2SphereWrap}>
-              <Pressable onPress={toggle} disabled={busy}>
-                <Svg width={150} height={150}>
-                  <Circle cx={75} cy={75} r={74} fill={"#7C3AED"} opacity={connected ? 0.2 : 0.1} />
-                  <Circle cx={75} cy={75} r={70} fill={"#7C3AED"} opacity={connected ? 0.28 : 0.16} />
-                  <Circle
-                    cx={75}
-                    cy={75}
-                    r={64}
-                    fill={connected ? "#22C55E" : "#7C3AED"}
-                    stroke="rgba(255,255,255,0.25)"
-                    strokeWidth={1.5}
-                  />
-                </Svg>
-                <View style={{ position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" }} pointerEvents="none">
-                  <Ionicons name="power" size={48} color="rgba(255,255,255,0.96)" />
-                </View>
-              </Pressable>
-            </View>
-
-            <View style={styles.v2StatusPill}>
-              <View style={[styles.v2Dot, { backgroundColor: connected ? "#22C55E" : "#FFB020" }]} />
-              <Text style={styles.v2StatusText}>
-                {busy ? "Подключение…" : connected ? `Подключено ${formatTimer(seconds)}` : "Нет подключения"}
-              </Text>
-            </View>
-
-            <Text style={styles.v2Brand}>GhostCloud</Text>
-
-            <View style={{ flexDirection: "row", gap: 10, alignSelf: "stretch", paddingHorizontal: 6, marginTop: 12 }}>
-              <View style={styles.v2Chip}>
-                <Ionicons name="analytics" size={16} color="#fff" />
-                <View style={{ marginLeft: 8, flex: 1 }}>
-                  <Text style={styles.v2ChipTitle}>Трафик сегодня</Text>
-                  <Text style={styles.v2ChipValue}>{formatBytes(totalToday)}</Text>
-                </View>
-              </View>
-              <View style={styles.v2Chip}>
-                <Ionicons name="calendar" size={16} color="#fff" />
-                <View style={{ marginLeft: 8, flex: 1 }}>
-                  <Text style={styles.v2ChipTitle}>Действует</Text>
-                  <Text style={styles.v2ChipValue}>{daysLeft} дн.</Text>
-                </View>
-              </View>
-            </View>
+        {/* TopAppBar */}
+        <View style={styles.ngTopBar}>
+          <Ionicons name="menu" size={22} color={colors.text} />
+          <Text style={styles.ngTopTitle}>GhostCloud</Text>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Pressable style={styles.ngTopBtn} onPress={() => nav.navigate("Настройки")}>
+              <Ionicons name="settings-outline" size={21} color={colors.text} />
+            </Pressable>
+            <Pressable style={styles.ngTopBtn} onPress={refreshNodes} disabled={refreshingNodes}>
+              {refreshingNodes ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <Ionicons name="sync" size={20} color={colors.text} />
+              )}
+            </Pressable>
+            <Pressable style={styles.ngTopBtn} onPress={() => setAppsOpen(true)}>
+              <Ionicons name="apps-outline" size={21} color={colors.text} />
+            </Pressable>
           </View>
         </View>
 
-        <View style={styles.v2SectionHead}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.v2SectionTitle}>Серверы</Text>
-            <Text style={styles.v2SectionCount}>{nodes.length} доступно</Text>
-          </View>
-          <PressableScale style={styles.v2CircleBtn} onPress={refreshNodes} disabled={refreshingNodes}>
-            {refreshingNodes ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Ionicons name="sync" size={19} color={colors.accent} />
-            )}
-          </PressableScale>
-          <PressableScale style={styles.v2CircleBtn} onPress={() => pingStore.pingAll(nodes)}>
-            <Ionicons name="speedometer" size={19} color={colors.accent} />
-          </PressableScale>
-        </View>
-
-        <View style={styles.v2ListCard}>
-          <FlatList
-            data={nodes}
-            keyExtractor={(n: any) => n.id}
-            initialNumToRender={12}
-            renderItem={({ item }: any) => {
-              const info = splitNameFlag(item.name);
-              const selected = item.id === (selectedNodeId || nodes[0]?.id);
-              const ping = pings[item.id];
-              return (
-                <PressableScale style={styles.v2Tile} onPress={() => reconnectTo(item.id)}>
-                  {selected ? (
-                    <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
-                  ) : (
-                    <Text style={{ fontSize: 19, width: 26, textAlign: "center" }}>{info.flag}</Text>
-                  )}
-                  <View style={{ flex: 1, marginLeft: 10 }}>
+        {/* Список серверов */}
+        <FlatList
+          data={nodes}
+          keyExtractor={(n: any) => n.id}
+          initialNumToRender={14}
+          contentContainerStyle={{ paddingBottom: 8 }}
+          renderItem={({ item }: any) => {
+            const info = splitNameFlag(item.name);
+            const selected = item.id === (selectedNodeId || nodes[0]?.id);
+            const ping = pings[item.id];
+            return (
+              <PressableScale style={styles.ngTile} onPress={() => reconnectTo(item.id)}>
+                <View style={styles.ngTileIndicator}>
+                  {!!selected && <View style={styles.ngTileSelectedBar} />}
+                </View>
+                <View style={{ flex: 1, paddingVertical: 8 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <MarqueeText
                       text={info.name}
-                      style={[styles.v2TileName, selected && { color: colors.accent, fontWeight: "800" }]}
+                      style={[styles.ngTileName, selected && { fontWeight: "700" }]}
                     />
-                    <Text style={styles.v2TileSub} numberOfLines={1}>
-                      {transportLabel(item)}
-                    </Text>
+                    {ping?.status === "pending" && (
+                      <ActivityIndicator size="small" color={colors.accent} style={{ marginLeft: 8 }} />
+                    )}
                   </View>
-                  {ping?.status === "pending" && <ActivityIndicator size="small" color={colors.accent} />}
-                  {ping?.status === "done" && !ping.error && (
-                    <View style={[styles.v2DelayPill, { backgroundColor: withAlpha(delayColor(ping.delay), 0.12) }]}>
-                      <Text style={{ color: delayColor(ping.delay), fontSize: 11, fontWeight: "800" }}>
-                        {ping.delay} мс
+                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 5 }}>
+                    <View style={styles.ngSubBadge}>
+                      <Text style={styles.ngSubBadgeText}>
+                        {(info.name[0] || "G").toUpperCase()}
                       </Text>
                     </View>
-                  )}
-                </PressableScale>
-              );
-            }}
-            ListEmptyComponent={
-              <View style={{ alignItems: "center", paddingVertical: 26, gap: 8 }}>
-                <Ionicons name="server-outline" size={40} color={colors.textFaint} />
-                <Text style={{ color: colors.textFaint }}>Серверы не найдены — обновите подписку</Text>
-              </View>
-            }
-          />
-        </View>
+                    <Text style={styles.ngTileStats} numberOfLines={1}>
+                      {transportLabel(item)}
+                    </Text>
+                    {ping?.status === "done" && !ping.error && (
+                      <Text style={[styles.ngTileDelay, { color: delayColorV(ping.delay) }]}>
+                        {delayText(ping.delay)}
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </PressableScale>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={{ alignItems: "center", paddingVertical: 40 }}>
+              <Ionicons name="server-outline" size={44} color={colors.textFaint} />
+              <Text style={{ color: colors.textFaint, marginTop: 10 }}>Серверы не найдены</Text>
+              <PressableScale
+                style={{ backgroundColor: colors.card, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14 }}
+                onPress={refreshNodes}
+              >
+                <Text style={{ color: colors.accent, fontWeight: "700" }}>Обновить подписку</Text>
+              </PressableScale>
+            </View>
+          }
+        />
 
-        <PressableScale style={[styles.appsRowCard, fl && styles.serverCardFl]} onPress={() => setAppsOpen(true)}>
-          <View style={[styles.serverIcon, fl && styles.serverIconFl]}>
-            <Ionicons name="apps" size={20} color={colors.accent} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.serverName}>Приложения</Text>
-            <Text style={styles.serverSub} numberOfLines={1}>
-              {allowedCount > 0
-                ? `Через VPN: ${allowedCount} · белый список`
-                : blockedCount > 0
-                  ? `Мимо VPN: ${blockedCount}`
-                  : "Все приложения через VPN"}
+        {/* Статус-бар с FAB (как MainBottomBar в v2rayNG) */}
+        <View>
+          <View style={styles.ngStatusDivider} />
+          <View style={styles.ngStatusBar}>
+            <Text style={styles.ngStatusText} numberOfLines={1}>
+              {busy
+                ? "Подключение…"
+                : connected
+                  ? `Подключено · ${formatTimer(seconds)}`
+                  : subscriptionActive
+                    ? "Не подключено"
+                    : "Подписка истекла"}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={withAlpha(colors.text, 0.3)} />
-        </PressableScale>
+          <Pressable
+            onPress={toggle}
+            disabled={busy}
+            style={({ pressed }) => [
+              styles.ngFab,
+              {
+                backgroundColor: connected ? "#F97910" : colors.text === "#FFFFFF" ? "#646464" : "#9C9C9C",
+                opacity: pressed ? 0.88 : 1,
+              },
+            ]}
+          >
+            <Ionicons name={connected ? "stop" : "play"} size={24} color="#fff" />
+          </Pressable>
+        </View>
 
         {!!error && <Text style={styles.error}>{error}</Text>}
 
@@ -362,6 +324,7 @@ export default function HomeScreen() {
       </View>
     );
   }
+
 
   return (
     <View style={styles.screen}>
@@ -1347,6 +1310,77 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: 10,
   },
+  // ─── v2rayNG Material 3 ───
+  ngTopBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 56,
+    paddingHorizontal: 8,
+    gap: 6,
+    backgroundColor: colors.bg,
+  },
+  ngTopTitle: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: "500",
+    marginLeft: 8,
+  },
+  ngTopBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  ngTile: {
+    flexDirection: "row",
+    backgroundColor: colors.bg,
+  },
+  ngTileIndicator: { width: 10, justifyContent: "center" },
+  ngTileSelectedBar: {
+    width: 4,
+    alignSelf: "stretch",
+    marginVertical: 10,
+    marginLeft: 6,
+    backgroundColor: colors.accent,
+    borderRadius: 2,
+  },
+  ngTileName: { color: colors.text, fontSize: 16, fontWeight: "400", flex: 1 },
+  ngSubBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: withAlpha(colors.accent, 0.2),
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  ngSubBadgeText: { color: colors.accent, fontSize: 11, fontWeight: "700" },
+  ngTileStats: {
+    color: colors.textDim,
+    fontSize: 14,
+    flex: 1,
+  },
+  ngTileDelay: { color: "#009966", fontSize: 13, fontWeight: "600", marginLeft: 8 },
+  ngStatusDivider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  ngStatusBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 64,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 16,
+  },
+  ngStatusText: { color: withAlpha(colors.text, 0.75), fontSize: 14, flex: 1, paddingRight: 88 },
+  ngFab: {
+    position: "absolute",
+    right: 24,
+    top: -28,
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
   serverNameFl: { fontSize: 14, fontWeight: "600" },
   // ─── Happ неоморфизм ───
   neu: {
@@ -1360,99 +1394,6 @@ const makeStyles = () => StyleSheet.create({
         : "5px 5px 18px rgba(144,144,184,0.55), -5px -5px 18px rgba(255,255,255,1)",
   } as any,
   // ─── v2rayNG дашборд ───
-  v2Header: {
-    backgroundColor: "#0088CC",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    paddingHorizontal: 18,
-    paddingTop: 54,
-    paddingBottom: 22,
-  },
-  v2Metric: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  v2MetricTitle: { color: "rgba(255,255,255,0.72)", fontSize: 11, fontWeight: "700" },
-  v2MetricValue: { color: "#fff", fontSize: 14, fontWeight: "800", marginTop: 1 },
-  v2SphereWrap: {
-    padding: 10,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-  },
-  v2StatusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 10,
-    backgroundColor: "rgba(255,255,255,0.14)",
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  v2Dot: { width: 8, height: 8, borderRadius: 4 },
-  v2StatusText: { color: "#fff", fontSize: 13, fontWeight: "700" },
-  v2Brand: { color: "#fff", fontSize: 17, fontWeight: "800", marginTop: 12 },
-  v2Chip: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.13)",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  v2ChipTitle: { color: "rgba(255,255,255,0.68)", fontSize: 10, fontWeight: "700" },
-  v2ChipValue: { color: "#fff", fontSize: 12, fontWeight: "700", marginTop: 1 },
-  v2SectionHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 8,
-  },
-  v2SectionTitle: { color: colors.text, fontSize: 19, fontWeight: "800" },
-  v2SectionCount: { color: colors.textDim, fontSize: 12, fontWeight: "600", marginTop: 1 },
-  v2CircleBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: withAlpha(colors.accent, 0.12),
-    marginLeft: 6,
-  },
-  v2ListCard: {
-    marginHorizontal: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: withAlpha(colors.border, 0.55),
-    backgroundColor: colors.card,
-    overflow: "hidden",
-    maxHeight: 380,
-  },
-  v2Tile: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: withAlpha(colors.border, 0.35),
-  },
-  v2TileName: { color: colors.text, fontSize: 15, fontWeight: "600" },
-  v2TileSub: { color: colors.textDim, fontSize: 12, fontWeight: "500", marginTop: 1 },
-  v2DelayPill: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, marginLeft: 8 },
   serverIconFl: {
     width: 38,
     height: 38,

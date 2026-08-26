@@ -225,42 +225,42 @@ const happDarkColors = {
   gradient: ["#7070EE", "#7C74FF"] as const,
 };
 
-/** v2ray (light) — лавандовые поверхности, точные значения Flutter-версии */
+/** v2rayNG (light) — Material 3: белые поверхности, чёрный primary, оранжевый акцент */
 const v2rayLightColors = {
-  bg: "#F5F3FF",
-  bgSoft: "#EDE9FE",
-  card: "#E5E0FF",
-  cardLight: "#DDD6FF",
-  border: "#CDC4E8",
-  text: "#1A0A2E",
-  textDim: "#5B4A7A",
-  textFaint: "#9B8EC4",
-  accent: "#8B5CF6",
-  accentDeep: "#7C3AED",
-  accentSoft: "rgba(139,92,246,0.14)",
-  green: "#16A34A",
-  red: "#EF4444",
+  bg: "#FFFFFF",
+  bgSoft: "#F7F7F7",
+  card: "#F1F1F1",
+  cardLight: "#EBEBEB",
+  border: "#CAC4D0",
+  text: "#1C1B1F",
+  textDim: "#49454F",
+  textFaint: "#79747E",
+  accent: "#F97910",
+  accentDeep: "#DD6A0C",
+  accentSoft: "rgba(249,121,16,0.12)",
+  green: "#009966",
+  red: "#FF0099",
   orange: "#F59E0B",
-  gradient: ["#7C3AED", "#8B5CF6"] as const,
+  gradient: ["#F97910", "#FF9C40"] as const,
 };
 
-/** v2ray (dark) — тёмно-фиолетовый с синими блобами на фоне дашборда */
+/** v2rayNG (dark) — near-black surfaces, silver primary, оранжевый акцент */
 const v2rayDarkColors = {
-  bg: "#0D0618",
-  bgSoft: "#110820",
-  card: "#160C28",
-  cardLight: "#1C1030",
-  border: "#3D2D6A",
-  text: "#F0EEFF",
-  textDim: "#B8AEDD",
-  textFaint: "#6B5A9E",
-  accent: "#8B5CF6",
-  accentDeep: "#7C3AED",
-  accentSoft: "rgba(139,92,246,0.18)",
-  green: "#16A34A",
-  red: "#EF4444",
+  bg: "#1C1B1F",
+  bgSoft: "#1A191D",
+  card: "#1E1D21",
+  cardLight: "#282729",
+  border: "#49454F",
+  text: "#E6E1E5",
+  textDim: "#CAC4D0",
+  textFaint: "#938F99",
+  accent: "#F97910",
+  accentDeep: "#DD6A0C",
+  accentSoft: "rgba(249,121,16,0.16)",
+  green: "#009966",
+  red: "#FF0099",
   orange: "#F59E0B",
-  gradient: ["#7C3AED", "#8B5CF6"] as const,
+  gradient: ["#F97910", "#FF9C40"] as const,
 };
 
 type Palette = {
