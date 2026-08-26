@@ -840,48 +840,49 @@ function PowerIcon({ on }: { on: boolean }) {
 /** Бегущая строка: если текст не влезает — плавно прокручивается туда-обратно */
 function MarqueeText({ text, style }: { text: string; style?: any }) {
   const [containerW, setContainerW] = useState(0);
-  const [textW, setTextW] = useState(0);
+  const [contentW, setContentW] = useState(0);
   const offset = useRef(new Animated.Value(0)).current;
-  const overflow = containerW > 0 && textW > containerW;
+  const overflow = containerW > 0 && contentW > containerW + 2;
 
   useEffect(() => {
     if (!overflow) {
       offset.setValue(0);
       return;
     }
-    const dist = textW - containerW + 20;
+    const dist = contentW - containerW + 20;
     const dur = Math.max(2600, Math.min(9000, dist * 28));
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(offset, { toValue: -dist, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.delay(600),
         Animated.timing(offset, { toValue: 0, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.delay(600),
       ])
     );
     anim.start();
     return () => anim.stop();
-  }, [overflow, textW, containerW, offset]);
+  }, [overflow, contentW, containerW, offset]);
 
   return (
     <View
-      style={{ overflow: "hidden" }}
+      style={{ flexDirection: "row", overflow: "hidden", flex: 1 }}
       onLayout={(e) => setContainerW(e.nativeEvent.layout.width)}
     >
       <Animated.View
         style={{
           flexDirection: "row",
-          alignSelf: "flex-start",
           transform: [{ translateX: offset }],
         }}
       >
         <Text
+          onLayout={(e) => setContentW(e.nativeEvent.layout.width)}
+          style={[style, { width: overflow ? undefined : "100%" }]}
           numberOfLines={1}
-          onLayout={(e) => setTextW(e.nativeEvent.layout.width)}
-          style={style}
         >
           {text}
         </Text>
         {!!overflow && (
-          <Text style={[style, { width: 24 }]}> </Text>
+          <Text style={[style, { width: 32 }]}> </Text>
         )}
       </Animated.View>
     </View>
@@ -1051,15 +1052,15 @@ const makeStyles = () => StyleSheet.create({
   statValue: { color: colors.text, fontSize: 14, fontWeight: "800", marginTop: 1 },
   serverCard: {
     margin: 20,
-    marginBottom: 90,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
+    marginBottom: 16,
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 0,
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 22,
-    padding: 16,
+    padding: 14,
   },
   // Flutter DashboardServerCard: radius 20, surfaceContainerHighest/#1E1735
   serverCardFl: {
