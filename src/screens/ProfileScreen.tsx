@@ -349,11 +349,15 @@ export default function ProfileScreen() {
         )}
       </Card>
 
+      <SectionLabel>Спонсорское</SectionLabel>
       {isSponsor ? (
         <Card>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
             <SponsorHeart size={22} />
-            <Text style={styles.sectionTitle}>Спонсорские привилегии</Text>
+            {!isFlutterStyleTheme() && <Text style={styles.sectionTitle}>Спонсорские привилегии</Text>}
+            {isFlutterStyleTheme() && (
+              <Text style={{ color: colors.text, fontWeight: "700", fontSize: 15 }}>Спонсорские привилегии</Text>
+            )}
           </View>
           <Row
             label="Бонусное устройство (+1)"
@@ -396,10 +400,15 @@ export default function ProfileScreen() {
         </Card>
       )}
 
+      <SectionLabel>Бонусы</SectionLabel>
       <Card>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <Text style={{ fontSize: 20 }}>🎁</Text>
-          <Text style={styles.sectionTitle}>Подарки и бонусы</Text>
+          {!isFlutterStyleTheme() ? (
+            <Text style={styles.sectionTitle}>Подарки и бонусы</Text>
+          ) : (
+            <Text style={{ color: colors.text, fontWeight: "700", fontSize: 15 }}>Подарки и бонусы</Text>
+          )}
         </View>
         <Text style={styles.fieldLabel}>Промокод</Text>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
@@ -442,6 +451,7 @@ export default function ProfileScreen() {
         <Row label="Устройства" value={`${me?.device_count ?? 0} / ${me?.device_limit ?? 6}`} />
       </Card>
 
+      <SectionLabel>Ещё</SectionLabel>
       <View style={isFlutterStyleTheme() && styles.flGroup}>
         <MenuItem
           icon="📱"
@@ -488,6 +498,7 @@ export default function ProfileScreen() {
         )}
       </Card>
 
+      <SectionLabel>Другое</SectionLabel>
       <Card>
         <PressableScale onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/offer`)}>
           <Text style={{ color: colors.textDim, textAlign: "center", paddingVertical: 6 }}>
@@ -598,6 +609,26 @@ export default function ProfileScreen() {
         </PressableScale>
       </Modal>
     </Screen>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  if (!isFlutterStyleTheme()) return null;
+  // Flutter ListHeader/_generateThemedSection: 13px w600 primary@0.75
+  return (
+    <Text
+      style={{
+        color: withAlpha(colors.accent, 0.85),
+        fontSize: 13,
+        fontWeight: "600",
+        letterSpacing: 0.5,
+        marginHorizontal: 16,
+        marginTop: 14,
+        marginBottom: 6,
+      }}
+    >
+      {children}
+    </Text>
   );
 }
 

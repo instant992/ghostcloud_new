@@ -16,7 +16,7 @@ import {
 import { PressableScale } from "../components/PressableScale";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
@@ -217,6 +217,9 @@ export default function HomeScreen() {
       )}
 
       <View style={styles.powerArea}>
+        {fl ? (
+          <PowerSphere on={connected} busy={busy} onPress={toggle} />
+        ) : (
         <PressableScale onPress={toggle} disabled={busy} style={styles.pressable}>
           <Animated.View
             pointerEvents="none"
@@ -289,6 +292,7 @@ export default function HomeScreen() {
             <PowerIcon on={connected} />
           </View>
         </PressableScale>
+        )}
         {!fl && !!connected && (
           <Text style={styles.timer}>
             {formatTimer(seconds)}
@@ -827,6 +831,56 @@ function PowerIcon({ on }: { on: boolean }) {
       color="#fff"
       style={{ marginTop: -6 }}
     />
+  );
+}
+
+/** Flutter StartButton: стеклянная сфера 180dp, радиальный градиент, свечение.
+ *  Отключена: #7C3AED → #2D1B69; подключена: #22C55E → #0D4A22. */
+function PowerSphere({ on, busy, onPress }: { on: boolean; busy: boolean; onPress: () => void }) {
+  const [pressed, setPressed] = useState(false);
+  const base = on ? "#22C55E" : "#7C3AED";
+  const dark = on ? "#0D4A22" : "#2D1B69";
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={busy}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={{
+        width: 210,
+        height: 210,
+        alignItems: "center",
+        justifyContent: "center",
+        marginTop: 8,
+        transform: [{ scale: pressed ? 0.93 : 1 }],
+        opacity: busy ? 0.72 : 1,
+      }}
+    >
+      <Svg width={210} height={210}>
+        {/* свечение */}
+        <Circle cx={105} cy={105} r={104} fill={base} opacity={on ? 0.16 : 0.08} />
+        <Circle cx={105} cy={105} r={98} fill={base} opacity={on ? 0.22 : 0.12} />
+        <Defs>
+          <RadialGradient id="sphereGrad" cx="38%" cy="32%" r="62%">
+            <Stop offset="0" stopColor={base} stopOpacity={0.75} />
+            <Stop offset="0.35" stopColor={base} stopOpacity={0.45} />
+            <Stop offset="0.72" stopColor={dark} stopOpacity={0.9} />
+            <Stop offset="1" stopColor={dark} stopOpacity={0.97} />
+          </RadialGradient>
+        </Defs>
+        <Circle
+          cx={105}
+          cy={105}
+          r={90}
+          fill="url(#sphereGrad)"
+          stroke="rgba(255,255,255,0.14)"
+          strokeWidth={1.5}
+        />
+      </Svg>
+      <View style={{ position: "absolute" }} pointerEvents="none">
+        <Ionicons name="power" size={62} color="rgba(255,255,255,0.96)" />
+      </View>
+    </Pressable>
   );
 }
 

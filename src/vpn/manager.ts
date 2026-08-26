@@ -101,8 +101,8 @@ export async function fetchNodes(): Promise<{ nodes: VpnNode[]; unsupportedCount
   return { nodes: merged, unsupportedCount };
 }
 
-export async function ensurePermission(): Promise<boolean> {
-  // Разрешение на уведомления (Android 13+) — чтобы VPN-уведомление было видно в шторке
+/** Запрос разрешения на уведомления (Android 13+) — вызывается при старте приложения */
+export async function requestNotificationPermission(): Promise<void> {
   try {
     const { PermissionsAndroid, Platform } = require("react-native");
     if (Platform.OS === "android" && Platform.Version >= 33) {
@@ -111,6 +111,10 @@ export async function ensurePermission(): Promise<boolean> {
       );
     }
   } catch {}
+}
+
+export async function ensurePermission(): Promise<boolean> {
+  await requestNotificationPermission();
 
   if (await isPrepared()) return true;
   return requestVpnPermission();

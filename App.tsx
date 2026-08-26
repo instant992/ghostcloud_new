@@ -254,6 +254,12 @@ function Root() {
 
 export default function App() {
   const [splashDone, setSplashDone] = React.useState(false);
+  // Разрешение на уведомления — сразу при запуске приложения
+  React.useEffect(() => {
+    import("./src/vpn/manager")
+      .then((m) => m.requestNotificationPermission())
+      .catch(() => {});
+  }, []);
   return (
     <ErrorBoundary>
       <ThemeProvider>
