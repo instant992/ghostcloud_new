@@ -16,7 +16,7 @@ import {
 import { PressableScale } from "../components/PressableScale";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
+import Svg, { Circle } from "react-native-svg";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
@@ -217,9 +217,6 @@ export default function HomeScreen() {
       )}
 
       <View style={styles.powerArea}>
-        {fl ? (
-          <PowerSphere on={connected} busy={busy} onPress={toggle} />
-        ) : (
         <PressableScale onPress={toggle} disabled={busy} style={styles.pressable}>
           <Animated.View
             pointerEvents="none"
@@ -292,7 +289,6 @@ export default function HomeScreen() {
             <PowerIcon on={connected} />
           </View>
         </PressableScale>
-        )}
         {!fl && !!connected && (
           <Text style={styles.timer}>
             {formatTimer(seconds)}
@@ -301,50 +297,76 @@ export default function HomeScreen() {
         {!!error && <Text style={styles.error}>{error}</Text>}
       </View>
 
-      <PressableScale style={[styles.serverCard, fl && styles.serverCardFl]} onPress={() => setPickerOpen(true)}>
-        <View style={[styles.serverIcon, fl && styles.serverIconFl]}>
-          {fl ? (
-            selectedInfo ? (
-              <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>
+      {/* Сервер + приложения — единый блок */}
+      <View style={styles.serverCard}>
+        <PressableScale
+          style={styles.serverRow}
+          onPress={() => setPickerOpen(true)}
+        >
+          <View style={[styles.serverIcon, fl && styles.serverIconFl]}>
+            {fl ? (
+              selectedInfo ? (
+                <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>
+              ) : (
+                <Ionicons name="globe-outline" size={20} color={colors.accent} />
+              )
             ) : (
-              <Ionicons name="globe-outline" size={20} color={colors.accent} />
-            )
-          ) : (
-            <Ionicons name="flash" size={20} color={colors.accent} />
-          )}
-        </View>
-        <View style={{ flex: 1 }}>
-          {selectedNode && selectedInfo ? (
-            <>
-              <Text style={[styles.serverName, fl && { fontSize: 14, fontWeight: "600" }]} numberOfLines={1}>
-                {selectedInfo.name}
-              </Text>
-              <Text style={styles.serverSub} numberOfLines={1}>
-                {fl ? "Выбранная локация · " : ""}
-                {transportLabel(selectedNode)}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Text style={styles.serverName}>Сервер не выбран</Text>
-              <Text style={styles.serverSub}>Нажмите, чтобы выбрать локацию</Text>
-            </>
-          )}
-        </View>
-        {selectedInfo && !fl && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
-        {!fl && (
-          <PressableScale style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
-            {refreshingNodes ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : (
-              <Ionicons name="refresh" size={16} color={colors.textDim} />
+              <Ionicons name="flash" size={20} color={colors.accent} />
             )}
-          </PressableScale>
-        )}
-        {fl && (
-          <Ionicons name="chevron-forward" size={22} color={withAlpha(colors.text, 0.3)} />
-        )}
-      </PressableScale>
+          </View>
+          <View style={{ flex: 1 }}>
+            {selectedNode && selectedInfo ? (
+              <>
+                <MarqueeText
+                  text={selectedInfo.name}
+                  style={[styles.serverName, fl && styles.serverNameFl]}
+                />
+                <Text style={styles.serverSub} numberOfLines={1}>
+                  {fl ? "Выбранная локация · " : ""}
+                  {transportLabel(selectedNode)}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.serverName}>Сервер не выбран</Text>
+                <Text style={styles.serverSub}>Нажмите, чтобы выбрать локацию</Text>
+              </>
+            )}
+          </View>
+          {selectedInfo && !fl && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
+          {!fl && (
+            <PressableScale style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
+              {refreshingNodes ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Ionicons name="refresh" size={16} color={colors.textDim} />
+              )}
+            </PressableScale>
+          )}
+          {fl && (
+            <Ionicons name="chevron-forward" size={22} color={withAlpha(colors.text, 0.3)} />
+          )}
+        </PressableScale>
+
+        <View style={[styles.mergedDivider, fl && { backgroundColor: withAlpha(colors.border, 0.3) }]} />
+
+        <PressableScale style={styles.serverRow} onPress={() => setAppsOpen(true)}>
+          <View style={[styles.serverIcon, fl && styles.serverIconFl]}>
+            <Ionicons name="apps" size={20} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.serverName, fl && styles.serverNameFl]}>Приложения</Text>
+            <Text style={styles.serverSub} numberOfLines={1}>
+              {allowedCount > 0
+                ? `Через VPN: ${allowedCount} · белый список`
+                : blockedCount > 0
+                  ? `Мимо VPN: ${blockedCount}`
+                  : "Все приложения через VPN"}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={fl ? 22 : 18} color={fl ? withAlpha(colors.text, 0.3) : colors.textFaint} />
+        </PressableScale>
+      </View>
 
       <PressableScale
         style={[styles.connectPill, busy && { opacity: 0.7 }]}
@@ -376,23 +398,6 @@ export default function HomeScreen() {
           </View>
         </PressableScale>
       </View>
-
-      <PressableScale style={styles.appsCard} onPress={() => setAppsOpen(true)}>
-        <View style={styles.serverIcon}>
-          <Ionicons name="apps" size={20} color={colors.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.serverName}>Приложения</Text>
-          <Text style={styles.serverSub} numberOfLines={1}>
-            {allowedCount > 0
-              ? `Через VPN: ${allowedCount} · белый список`
-              : blockedCount > 0
-                ? `Мимо VPN: ${blockedCount}`
-                : "Все приложения через VPN"}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
-      </PressableScale>
 
       <AppFilterModal
         visible={appsOpen}
@@ -756,9 +761,7 @@ function ServerPicker({
                 >
                   <Text style={{ fontSize: 24 }}>{info.flag}</Text>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.sheetItemName} numberOfLines={1}>
-                      {info.name}
-                    </Text>
+                    <MarqueeText text={info.name} style={styles.sheetItemName} />
                     <Text style={styles.sheetItemSub} numberOfLines={1}>
                       {transportLabel(item)}
                     </Text>
@@ -834,53 +837,54 @@ function PowerIcon({ on }: { on: boolean }) {
   );
 }
 
-/** Flutter StartButton: стеклянная сфера 180dp, радиальный градиент, свечение.
- *  Отключена: #7C3AED → #2D1B69; подключена: #22C55E → #0D4A22. */
-function PowerSphere({ on, busy, onPress }: { on: boolean; busy: boolean; onPress: () => void }) {
-  const [pressed, setPressed] = useState(false);
-  const base = on ? "#22C55E" : "#7C3AED";
-  const dark = on ? "#0D4A22" : "#2D1B69";
+/** Бегущая строка: если текст не влезает — плавно прокручивается туда-обратно */
+function MarqueeText({ text, style }: { text: string; style?: any }) {
+  const [containerW, setContainerW] = useState(0);
+  const [textW, setTextW] = useState(0);
+  const offset = useRef(new Animated.Value(0)).current;
+  const overflow = containerW > 0 && textW > containerW;
+
+  useEffect(() => {
+    if (!overflow) {
+      offset.setValue(0);
+      return;
+    }
+    const dist = textW - containerW + 20;
+    const dur = Math.max(2600, Math.min(9000, dist * 28));
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(offset, { toValue: -dist, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(offset, { toValue: 0, duration: dur, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [overflow, textW, containerW, offset]);
+
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={busy}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
-      style={{
-        width: 210,
-        height: 210,
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: 8,
-        transform: [{ scale: pressed ? 0.93 : 1 }],
-        opacity: busy ? 0.72 : 1,
-      }}
+    <View
+      style={{ overflow: "hidden" }}
+      onLayout={(e) => setContainerW(e.nativeEvent.layout.width)}
     >
-      <Svg width={210} height={210}>
-        {/* свечение */}
-        <Circle cx={105} cy={105} r={104} fill={base} opacity={on ? 0.16 : 0.08} />
-        <Circle cx={105} cy={105} r={98} fill={base} opacity={on ? 0.22 : 0.12} />
-        <Defs>
-          <RadialGradient id="sphereGrad" cx="38%" cy="32%" r="62%">
-            <Stop offset="0" stopColor={base} stopOpacity={0.75} />
-            <Stop offset="0.35" stopColor={base} stopOpacity={0.45} />
-            <Stop offset="0.72" stopColor={dark} stopOpacity={0.9} />
-            <Stop offset="1" stopColor={dark} stopOpacity={0.97} />
-          </RadialGradient>
-        </Defs>
-        <Circle
-          cx={105}
-          cy={105}
-          r={90}
-          fill="url(#sphereGrad)"
-          stroke="rgba(255,255,255,0.14)"
-          strokeWidth={1.5}
-        />
-      </Svg>
-      <View style={{ position: "absolute" }} pointerEvents="none">
-        <Ionicons name="power" size={62} color="rgba(255,255,255,0.96)" />
-      </View>
-    </Pressable>
+      <Animated.View
+        style={{
+          flexDirection: "row",
+          alignSelf: "flex-start",
+          transform: [{ translateX: offset }],
+        }}
+      >
+        <Text
+          numberOfLines={1}
+          onLayout={(e) => setTextW(e.nativeEvent.layout.width)}
+          style={style}
+        >
+          {text}
+        </Text>
+        {!!overflow && (
+          <Text style={[style, { width: 24 }]}> </Text>
+        )}
+      </Animated.View>
+    </View>
   );
 }
 
@@ -1064,6 +1068,18 @@ const makeStyles = () => StyleSheet.create({
     borderColor: withAlpha(colors.border, 0.5),
     paddingVertical: 12,
   },
+  serverRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 4,
+  },
+  mergedDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.border,
+    marginVertical: 10,
+  },
+  serverNameFl: { fontSize: 14, fontWeight: "600" },
   serverIconFl: {
     width: 38,
     height: 38,
