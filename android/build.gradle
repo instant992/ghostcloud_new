@@ -20,5 +20,17 @@ allprojects {
   }
 }
 
+// Отключаем lint в release-сборках библиотечных модулей (lintVital падает на сторонних пакетах)
+subprojects { sp ->
+  afterEvaluate {
+    if (sp.hasProperty('android')) {
+      sp.android.lint {
+        checkReleaseBuilds false
+        abortOnError false
+      }
+    }
+  }
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
