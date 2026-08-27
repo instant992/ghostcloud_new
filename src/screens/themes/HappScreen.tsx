@@ -609,7 +609,7 @@ function HeaderIcon({
 }) {
   return (
     <Pressable onPress={onPress} hitSlop={8} style={makeStyles().headerIcon}>
-      <Ionicons name={icon} size={size} color={color || "rgba(26,26,46,0.86)"} />
+      <Ionicons name={icon} size={size} color={color || colors.text} />
     </Pressable>
   );
 }
@@ -677,7 +677,7 @@ function HappServerTile({
             <Ionicons
               name={favorite ? "heart" : "heart-outline"}
               size={19}
-              color={favorite ? "#E53935" : "rgba(26,26,46,0.26)"}
+              color={favorite ? "#E53935" : colors.textFaint}
             />
           </Pressable>
         </Pressable>
@@ -706,7 +706,7 @@ function HeroRow({
       <View style={{ flex: 1 }} />
       <Text style={styles.heroRowValue}>{value}</Text>
       {!!onPress && (
-        <Ionicons name="chevron-forward" size={16} color="rgba(26,26,46,0.36)" style={{ marginLeft: 4 }} />
+        <Ionicons name="chevron-forward" size={16} color={colors.textFaint} style={{ marginLeft: 4 }} />
       )}
     </>
   );
@@ -751,7 +751,7 @@ function MenuRow({
         <Text style={styles.menuTitle}>{title}</Text>
         <Text style={styles.menuSub}>{sub}</Text>
       </View>
-      {trailing || <Ionicons name="chevron-forward" size={17} color="rgba(26,26,46,0.28)" />}
+      {trailing || <Ionicons name="chevron-forward" size={17} color={colors.textFaint} />}
     </Pressable>
   );
 }
