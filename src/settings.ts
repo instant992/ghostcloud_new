@@ -59,3 +59,19 @@ export function getSelectedCore(): CoreName {
   const v = getSetting("core", "xray");
   return v === "sing-box" || v === "mihomo" ? (v as CoreName) : "xray";
 }
+
+/** Список строк в настройках (закреплённые серверы, избранное и т.п.) */
+export function getJsonList(key: string): string[] {
+  try {
+    const raw = getSetting(key, "");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setJsonList(key: string, list: string[]) {
+  setSetting(key, JSON.stringify(list));
+}

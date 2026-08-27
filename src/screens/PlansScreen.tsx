@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, ErrorText, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { ProviderPicker } from "../components/ProviderPicker";
 import { checkPromo, createPayment, extendFromBalance, getPrices, paymentStatus } from "../api";
 import { useApp } from "../context";
 import { colors, useTheme } from "../theme";
@@ -47,6 +48,7 @@ export default function PlansScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [credentials, setCredentials] = useState<{ login?: string; password?: string } | null>(null);
+  const [provider, setProvider] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -121,6 +123,7 @@ export default function PlansScreen() {
         email: email.trim(),
         plan: selectedPlan,
         promo_code: promoResult?.valid ? promo.trim() : undefined,
+        provider: provider || undefined,
         source: "app",
       });
       if (!r?.success) throw new Error(r?.error || "Не удалось создать платёж");
@@ -412,6 +415,8 @@ export default function PlansScreen() {
           ) : null}
         </View>
       )}
+
+      <ProviderPicker value={provider} onChange={setProvider} />
 
       <ErrorText>{error}</ErrorText>
       <Button title={`Оплатить ${displayPrice} ₽`} loading={loading} onPress={startPayment} />

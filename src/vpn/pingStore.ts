@@ -29,6 +29,24 @@ export function isRunning(): boolean {
   return running;
 }
 
+/** TCP-пинг одной ноды (кнопка «скорость» в списке серверов) */
+export async function pingOne(node: { id: string; address: string; port: number; supportedByXray: boolean }): Promise<void> {
+  if (!node.supportedByXray) {
+    map[node.id] = { status: "done", delay: -1, error: "не поддерживается" };
+    emit();
+    return;
+  }
+  map[node.id] = { status: "pending" };
+  emit();
+  try {
+    const delay = await tcpPing(node.address, node.port, 5000);
+    map[node.id] = { status: "done", delay };
+  } catch (e: any) {
+    map[node.id] = { status: "done", delay: -1, error: e?.message || "недоступен" };
+  }
+  emit();
+}
+
 /** TCP-пинг всех нод (по 4 одновременно), результаты появляются по мере готовности */
 export async function pingAll(nodes: Array<{ id: string; address: string; port: number; supportedByXray: boolean }>): Promise<void> {
   if (running) return;

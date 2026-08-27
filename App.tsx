@@ -1,7 +1,8 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
-import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { NavigationContainer, DefaultTheme, useNavigation } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,8 +26,16 @@ import DevicesScreen from "./src/screens/DevicesScreen";
 import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
+import SubscriptionScreen from "./src/screens/SubscriptionScreen";
+import V2rayScreen from "./src/screens/themes/V2rayScreen";
+import HappScreen from "./src/screens/themes/HappScreen";
+import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
+import GlassScreen from "./src/screens/themes/GlassScreen";
 import { TabIcon } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
+import { ToastHost, showToast } from "./src/components/Toast";
+import { setPrivacyBlur } from "./src/privacy";
+import { onScreenshot } from "./src/vpn/native";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -137,8 +146,115 @@ function AuthStack() {
   );
 }
 
-function Root() {
+/** Плавающая кнопка «назад» поверх без-хедерных экранов (в темах v2ray/happ
+ *  навигация одноэкранная, как во Flutter-версии) */
+function BackOverlay({ children }: { children: React.ReactNode }) {
+  const nav = useNavigation<any>();
   useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {children}
+      <View
+        pointerEvents="box-none"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 64,
+          flexDirection: "row",
+          alignItems: "flex-end",
+          paddingBottom: 4,
+          paddingHorizontal: 2,
+        }}
+      >
+        <Pressable
+          onPress={() => nav.goBack()}
+          hitSlop={12}
+          style={{ width: 46, height: 42, alignItems: "center", justifyContent: "center" }}
+        >
+          <Ionicons name="arrow-back" size={23} color={colors.text} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const SettingsWithBack = () => (
+  <BackOverlay>
+    <SettingsScreen />
+  </BackOverlay>
+);
+const PlansWithBack = () => (
+  <BackOverlay>
+    <PlansScreen />
+  </BackOverlay>
+);
+const StatsWithBack = () => (
+  <BackOverlay>
+    <StatsScreen />
+  </BackOverlay>
+);
+const SubscriptionWithBack = () => (
+  <BackOverlay>
+    <SubscriptionScreen />
+  </BackOverlay>
+);
+
+/** Одноэкранная тема (v2ray / happ): домашний экран темы + все разделы
+ *  открываются стеком поверх него — как во Flutter-версии. */
+function ThemedFlow({ Home }: { Home: React.ComponentType }) {
+  useTheme();
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack.Screen name="ThemeHome" component={Home} />
+      <Stack.Screen name="Настройки" component={SettingsWithBack} />
+      <Stack.Screen name="Профиль" component={ProfileScreen} />
+      <Stack.Screen name="Тарифы" component={PlansWithBack} />
+      <Stack.Screen name="Статистика" component={StatsWithBack} />
+      <Stack.Screen name="Подписка" component={SubscriptionWithBack} />
+      <Stack.Screen
+        name="Devices"
+        component={DevicesScreen}
+        options={{ headerShown: true, title: "Устройства", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Referral"
+        component={ReferralScreen}
+        options={{ headerShown: true, title: "Рефералы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="TopUp"
+        component={TopUpScreen}
+        options={{ headerShown: true, title: "Пополнение баланса", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Support"
+        component={SupportScreen}
+        options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function V2rayFlow() {
+  return <ThemedFlow Home={V2rayScreen} />;
+}
+
+function HappFlow() {
+  return <ThemedFlow Home={HappScreen} />;
+}
+
+function MinimalistFlow() {
+  return <ThemedFlow Home={MinimalistScreen} />;
+}
+
+function GlassFlow() {
+  return <ThemedFlow Home={GlassScreen} />;
+}
+
+function Root() {
+  const { name: themeName } = useTheme();
   const { loading, session } = useApp();
   if (loading) {
     return (
@@ -147,13 +263,23 @@ function Root() {
       </View>
     );
   }
+  const MainFlow =
+    themeName === "v2ray"
+      ? V2rayFlow
+      : themeName === "happ"
+        ? HappFlow
+        : themeName === "minimalist" || themeName === "pickme" || themeName === "foxcloud"
+          ? MinimalistFlow
+          : themeName === "glass"
+            ? GlassFlow
+            : MainTabs;
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       {!session ? (
         <Stack.Screen name="Auth" component={AuthStack} />
       ) : (
         <>
-          <Stack.Screen name="Main" component={MainTabs} />
+          <Stack.Screen name="Main" component={MainFlow} />
           <Stack.Screen
             name="Devices"
             component={DevicesScreen}
@@ -182,6 +308,22 @@ function Root() {
 
 export default function App() {
   const [splashDone, setSplashDone] = React.useState(false);
+
+  // Детект скриншота: включаем размытие конфиденциальных подписей на 20 секунд
+  React.useEffect(() => {
+    let timer: any = null;
+    const off = onScreenshot(() => {
+      setPrivacyBlur(true);
+      showToast("Скриншот обнаружен — LTE и обход скрыты");
+      clearTimeout(timer);
+      timer = setTimeout(() => setPrivacyBlur(false), 20000);
+    });
+    return () => {
+      off();
+      clearTimeout(timer);
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
@@ -191,6 +333,7 @@ export default function App() {
             <ThemedContainer>
               <Root />
             </ThemedContainer>
+            <ToastHost />
             {!splashDone && <FoxSplash onDone={() => setSplashDone(true)} />}
           </AppProvider>
         </SafeAreaProvider>

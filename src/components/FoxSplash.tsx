@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { colors, useTheme } from "../theme";
 
 const FOX_FACTS = [
@@ -32,7 +32,7 @@ export default function FoxSplash({ onDone }: { onDone: () => void }) {
 
   return (
     <View style={styles.backdrop}>
-      <Text style={styles.fox}>🦊</Text>
+      <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
       <Text style={styles.appName}>GhostCloud</Text>
       <Text style={styles.factLabel}>А вы знали?</Text>
       <Text style={styles.fact}>{fact}</Text>
@@ -55,7 +55,7 @@ const makeStyles = () =>
       padding: 36,
       zIndex: 999,
     },
-    fox: { fontSize: 72, marginBottom: 10 },
+    logo: { width: 64, height: 64, borderRadius: 16, marginBottom: 12 },
     appName: {
       color: colors.text,
       fontSize: 22,

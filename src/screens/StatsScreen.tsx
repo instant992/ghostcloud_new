@@ -1,13 +1,53 @@
-import React, { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
+import { getAppIcon } from "../vpn/native";
 import * as stats from "../stats";
 
 type Period = 1 | 7 | 30;
+
+/** Иконка приложения для списка «куда идёт трафик» */
+function AppIconSmall({ pkg, name }: { pkg: string; name: string }) {
+  useTheme();
+  const [icon, setIcon] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getAppIcon(pkg).then((b64) => {
+      if (alive && b64) setIcon(b64);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [pkg]);
+  if (icon) {
+    return (
+      <Image
+        source={{ uri: `data:image/png;base64,${icon}` }}
+        style={{ width: 30, height: 30, borderRadius: 8 }}
+      />
+    );
+  }
+  return (
+    <View
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        backgroundColor: colors.accentSoft,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ color: colors.accent, fontWeight: "800", fontSize: 12 }}>
+        {(name[0] || "?").toUpperCase()}
+      </Text>
+    </View>
+  );
+}
 
 export default function StatsScreen() {
   useTheme();
@@ -18,6 +58,7 @@ export default function StatsScreen() {
   const [total, setTotal] = useState<stats.DayStat>({ rx: 0, tx: 0 });
   const [chart, setChart] = useState<Array<{ date: string; stat: stats.DayStat }>>([]);
   const [byNode, setByNode] = useState<Array<{ nodeId: string; rx: number; tx: number }>>([]);
+  const [byApp, setByApp] = useState<Array<{ pkg: string; name: string; rx: number; tx: number }>>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -26,6 +67,7 @@ export default function StatsScreen() {
         const raw14 = await stats.lastNDays(14);
         setChart(raw14);
         setByNode(await stats.nodeSums(period));
+        setByApp(await stats.appSums(period));
       })();
     }, [period])
   );
@@ -134,8 +176,50 @@ export default function StatsScreen() {
         )}
       </View>
 
+      <Text style={styles.chartTitle}>По приложениям</Text>
+      <View style={styles.chartCard}>
+        {byApp.length === 0 ? (
+          <Text style={{ color: colors.textFaint, fontSize: 13, textAlign: "center", paddingVertical: 10 }}>
+            Пока нет данных — трафик приложений считается во время подключения
+          </Text>
+        ) : (
+          <>
+            {byApp.slice(0, 20).map((a) => {
+              const sum = a.rx + a.tx;
+              const top = byApp[0].rx + byApp[0].tx;
+              const share = top > 0 ? sum / top : 0;
+              return (
+                <View key={a.pkg} style={{ marginBottom: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <AppIconSmall pkg={a.pkg} name={a.name} />
+                    <Text
+                      style={{ color: colors.text, fontSize: 13, fontWeight: "600", flex: 1, marginRight: 4 }}
+                      numberOfLines={1}
+                    >
+                      {a.name || a.pkg}
+                    </Text>
+                    <Text style={{ color: colors.textDim, fontSize: 12 }}>{formatBytes(sum)}</Text>
+                  </View>
+                  <View style={styles.progressBg}>
+                    <View style={[styles.progressBar, { width: `${Math.max(2, Math.round(share * 100))}%` }]} />
+                  </View>
+                  <Text style={{ color: colors.textFaint, fontSize: 9, marginTop: 3 }}>
+                    ↓ {formatBytes(a.rx)} · ↑ {formatBytes(a.tx)}
+                  </Text>
+                </View>
+              );
+            })}
+            {byApp.length > 20 && (
+              <Text style={{ color: colors.textFaint, fontSize: 10, textAlign: "center" }}>
+                Показаны топ-20 приложений по трафику
+              </Text>
+            )}
+          </>
+        )}
+      </View>
+
       <Text style={styles.note}>
-        Трафик считается системным счётчиком приложения во время активного VPN-подключения.
+        Трафик считается системными счётчиками во время активного VPN-подключения.
       </Text>
     </Screen>
   );

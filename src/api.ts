@@ -153,6 +153,11 @@ export async function createTopup(amount: number, provider?: string) {
   return request("POST", "/api/auth/mobile/topup", { amount, provider });
 }
 
+/** Доступные платёжные системы: { providers: [{id, name, description, default, is_extra}], default } */
+export async function getPaymentProviders() {
+  return request("GET", "/api/payment-providers", undefined, { auth: false });
+}
+
 export async function topupStatus(orderId: string) {
   return request("GET", `/api/auth/mobile/topup/status?order_id=${encodeURIComponent(orderId)}`);
 }

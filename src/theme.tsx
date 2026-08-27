@@ -214,7 +214,8 @@ const PALETTES: Record<Exclude<ThemeName, "auto">, Palette> = {
   happ: happColors,
 };
 
-/** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью */
+/** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью.
+ *  Интервал берётся из расписания: «по солнцу» (восход/закат) или «своё время». */
 export function resolveAutoTheme(): "dark" | "light" {
   const toMin = (s: string) => {
     const [h, m] = s.split(":").map((x) => parseInt(x, 10) || 0);
@@ -222,8 +223,18 @@ export function resolveAutoTheme(): "dark" | "light" {
   };
   const now = new Date();
   const cur = now.getHours() * 60 + now.getMinutes();
-  const rise = toMin(getSetting("theme_sunrise", "06:00"));
-  const set = toMin(getSetting("theme_sunset", "20:00"));
+  let rise: number;
+  let set: number;
+  if (
+    getSetting("theme_schedule_enabled", "0") === "1" &&
+    getSetting("theme_schedule_mode", "sun") === "custom"
+  ) {
+    rise = toMin(getSetting("theme_custom_rise", "07:00"));
+    set = toMin(getSetting("theme_custom_set", "21:00"));
+  } else {
+    rise = toMin(getSetting("theme_sunrise", "06:00"));
+    set = toMin(getSetting("theme_sunset", "20:00"));
+  }
   if (rise <= set) return cur >= rise && cur < set ? "light" : "dark";
   // интервал через полночь
   return cur >= rise || cur < set ? "light" : "dark";

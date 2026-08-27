@@ -4,6 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { ProviderPicker } from "../components/ProviderPicker";
 import { createTopup, topupStatus } from "../api";
 import { colors, useTheme } from "../theme";
 
@@ -18,6 +19,7 @@ export default function TopUpScreen() {
   const [payUrl, setPayUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [provider, setProvider] = useState<string | null>(null);
 
   const create = async () => {
     const num = parseInt(amount, 10);
@@ -28,7 +30,7 @@ export default function TopUpScreen() {
     setLoading(true);
     setError(null);
     try {
-      const r = await createTopup(num);
+      const r = await createTopup(num, provider || undefined);
       if (!r?.success) throw new Error(r?.error || "Ошибка создания платежа");
       setOrderId(r.order_id || "");
       setPayUrl(r.confirmation_url || "");
@@ -87,6 +89,7 @@ export default function TopUpScreen() {
           value={amount}
           onChangeText={setAmount}
         />
+        <ProviderPicker value={provider} onChange={setProvider} />
         <ErrorText>{error}</ErrorText>
         <Button title="Пополнить" onPress={create} loading={loading} />
         {!!payUrl && (
@@ -102,7 +105,7 @@ export default function TopUpScreen() {
       </Card>
 
       <Card>
-        <Row label="Способы оплаты" value="ЮKassa / Lava / cisPay" />
+        <Row label="Способ оплаты" value="выбирается выше" />
         <Row label="Зачисление" value="автоматически" valueColor={colors.green} />
       </Card>
     </Screen>

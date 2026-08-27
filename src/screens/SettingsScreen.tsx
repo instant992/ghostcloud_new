@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
 import { Card, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { useApp } from "../context";
 import { colors, THEME_LABELS, THEME_ORDER, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
 import { getSelectedCore, getSetting, getThemeName, setSetting, type CoreName } from "../settings";
 import {
@@ -82,10 +83,14 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
   }
 }
 
+/** Стили, доступные только спонсорам — как во Flutter-версии */
+const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ"];
+
 export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
+  const { me } = useApp();
   const [theme, setTheme] = useState<ThemeName>(getThemeName());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
   const [xrayVersion, setXrayVersion] = useState("");
@@ -96,12 +101,75 @@ export default function SettingsScreen() {
   const [themeOpen, setThemeOpen] = useState(false);
   const [sunrise, setSunrise] = useState(getSetting("theme_sunrise", "06:00"));
   const [sunset, setSunset] = useState(getSetting("theme_sunset", "20:00"));
+  const [scheduleEnabled, setScheduleEnabled] = useState(
+    () => getSetting("theme_schedule_enabled", "0") === "1"
+  );
+  const [scheduleMode, setScheduleMode] = useState<"sun" | "custom">(() =>
+    getSetting("theme_schedule_mode", "sun") === "custom" ? "custom" : "sun"
+  );
+  const [customRise, setCustomRise] = useState(() => getSetting("theme_custom_rise", "07:00"));
+  const [customSet, setCustomSet] = useState(() => getSetting("theme_custom_set", "21:00"));
+  const [sunBusy, setSunBusy] = useState(false);
 
   const saveTime = (key: string, value: string, setter: (v: string) => void) => {
     const clean = value.replace(/[^\d:]/g, "").slice(0, 5);
     setter(clean);
-    if (/^\d{2}:\d{2}$/.test(clean)) setSetting(key, clean);
+    if (/^\d{2}:\d{2}$/.test(clean)) {
+      setSetting(key, clean);
+      if (theme === "auto") switchTheme("auto");
+    }
   };
+
+  /** «По солнцу»: запрашиваем рассвет/закат для Москвы и сохраняем как интервал авто-темы */
+  const fetchSunTimes = async () => {
+    setSunBusy(true);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      const r = await fetch(
+        "https://api.sunrise-sunset.org/json?lat=55.7558&lng=37.6173&formatted=0",
+        { signal: ctrl.signal }
+      );
+      const j = await r.json();
+      const toLocal = (iso: string) => {
+        const d = new Date(iso);
+        return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      };
+      const rise = toLocal(j?.results?.sunrise);
+      const setT = toLocal(j?.results?.sunset);
+      if (/^\d{2}:\d{2}$/.test(rise) && /^\d{2}:\d{2}$/.test(setT)) {
+        setSunrise(rise);
+        setSunset(setT);
+        setSetting("theme_sunrise", rise);
+        setSetting("theme_sunset", setT);
+        if (theme === "auto") switchTheme("auto");
+      }
+    } catch {
+      // сеть недоступна — оставляем текущие значения
+    } finally {
+      clearTimeout(t);
+      setSunBusy(false);
+    }
+  };
+
+  const toggleSchedule = (v: boolean) => {
+    setScheduleEnabled(v);
+    setSetting("theme_schedule_enabled", v ? "1" : "0");
+    if (v && theme !== "auto") changeTheme("auto");
+  };
+
+  const changeScheduleMode = (m: "sun" | "custom") => {
+    setScheduleMode(m);
+    setSetting("theme_schedule_mode", m);
+    if (theme === "auto") switchTheme("auto");
+  };
+
+  const isSponsor = me?.is_sponsor === true;
+  const visibleStyles = THEME_ORDER.filter((t) => {
+    if (!SPONSOR_STYLES.includes(t)) return true;
+    // спонсорские стили скрыты, если не выбраны (как во Flutter-версии)
+    return isSponsor || theme === t;
+  });
 
   useEffect(() => {
     setXrayVersion(getXrayVersion());
@@ -159,67 +227,187 @@ export default function SettingsScreen() {
       <Title>Настройки</Title>
 
       <Card>
-        <Text style={styles.sectionTitle}>Тема оформления</Text>
-        <PressableScale style={styles.dropdown} onPress={() => setThemeOpen(true)}>
-          <Ionicons
-            name={themeIcon(theme)}
-            size={18}
-            color={colors.accent}
-          />
-          <Text style={[styles.dropdownText, { color: colors.text }]}>{THEME_LABELS[theme]}</Text>
-          <Ionicons name="chevron-down" size={16} color={colors.textDim} />
-        </PressableScale>
+        <Text style={styles.sectionTitle}>Тема</Text>
 
-        {theme === "auto" && (
-          <View style={styles.autoRow}>
-            <Text style={styles.autoLabel}>Светлая с</Text>
-            <TextInput
-              style={styles.autoInput}
-              value={sunrise}
-              onChangeText={(v) => saveTime("theme_sunrise", v, setSunrise)}
-              placeholder="06:00"
-              placeholderTextColor={colors.textFaint}
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-            />
-            <Text style={styles.autoLabel}>до</Text>
-            <TextInput
-              style={styles.autoInput}
-              value={sunset}
-              onChangeText={(v) => saveTime("theme_sunset", v, setSunset)}
-              placeholder="20:00"
-              placeholderTextColor={colors.textFaint}
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-            />
+        {/* Режим темы: Тёмная / Авто / Светлая */}
+        <View style={styles.themeRowLine}>
+          <Ionicons name="sunny-outline" size={20} color={colors.accent} />
+          <Text style={styles.themeRowTitle}>Режим темы</Text>
+          {!!scheduleEnabled && (
+            <Text style={styles.scheduleNote}>Управляется расписанием</Text>
+          )}
+        </View>
+        <View style={[styles.modePill, scheduleEnabled && { opacity: 0.45 }]}>
+          {(
+            [
+              ["dark", "moon-outline", "Тёмная"],
+              ["auto", "contrast", "Авто"],
+              ["light", "sunny-outline", "Светлая"],
+            ] as Array<[ThemeName, any, string]>
+          ).map(([m, icon, label]) => (
+            <PressableScale
+              key={m}
+              disabled={scheduleEnabled}
+              style={[styles.modeSeg, theme === m && styles.modeSegOn]}
+              onPress={() => changeTheme(m)}
+            >
+              <Ionicons name={icon} size={14} color={theme === m ? "#fff" : colors.textDim} />
+              <Text style={[styles.modeSegText, theme === m && { color: "#fff" }]}>{label}</Text>
+            </PressableScale>
+          ))}
+        </View>
+
+        <View style={styles.themeDivider} />
+
+        {/* Смена темы по времени */}
+        <View style={styles.themeRowLine}>
+          <Ionicons name="time-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.themeRowTitle}>Смена темы по времени</Text>
+            <Text style={styles.themeRowSub}>Светлая днём, тёмная ночью</Text>
+          </View>
+          <Switch
+            value={scheduleEnabled}
+            onValueChange={toggleSchedule}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor="#fff"
+          />
+        </View>
+        {!!scheduleEnabled && (
+          <View style={{ marginTop: 10 }}>
+            <View style={styles.segRow}>
+              <PressableScale
+                style={[styles.segBtn, scheduleMode === "sun" && styles.segBtnOn]}
+                onPress={() => changeScheduleMode("sun")}
+              >
+                <Ionicons
+                  name="sunny-outline"
+                  size={15}
+                  color={scheduleMode === "sun" ? "#fff" : colors.textDim}
+                />
+                <Text
+                  style={[styles.segBtnText, scheduleMode === "sun" && { color: "#fff" }]}
+                >
+                  По солнцу
+                </Text>
+              </PressableScale>
+              <PressableScale
+                style={[styles.segBtn, scheduleMode === "custom" && styles.segBtnOn]}
+                onPress={() => changeScheduleMode("custom")}
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={15}
+                  color={scheduleMode === "custom" ? "#fff" : colors.textDim}
+                />
+                <Text
+                  style={[styles.segBtnText, scheduleMode === "custom" && { color: "#fff" }]}
+                >
+                  Своё время
+                </Text>
+              </PressableScale>
+            </View>
+            {scheduleMode === "sun" ? (
+              <View style={styles.sunRow}>
+                <Text style={styles.sunText}>
+                  Сегодня: светлая {sunrise}–{sunset}
+                </Text>
+                <PressableScale style={styles.sunRefreshBtn} onPress={fetchSunTimes} disabled={sunBusy}>
+                  {sunBusy ? (
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  ) : (
+                    <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 12 }}>
+                      Обновить
+                    </Text>
+                  )}
+                </PressableScale>
+              </View>
+            ) : (
+              <View style={styles.timeTilesRow}>
+                <View style={styles.timeTile}>
+                  <Text style={styles.timeTileLabel}>Светло с</Text>
+                  <TextInput
+                    style={styles.timeTileInput}
+                    value={customRise}
+                    onChangeText={(v) => saveTime("theme_custom_rise", v, setCustomRise)}
+                    placeholder="07:00"
+                    placeholderTextColor={colors.textFaint}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={5}
+                  />
+                </View>
+                <View style={styles.timeTile}>
+                  <Text style={styles.timeTileLabel}>Темно с</Text>
+                  <TextInput
+                    style={styles.timeTileInput}
+                    value={customSet}
+                    onChangeText={(v) => saveTime("theme_custom_set", v, setCustomSet)}
+                    placeholder="21:00"
+                    placeholderTextColor={colors.textFaint}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={5}
+                  />
+                </View>
+              </View>
+            )}
           </View>
         )}
+
+        <View style={styles.themeDivider} />
+
+        {/* Стиль темы: дропдаун с превью */}
+        <View style={styles.themeRowLine}>
+          <Ionicons name="color-palette-outline" size={20} color={colors.accent} />
+          <Text style={styles.themeRowTitle}>Стиль темы</Text>
+          <View style={{ flex: 1 }} />
+          <PressableScale style={styles.styleDropdownBtn} onPress={() => setThemeOpen(true)}>
+            <Ionicons name="sparkles" size={13} color={colors.accent} />
+            <Text style={styles.styleDropdownText}>{THEME_LABELS[theme]}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.accent} />
+          </PressableScale>
+        </View>
         <Text style={styles.hint}>
           {theme === "auto"
-            ? "Светлая тема включается автоматически в выбранное время"
+            ? "Светлая тема включается автоматически по расписанию"
             : "Тема применяется сразу, без перезагрузки"}
         </Text>
 
         <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
           <PressableScale style={styles.modalBackdrop} onPress={() => setThemeOpen(false)}>
-            <PressableScale style={styles.themeSheet} onPress={() => {}}>
-              <Text style={styles.themeSheetTitle}>Тема оформления</Text>
-              {THEME_ORDER.map((t: ThemeName) => (
+            <PressableScale style={styles.stylePanel} onPress={() => {}}>
+              <Text style={styles.themeSheetTitle}>Стиль темы</Text>
+              {visibleStyles.map((t: ThemeName) => (
                 <PressableScale
                   key={t}
-                  style={[styles.themeOption, theme === t && styles.themeOptionOn]}
+                  style={[styles.styleItem, theme === t && styles.styleItemOn]}
                   onPress={() => {
                     changeTheme(t);
                     setThemeOpen(false);
                   }}
                 >
-                  <Ionicons name={themeIcon(t)} size={18} color={theme === t ? colors.accent : colors.textDim} />
-                  <Text style={[styles.themeOptionText, { color: theme === t ? colors.accent : colors.text }]}>
+                  <View style={[styles.stylePreviewBox, theme === t && styles.stylePreviewBoxOn]}>
+                    <ThemeGlyph t={t} size={16} />
+                  </View>
+                  <Text
+                    style={[
+                      styles.styleItemText,
+                      theme === t && { color: colors.accent, fontWeight: "700" },
+                    ]}
+                  >
                     {THEME_LABELS[t]}
                   </Text>
-                  <View style={[styles.radio, theme === t && styles.radioOn]} />
+                  {SPONSOR_STYLES.includes(t) && (
+                    <Ionicons name="heart" size={12} color="#FF5F93" />
+                  )}
+                  <View style={{ flex: 1 }} />
+                  {theme === t && <Ionicons name="checkmark" size={16} color={colors.accent} />}
                 </PressableScale>
               ))}
+              {!isSponsor && (
+                <Text style={styles.hint}>
+                  Темы со значком ♥ доступны спонсорам (пополнение от 444 ₽ за 24 ч)
+                </Text>
+              )}
             </PressableScale>
           </PressableScale>
         </Modal>
@@ -335,11 +523,32 @@ function themeIcon(t: ThemeName): any {
     case "minimalist": return "brightness-2-outline";
     case "v2ray": return "hub-outline";
     case "glass": return "blur-on-outline";
-    case "foxcloud": return "local-fire-department-outline" as any;
+    case "foxcloud": return "flame-outline";
     case "pickme": return "heart-outline";
     case "happ": return "sunny-sharp";
     default: return "sparkles-outline";
   }
+}
+
+/** Специальные PNG-иконки тем — как в списке выбора темы Flutter-версии */
+function themeIconAsset(t: ThemeName): string | null {
+  switch (t) {
+    case "default": return "theme_default";
+    case "glass": return "theme_liquid";
+    case "minimalist": return "theme_minimal";
+    case "pickme": return "theme_pickme";
+    case "v2ray": return "theme_v2ray";
+    case "happ": return "theme_happ";
+    default: return null;
+  }
+}
+
+function ThemeGlyph({ t, size = 18 }: { t: ThemeName; size?: number }) {
+  const asset = themeIconAsset(t);
+  if (asset) {
+    return <Image source={{ uri: asset }} style={{ width: size, height: size, borderRadius: 5 }} resizeMode="cover" />;
+  }
+  return <Ionicons name={themeIcon(t)} size={size} color={colors.accent} />;
 }
 
 const makeStyles = () => StyleSheet.create({
@@ -349,33 +558,122 @@ const makeStyles = () => StyleSheet.create({
     fontSize: 15,
     marginBottom: 12,
   },
-  themeRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  dropdown: {
+  themeRowLine: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: colors.bgSoft,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    marginBottom: 10,
   },
-  dropdownText: {
-    flex: 1,
-    fontWeight: "700",
+  themeRowTitle: {
+    color: colors.text,
     fontSize: 15,
+    fontWeight: "500",
+    marginLeft: 2,
   },
-  themeSheet: {
+  themeRowSub: {
+    color: colors.textDim,
+    fontSize: 12,
+    opacity: 0.8,
+    marginTop: 1,
+  },
+  scheduleNote: {
+    color: colors.textFaint,
+    fontSize: 11,
+    marginLeft: 4,
+    flex: 1,
+    textAlign: "right",
+  },
+  modePill: {
+    flexDirection: "row",
+    backgroundColor: colors.bgSoft,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 3,
+  },
+  modeSeg: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  modeSegOn: { backgroundColor: colors.accentDeep },
+  modeSegText: { color: colors.textDim, fontSize: 13, fontWeight: "600" },
+  themeDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    opacity: 0.5,
+    marginVertical: 14,
+  },
+  segRow: { flexDirection: "row", gap: 8 },
+  segBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  segBtnOn: { backgroundColor: colors.accentDeep, borderColor: colors.accentDeep },
+  segBtnText: { color: colors.textDim, fontSize: 13, fontWeight: "600" },
+  sunRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  sunText: { color: colors.textDim, fontSize: 13 },
+  sunRefreshBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgSoft,
+  },
+  timeTilesRow: { flexDirection: "row", gap: 10, marginTop: 10 },
+  timeTile: {
+    flex: 1,
+    backgroundColor: colors.bgSoft,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  timeTileLabel: { color: colors.textDim, fontSize: 11, marginBottom: 3 },
+  timeTileInput: {
+    color: colors.accent,
+    fontSize: 17,
+    fontWeight: "700",
+    padding: 0,
+  },
+  styleDropdownBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 0.8,
+    borderColor: colors.accent + "4D",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  styleDropdownText: { color: colors.accent, fontSize: 13, fontWeight: "600" },
+  stylePanel: {
     width: "100%",
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 16,
+    padding: 14,
     maxHeight: "75%",
   },
   themeSheetTitle: {
@@ -384,7 +682,7 @@ const makeStyles = () => StyleSheet.create({
     fontWeight: "800",
     marginBottom: 10,
   },
-  themeOption: {
+  styleItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -392,35 +690,20 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 12,
   },
-  themeOptionOn: {
-    backgroundColor: colors.accentSoft,
-  },
-  themeOptionText: {
-    flex: 1,
-    fontWeight: "600",
-    fontSize: 15,
-  },
-  autoRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 12,
-  },
-  autoLabel: {
-    color: colors.textDim,
-    fontSize: 12,
-  },
-  autoInput: {
+  styleItemOn: { backgroundColor: colors.accentSoft },
+  stylePreviewBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: colors.bgSoft,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stylePreviewBoxOn: { backgroundColor: colors.accentSoft },
+  styleItemText: {
+    fontWeight: "500",
+    fontSize: 14,
     color: colors.text,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    fontSize: 13,
-    width: 64,
-    textAlign: "center",
   },
   hint: {
     color: colors.textFaint,

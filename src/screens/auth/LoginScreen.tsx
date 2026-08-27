@@ -67,15 +67,15 @@ export default function LoginScreen() {
 }
 
 const makeStyles = () => StyleSheet.create({
-  brand: { alignItems: "center", marginTop: 30, marginBottom: 30 },
+  brand: { alignItems: "center", marginTop: 20, marginBottom: 22 },
   logo: {
-    width: 104,
-    height: 104,
-    borderRadius: 26,
-    marginBottom: 12,
+    width: 76,
+    height: 76,
+    borderRadius: 19,
+    marginBottom: 10,
   },
   brandName: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "800",
     color: colors.text,
   },

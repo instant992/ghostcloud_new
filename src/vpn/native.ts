@@ -114,6 +114,13 @@ export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
   return () => sub.remove();
 }
 
+/** Детект скриншота (Android 14+ — системный колбэк, ниже — эвристика по MediaStore) */
+export function onScreenshot(cb: () => void): () => void {
+  if (!emitter) return () => {};
+  const sub: any = emitter.addListener("onScreenshot", () => cb());
+  return () => sub.remove();
+}
+
 export async function startVpn(
   configJson: string,
   allowedApps: string[] = [],
@@ -199,6 +206,33 @@ export async function tcpPing(host: string, port: number, timeoutMs = 5000): Pro
   if (!XrayNative) throw new Error("модуль недоступен");
   const res: any = await XrayNative.tcpPing(host, port, timeoutMs);
   return typeof res === "number" ? res : Number(res || -1);
+}
+
+export type UidTraffic = {
+  uid: number;
+  packageName: string;
+  appName: string;
+  rx: number;
+  tx: number;
+};
+
+/** Счётчики трафика (с загрузки системы) по UID установленных приложений.
+ *  Наше собственное приложение исключено на нативной стороне. */
+export async function getUidTraffic(): Promise<UidTraffic[]> {
+  if (!XrayNative?.getUidTraffic) return [];
+  try {
+    const res = await XrayNative.getUidTraffic();
+    if (!Array.isArray(res)) return [];
+    return res.map((a: any) => ({
+      uid: Number(a?.uid || 0),
+      packageName: String(a?.packageName || ""),
+      appName: String(a?.appName || a?.packageName || ""),
+      rx: Number(a?.rx || 0),
+      tx: Number(a?.tx || 0),
+    }));
+  } catch {
+    return [];
+  }
 }
 
 /** Суммарные байты приложения (tx/rx) с загрузки системы */

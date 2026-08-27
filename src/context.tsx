@@ -121,19 +121,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return off;
   }, []);
 
-  // Учёт трафика: опрашиваем TrafficStats раз в 3 сек, дельту пишем в локальную статистику
+  // Учёт трафика: опрашиваем TrafficStats раз в 3 сек, дельту пишем в локальную статистику.
+  // Параллельно считаем дельты по UID приложений — «куда идёт трафик».
   useEffect(() => {
     if (!vpnRunning) return;
     let stopped = false;
     let last = { tx: 0, rx: 0 };
+    let lastApps: Map<number, { rx: number; tx: number }> | null = null;
     (async () => {
-      const { getTrafficSnapshot } = await import("./vpn/native");
-      const snap = await getTrafficSnapshot();
+      const native = await import("./vpn/native");
+      const snap = await native.getTrafficSnapshot();
       last = snap;
       const timer = setInterval(async () => {
         if (stopped) return;
         try {
-          const cur = await getTrafficSnapshot();
+          const cur = await native.getTrafficSnapshot();
           const dTx = cur.tx - last.tx;
           const dRx = cur.rx - last.rx;
           if (dTx > 0 || dRx > 0) {
@@ -141,6 +143,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const stats = await import("./stats");
             await stats.addDelta(dRx, dTx, selectedNodeIdRef.current);
           }
+        } catch {}
+        try {
+          const apps = await native.getUidTraffic();
+          const deltas: Array<{ pkg: string; name: string; rx: number; tx: number }> = [];
+          if (lastApps && apps.length > 0) {
+            for (const a of apps) {
+              const prev = lastApps.get(a.uid);
+              if (!prev) continue; // новое приложение — базовый замер на следующем цикле
+              const dRx = a.rx - prev.rx;
+              const dTx = a.tx - prev.tx;
+              // отрицательная дельта = сброс счётчиков (перезагрузка) — пропускаем
+              if (dRx > 0 || dTx > 0) {
+                deltas.push({
+                  pkg: a.packageName,
+                  name: a.appName,
+                  rx: Math.max(0, dRx),
+                  tx: Math.max(0, dTx),
+                });
+              }
+            }
+            if (deltas.length > 0) {
+              const stats = await import("./stats");
+              await stats.addAppDeltas(deltas);
+            }
+          }
+          lastApps = new Map(apps.map((a) => [a.uid, { rx: a.rx, tx: a.tx }]));
         } catch {}
       }, 3000);
       cleanupRef.current = () => clearInterval(timer);

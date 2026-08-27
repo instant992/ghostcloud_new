@@ -14,10 +14,48 @@ class XrayCoreModule : Module() {
   private val context
     get() = requireNotNull(appContext.reactContext)
 
+  // Детект скриншотов: на Android 14+ системный колбэк, ниже — наблюдение за MediaStore
+  private var screenshotObserver: android.database.ContentObserver? = null
+  private var captureActivity: android.app.Activity? = null
+  private var lastScreenshotAt = 0L
+
+  private val screenCaptureCb = android.app.Activity.ScreenCaptureCallback {
+    notifyScreenshot()
+  }
+
+  private fun notifyScreenshot() {
+    val now = System.currentTimeMillis()
+    if (now - lastScreenshotAt < 2500) return
+    lastScreenshotAt = now
+    sendEvent("onScreenshot", mapOf("ts" to now))
+  }
+
+  private fun checkScreenshotUri(uri: android.net.Uri?) {
+    try {
+      val now = System.currentTimeMillis()
+      if (now - lastScreenshotAt < 2500) return
+      var match = uri != null && uri.toString().lowercase().contains("screenshot")
+      if (!match && uri != null) {
+        context.contentResolver.query(
+          uri,
+          arrayOf(android.provider.MediaStore.Images.Media.DISPLAY_NAME),
+          null, null, null
+        )?.use { c ->
+          if (c.moveToFirst()) {
+            val name = c.getString(0) ?: ""
+            if (name.lowercase().contains("screenshot")) match = true
+          }
+        }
+      }
+      if (match) notifyScreenshot()
+    } catch (_: Throwable) {
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("XrayCore")
 
-    Events("onVpnStateChanged", "onCoreDownloadProgress")
+    Events("onVpnStateChanged", "onCoreDownloadProgress", "onScreenshot")
 
     OnCreate {
       XrayVpnService.stateListener = { running ->
@@ -29,12 +67,61 @@ class XrayCoreModule : Module() {
       LibCoreVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
       }
+
+      if (Build.VERSION.SDK_INT < 34) {
+        try {
+          val handler = android.os.Handler(android.os.Looper.getMainLooper())
+          screenshotObserver = object : android.database.ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
+              checkScreenshotUri(uri)
+            }
+          }
+          context.contentResolver.registerContentObserver(
+            android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            true,
+            screenshotObserver!!
+          )
+        } catch (_: Throwable) {
+        }
+      }
+    }
+
+    OnActivityEntersForeground {
+      if (Build.VERSION.SDK_INT >= 34) {
+        val activity = appContext.currentActivity ?: return@OnActivityEntersForeground
+        try {
+          activity.registerScreenCaptureCallback(
+            java.util.concurrent.Executor { it.run() },
+            screenCaptureCb
+          )
+          captureActivity = activity
+        } catch (_: Throwable) {
+        }
+      }
+    }
+
+    OnActivityEntersBackground {
+      if (Build.VERSION.SDK_INT >= 34) {
+        val activity = appContext.currentActivity
+        if (activity != null && activity === captureActivity) {
+          try {
+            activity.unregisterScreenCaptureCallback(screenCaptureCb)
+          } catch (_: Throwable) {
+          }
+          captureActivity = null
+        }
+      }
     }
 
     OnDestroy {
       XrayVpnService.stateListener = null
       CoreVpnService.stateListener = null
       LibCoreVpnService.stateListener = null
+      try {
+        screenshotObserver?.let { context.contentResolver.unregisterContentObserver(it) }
+      } catch (_: Throwable) {
+      }
+      screenshotObserver = null
     }
 
     AsyncFunction("requestPermission") { promise: Promise ->
@@ -413,6 +500,41 @@ class XrayCoreModule : Module() {
         "tx" to android.net.TrafficStats.getUidTxBytes(uid),
         "rx" to android.net.TrafficStats.getUidRxBytes(uid)
       )
+    }
+
+    // Счётчики трафика по UID установленных приложений (для статистики «куда идёт трафик»)
+    AsyncFunction("getUidTraffic") { promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-uid-traffic") {
+        try {
+          val pm = context.packageManager
+          val self = context.packageName
+          val result = mutableListOf<Map<String, Any>>()
+          val seen = mutableSetOf<Int>()
+          for (info in pm.getInstalledPackages(0)) {
+            val ai = info.applicationInfo ?: continue
+            val uid = ai.uid
+            if (uid < android.os.Process.FIRST_APPLICATION_UID) continue
+            if (!seen.add(uid)) continue
+            val pkg = info.packageName
+            if (pkg == self) continue
+            val rx = android.net.TrafficStats.getUidRxBytes(uid)
+            val tx = android.net.TrafficStats.getUidTxBytes(uid)
+            if (rx <= 0 && tx <= 0) continue
+            result.add(
+              mapOf(
+                "uid" to uid,
+                "packageName" to pkg,
+                "appName" to (ai.loadLabel(pm)?.toString() ?: pkg),
+                "rx" to if (rx > 0) rx else 0L,
+                "tx" to if (tx > 0) tx else 0L
+              )
+            )
+          }
+          promise.resolve(result)
+        } catch (e: Throwable) {
+          promise.reject("ERR_UID_TRAFFIC", e.message ?: "Не удалось получить трафик приложений", e)
+        }
+      }
     }
 
     AsyncFunction("isPrepared") { promise: Promise ->
