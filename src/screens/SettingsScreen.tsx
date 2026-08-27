@@ -85,6 +85,8 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
 
 /** Стили, доступные только спонсорам — как во Flutter-версии */
 const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ"];
+/** Режимы (не стили) — управляются переключателем «Режим темы», в списке стилей не показываются */
+const MODE_ONLY: ThemeName[] = ["auto", "dark", "light", "default"];
 
 export default function SettingsScreen() {
   useTheme();
@@ -166,6 +168,7 @@ export default function SettingsScreen() {
 
   const isSponsor = me?.is_sponsor === true;
   const visibleStyles = THEME_ORDER.filter((t) => {
+    if (MODE_ONLY.includes(t)) return false;
     if (!SPONSOR_STYLES.includes(t)) return true;
     // спонсорские стили скрыты, если не выбраны (как во Flutter-версии)
     return isSponsor || theme === t;
@@ -262,7 +265,7 @@ export default function SettingsScreen() {
         {/* Смена темы по времени */}
         <View style={styles.themeRowLine}>
           <Ionicons name="time-outline" size={20} color={colors.accent} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
+          <View style={{ flex: 1, marginLeft: 2 }}>
             <Text style={styles.themeRowTitle}>Смена темы по времени</Text>
             <Text style={styles.themeRowSub}>Светлая днём, тёмная ночью</Text>
           </View>

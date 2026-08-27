@@ -47,7 +47,7 @@ function formatTimer(total: number): string {
 /** Стеклянная карточка в духе iOS Liquid Glass: настоящий блюр того, что под ней,
  *  полупрозрачная тонировка и светлая граница. На Android < 12 BlurView
  *  автоматически откатывается к полупрозрачной подложке. */
-function GlassCard({
+export function GlassCard({
   radius = 20,
   intensity = 50,
   overlay = "rgba(255,255,255,0.05)",
@@ -333,7 +333,7 @@ export default function GlassScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: insets.top + 12,
-          paddingBottom: insets.bottom + 110,
+          paddingBottom: 24,
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -547,22 +547,6 @@ export default function GlassScreen() {
           </Text>
         </Pressable>
       </ScrollView>
-
-      {/* Стеклянный док */}
-      <GlassCard radius={28} intensity={70} style={[styles.dock, { marginBottom: Math.max(8, insets.bottom) }]}>
-        <View style={styles.dockSlot}>
-          <View style={styles.dockPill}>
-            <Ionicons name="home" size={22} color={colors.accent} />
-            <Text style={styles.dockPillText}>Главная</Text>
-          </View>
-        </View>
-        <Pressable onPress={() => nav.navigate("Подписка")} style={styles.dockSlot}>
-          <Ionicons name="card-outline" size={24} color="rgba(255,255,255,0.4)" />
-        </Pressable>
-        <Pressable onPress={() => nav.navigate("Профиль")} style={styles.dockSlot}>
-          <Ionicons name="person-outline" size={24} color="rgba(255,255,255,0.4)" />
-        </Pressable>
-      </GlassCard>
 
       <AppFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
       <BalanceSheet

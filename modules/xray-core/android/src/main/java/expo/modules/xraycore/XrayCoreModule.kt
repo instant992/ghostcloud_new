@@ -33,21 +33,31 @@ class XrayCoreModule : Module() {
   private fun checkScreenshotUri(uri: android.net.Uri?) {
     try {
       val now = System.currentTimeMillis()
-      if (now - lastScreenshotAt < 2500) return
-      var match = uri != null && uri.toString().lowercase().contains("screenshot")
-      if (!match && uri != null) {
-        context.contentResolver.query(
-          uri,
-          arrayOf(android.provider.MediaStore.Images.Media.DISPLAY_NAME),
-          null, null, null
-        )?.use { c ->
-          if (c.moveToFirst()) {
-            val name = c.getString(0) ?: ""
-            if (name.lowercase().contains("screenshot")) match = true
-          }
+      if (now - lastScreenshotAt < 4000) return
+      var confirmed = false
+      var undecidable = false
+      if (uri != null && uri.toString().lowercase().contains("screenshot")) confirmed = true
+      if (!confirmed && uri != null) {
+        try {
+          context.contentResolver.query(
+            uri,
+            arrayOf(android.provider.MediaStore.Images.Media.DISPLAY_NAME),
+            null, null, null
+          )?.use { c ->
+            if (c.moveToFirst()) {
+              val name = c.getString(0) ?: ""
+              if (name.lowercase().contains("screenshot")) confirmed = true
+            } else {
+              undecidable = true
+            }
+          } ?: run { undecidable = true }
+        } catch (_: Throwable) {
+          // нет доступа к метаданным (типично для Android 10+): считаем скриншотом,
+          // чтобы размытие точно срабатывало — лучше ложное срабатывание, чем пропуск
+          undecidable = true
         }
       }
-      if (match) notifyScreenshot()
+      if (confirmed || undecidable) notifyScreenshot()
     } catch (_: Throwable) {
     }
   }
@@ -81,6 +91,19 @@ class XrayCoreModule : Module() {
             true,
             screenshotObserver!!
           )
+        } catch (_: Throwable) {
+        }
+      } else {
+        // Android 14+: регистрируем сразу, не дожидаясь первого foreground-события
+        try {
+          val activity = appContext.currentActivity
+          if (activity != null) {
+            activity.registerScreenCaptureCallback(
+              java.util.concurrent.Executor { it.run() },
+              screenCaptureCb
+            )
+            captureActivity = activity
+          }
         } catch (_: Throwable) {
         }
       }

@@ -51,8 +51,10 @@ const THEME_NAMES: ThemeName[] = [
 ];
 
 export function getThemeName(): ThemeName {
-  const v = getSetting("theme", "default");
-  return (THEME_NAMES as string[]).includes(v) ? (v as ThemeName) : "default";
+  const v = getSetting("theme", "glass");
+  // «Основная» тема теперь — Liquid Glass
+  if (v === "default") return "glass";
+  return (THEME_NAMES as string[]).includes(v) ? (v as ThemeName) : "glass";
 }
 
 export function getSelectedCore(): CoreName {

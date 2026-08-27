@@ -215,7 +215,7 @@ export default function MinimalistScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 100 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
         {/* LTE OPEN */}
@@ -387,21 +387,7 @@ export default function MinimalistScreen() {
         )}
       </ScrollView>
 
-      {/* Док — как в Liquid Glass: закруглённая плашка с тремя равными зонами */}
-      <View style={[styles.dock, { marginBottom: Math.max(8, insets.bottom) }]}>
-        <View style={styles.dockSlot}>
-          <View style={styles.dockPill}>
-            <Ionicons name="home" size={22} color={colors.accent} />
-            <Text style={styles.dockPillText}>Главная</Text>
-          </View>
-        </View>
-        <Pressable onPress={() => nav.navigate("Подписка")} style={styles.dockSlot}>
-          <Ionicons name="card-outline" size={24} color={colors.textFaint} />
-        </Pressable>
-        <Pressable onPress={() => nav.navigate("Профиль")} style={styles.dockSlot}>
-          <Ionicons name="person" size={24} color={colors.textFaint} />
-        </Pressable>
-      </View>
+      {/* Док рендерится как таб-бар потока темы (см. App.tsx) */}
 
       <AppFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
       <ServerSheet

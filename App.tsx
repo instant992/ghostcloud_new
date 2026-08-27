@@ -30,7 +30,7 @@ import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
-import GlassScreen from "./src/screens/themes/GlassScreen";
+import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import { TabIcon } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 import { ToastHost, showToast } from "./src/components/Toast";
@@ -245,12 +245,254 @@ function HappFlow() {
   return <ThemedFlow Home={HappScreen} />;
 }
 
+// ── Темы с нижним доком: разделы открываются как вкладки, док остаётся на месте ──
+
+const DockTabs = createBottomTabNavigator();
+
+const DOCK_TABS: Array<{ name: string; icon: string; iconActive: string }> = [
+  { name: "Главная", icon: "home-outline", iconActive: "home" },
+  { name: "Подписка", icon: "card-outline", iconActive: "card" },
+  { name: "Профиль", icon: "person-outline", iconActive: "person" },
+];
+
+/** Стеклянный док Liquid Glass — таб-бар потока темы */
+function GlassDockBar({ state, navigation }: any) {
+  useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        backgroundColor: "transparent",
+        paddingHorizontal: 24,
+        paddingTop: 4,
+        paddingBottom: Math.max(8, insets.bottom),
+      }}
+    >
+      <GlassCard
+        radius={28}
+        intensity={70}
+        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6 }}
+      >
+        {DOCK_TABS.map((t, index) => {
+          const focused = state.index === index;
+          if (t.name === "Главная") {
+            return (
+              <View key={t.name} style={dockStyles.slot}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    navigation.navigate(t.name);
+                  }}
+                  style={dockStyles.glassPill}
+                >
+                  <Ionicons name="home" size={22} color={colors.accent} />
+                  <Text style={dockStyles.glassPillText}>Главная</Text>
+                </Pressable>
+              </View>
+            );
+          }
+          return (
+            <Pressable
+              key={t.name}
+              style={dockStyles.slot}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                navigation.navigate(t.name);
+              }}
+            >
+              <Ionicons
+                name={focused ? (t.iconActive as any) : (t.icon as any)}
+                size={24}
+                color={focused ? colors.accent : "rgba(255,255,255,0.4)"}
+              />
+            </Pressable>
+          );
+        })}
+      </GlassCard>
+    </View>
+  );
+}
+
+/** Док минимализма (и Pink / FoxCloud) — таб-бар потока темы */
+function MinimalDockBar({ state, navigation }: any) {
+  useTheme();
+  const insets = useSafeAreaInsets();
+  return (
+    <View
+      style={{
+        backgroundColor: "transparent",
+        paddingHorizontal: 24,
+        paddingTop: 4,
+        paddingBottom: Math.max(8, insets.bottom),
+      }}
+    >
+      <View style={dockStyles.minimalBar}>
+        {DOCK_TABS.map((t, index) => {
+          const focused = state.index === index;
+          if (t.name === "Главная") {
+            return (
+              <View key={t.name} style={dockStyles.slot}>
+                <Pressable
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {});
+                    navigation.navigate(t.name);
+                  }}
+                  style={dockStyles.minimalPill}
+                >
+                  <View style={[dockStyles.minimalPillCircle, { backgroundColor: colors.accent }]}>
+                    <Ionicons name="home" size={21} color="#fff" />
+                  </View>
+                  <Text style={[dockStyles.minimalPillText, { color: colors.text }]}>Главная</Text>
+                </Pressable>
+              </View>
+            );
+          }
+          return (
+            <Pressable
+              key={t.name}
+              style={dockStyles.slot}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                navigation.navigate(t.name);
+              }}
+            >
+              <View
+                style={[
+                  dockStyles.minimalCircle,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                  focused && { borderColor: colors.accent },
+                ]}
+              >
+                <Ionicons
+                  name={(focused ? t.iconActive : t.icon) as any}
+                  size={23}
+                  color={focused ? colors.accent : colors.textFaint}
+                />
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+const dockStyles = StyleSheet.create({
+  slot: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 6 },
+  glassPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 20,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 0.5,
+    borderColor: colors.accent + "4D",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  glassPillText: { color: colors.accent, fontSize: 15, fontWeight: "600" },
+  minimalBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.cardLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  minimalPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 27,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardLight,
+    paddingLeft: 6,
+    paddingRight: 16,
+    height: 52,
+  },
+  minimalPillCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  minimalPillText: { fontSize: 15, fontWeight: "600", maxWidth: 100 },
+  minimalCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});
+
+/** Поток темы с доком: Главная / Подписка / Профиль — вкладки,
+ *  остальные разделы — стеком поверх. */
+function DockedThemedFlow({
+  Home,
+  DockBar,
+}: {
+  Home: React.ComponentType;
+  DockBar: React.ComponentType<any>;
+}) {
+  useTheme();
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack.Screen name="ThemeTabs">
+        {() => (
+          <DockTabs.Navigator
+            screenOptions={{ headerShown: false }}
+            tabBar={(props) => <DockBar {...props} />}
+          >
+            <DockTabs.Screen name="Главная" component={Home} />
+            <DockTabs.Screen name="Подписка" component={SubscriptionScreen} />
+            <DockTabs.Screen name="Профиль" component={ProfileScreen} />
+          </DockTabs.Navigator>
+        )}
+      </Stack.Screen>
+      <Stack.Screen name="Настройки" component={SettingsWithBack} />
+      <Stack.Screen name="Тарифы" component={PlansWithBack} />
+      <Stack.Screen name="Статистика" component={StatsWithBack} />
+      <Stack.Screen
+        name="Devices"
+        component={DevicesScreen}
+        options={{ headerShown: true, title: "Устройства", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Referral"
+        component={ReferralScreen}
+        options={{ headerShown: true, title: "Рефералы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="TopUp"
+        component={TopUpScreen}
+        options={{ headerShown: true, title: "Пополнение баланса", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Support"
+        component={SupportScreen}
+        options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+    </Stack.Navigator>
+  );
+}
+
 function MinimalistFlow() {
-  return <ThemedFlow Home={MinimalistScreen} />;
+  return <DockedThemedFlow Home={MinimalistScreen} DockBar={MinimalDockBar} />;
 }
 
 function GlassFlow() {
-  return <ThemedFlow Home={GlassScreen} />;
+  return <DockedThemedFlow Home={GlassScreen} DockBar={GlassDockBar} />;
 }
 
 function Root() {
