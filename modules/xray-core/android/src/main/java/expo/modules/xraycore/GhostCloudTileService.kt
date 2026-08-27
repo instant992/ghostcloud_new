@@ -107,12 +107,18 @@ class GhostCloudTileService : TileService() {
     val core = p.getString("tile_vpn_core", "xray") ?: "xray"
     val allowed = p.getString("tile_vpn_allowed", "") ?: ""
     val blocked = p.getString("tile_vpn_blocked", "") ?: ""
+    val host = p.getString("tile_vpn_host", "") ?: ""
+    val port = p.getString("tile_vpn_port", "0")?.toIntOrNull() ?: 0
+    val failover = p.getString("tile_vpn_failover", "") ?: ""
     val intent = if (core == "xray") {
       Intent(this, XrayVpnService::class.java).apply {
         action = XrayVpnService.ACTION_START
         putExtra("config", config)
         if (allowed.isNotEmpty()) putExtra("allowed", allowed)
         if (blocked.isNotEmpty()) putExtra("disallowed", blocked)
+        if (host.isNotEmpty()) putExtra("host", host)
+        if (port > 0) putExtra("port", port)
+        if (failover.isNotEmpty()) putExtra("failover", failover)
       }
     } else {
       Intent(this, LibCoreVpnService::class.java).apply {
@@ -121,6 +127,9 @@ class GhostCloudTileService : TileService() {
         putExtra("config", config)
         if (allowed.isNotEmpty()) putExtra("allowed", allowed)
         if (blocked.isNotEmpty()) putExtra("disallowed", blocked)
+        if (host.isNotEmpty()) putExtra("host", host)
+        if (port > 0) putExtra("port", port)
+        if (failover.isNotEmpty()) putExtra("failover", failover)
       }
     }
     try {

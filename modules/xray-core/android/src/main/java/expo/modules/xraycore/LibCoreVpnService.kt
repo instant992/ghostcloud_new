@@ -47,6 +47,9 @@ class LibCoreVpnService : VpnService() {
     NotificationTicker(this, CHANNEL_ID, NOTIFICATION_ID, stopPendingIntent)
   }
 
+  private var currentLib: String = "mihomo"
+  private var monitor: FailoverMonitor? = null
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_STOP -> {
@@ -62,7 +65,10 @@ class LibCoreVpnService : VpnService() {
             lib,
             config,
             intent.getStringExtra("allowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList(),
-            intent.getStringExtra("disallowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+            intent.getStringExtra("disallowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList(),
+            intent.getStringExtra("host"),
+            intent.getIntExtra("port", 0),
+            intent.getStringExtra("failover")
           )
         } else if (isRunning.get()) {
           startForegroundSilently()
@@ -74,7 +80,15 @@ class LibCoreVpnService : VpnService() {
     return START_STICKY
   }
 
-  private fun startCore(lib: String, config: String, allowedPkgs: List<String>, disallowedPkgs: List<String>) {
+  private fun startCore(
+    lib: String,
+    config: String,
+    allowedPkgs: List<String>,
+    disallowedPkgs: List<String>,
+    host: String? = null,
+    port: Int = 0,
+    failoverJson: String? = null
+  ) {
     try {
       val builder = Builder()
         .setSession("GhostCloud")
@@ -121,6 +135,8 @@ class LibCoreVpnService : VpnService() {
       }
 
       isRunning.set(true)
+      currentLib = lib
+      startFailoverMonitor(host, port, failoverJson)
       updateNotification(true)
       notifyState(true)
       pendingPromise?.resolve(true)
@@ -143,6 +159,8 @@ class LibCoreVpnService : VpnService() {
   }
 
   private fun stopCore() {
+    monitor?.destroy()
+    monitor = null
     try {
       if (GcCore.loaded) GcCore.gcStop()
       if (GcSbCore.loaded) GcSbCore.gcStop()
@@ -154,6 +172,40 @@ class LibCoreVpnService : VpnService() {
       promise.reject("ERR_STOPPED", "VPN остановлен до завершения запуска", null)
     }
     pendingPromise = null
+  }
+
+  private fun startFailoverMonitor(host: String?, port: Int, failoverJson: String?) {
+    monitor?.destroy()
+    monitor = null
+    val candidates = parseFailoverJson(failoverJson)
+    if (candidates.isEmpty() || host.isNullOrBlank() || port <= 0) return
+    val mon = FailoverMonitor(applicationContext, candidates) { candidate ->
+      restartLibCore(candidate.config)
+    }
+    monitor = mon
+    mon.start(host, port)
+  }
+
+  /** Перезапуск ядра с новым конфигом на существующем TUN (для авто-файловера). */
+  private fun restartLibCore(config: String): Boolean {
+    val pfd = tunInterface ?: return false
+    return try {
+      stopLibCore(currentLib)
+      val err = when (currentLib) {
+        "mihomo" -> GcCore.gcStart(config, pfd.fd)
+        "singbox" -> GcSbCore.gcStart(config, pfd.fd)
+        else -> "неизвестное ядро: $currentLib"
+      }
+      if (err.isNotEmpty()) {
+        android.util.Log.e("GhostCloud", "failover restart: $currentLib: $err")
+        false
+      } else {
+        true
+      }
+    } catch (e: Throwable) {
+      android.util.Log.e("GhostCloud", "failover restart error", e)
+      false
+    }
   }
 
   private fun closeTun() {

@@ -121,6 +121,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return off;
   }, []);
 
+  // Пул серверов-кандидатов для авто-файловера (нативный монитор переключает
+  // на запасной сервер при обрыве, даже при выключенном экране)
+  useEffect(() => {
+    import("./vpn/manager").then((m) => m.setFailoverPool(nodes)).catch(() => {});
+  }, [nodes]);
+
   // Учёт трафика: опрашиваем TrafficStats раз в 3 сек, дельту пишем в локальную статистику.
   // Параллельно считаем дельты по UID приложений — «куда идёт трафик».
   useEffect(() => {

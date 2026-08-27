@@ -77,18 +77,36 @@ export async function loadLibCore(lib: "mihomo" | "singbox"): Promise<string> {
   return XrayNative.loadLibCore(lib);
 }
 
+export type FailoverEntry = { config: string; host: string; port: number };
+
+export type FailoverInfo = {
+  host: string;
+  port: number;
+  candidates: FailoverEntry[];
+};
+
+function failoverArgs(failover?: FailoverInfo): [string | null, number, string | null] {
+  if (!failover || !failover.candidates.length) return [null, 0, null];
+  return [failover.host, failover.port, JSON.stringify(failover.candidates)];
+}
+
 export async function startLibCoreVpn(
   lib: "mihomo" | "singbox",
   config: string,
   allowedApps: string[] = [],
-  disallowedApps: string[] = []
+  disallowedApps: string[] = [],
+  failover?: FailoverInfo
 ): Promise<boolean> {
   if (!XrayNative) throw new Error("модуль недоступен");
+  const [foHost, foPort, foJson] = failoverArgs(failover);
   return XrayNative.startLibCoreVpn(
     lib,
     config,
     allowedApps.length ? allowedApps.join(",") : null,
-    disallowedApps.length ? disallowedApps.join(",") : null
+    disallowedApps.length ? disallowedApps.join(",") : null,
+    foHost,
+    foPort,
+    foJson
   );
 }
 
@@ -117,13 +135,18 @@ export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
 export async function startVpn(
   configJson: string,
   allowedApps: string[] = [],
-  disallowedApps: string[] = []
+  disallowedApps: string[] = [],
+  failover?: FailoverInfo
 ): Promise<boolean> {
   if (!XrayNative) throw new Error("VPN-модуль недоступен (соберите нативное приложение)");
+  const [foHost, foPort, foJson] = failoverArgs(failover);
   return XrayNative.startVpn(
     configJson,
     allowedApps.length ? allowedApps.join(",") : null,
-    disallowedApps.length ? disallowedApps.join(",") : null
+    disallowedApps.length ? disallowedApps.join(",") : null,
+    foHost,
+    foPort,
+    foJson
   );
 }
 

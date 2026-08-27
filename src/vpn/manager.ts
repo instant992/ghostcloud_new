@@ -15,8 +15,46 @@ import {
   startLibCoreVpn,
   stopVpn,
 } from "./native";
+import type { FailoverInfo } from "./native";
 
 const V2RAY_UA = "v2rayNG/1.10.24";
+/** Максимум запасных серверов для авто-файловера */
+const FAILOVER_MAX = 5;
+
+let failoverPool: VpnNode[] = [];
+
+/** Задаёт пул серверов-кандидатов для авто-файловера (вызывается из контекста при загрузке узлов). */
+export function setFailoverPool(nodes: VpnNode[]): void {
+  failoverPool = nodes;
+}
+
+function buildConfigFor(core: string, node: VpnNode): string | null {
+  try {
+    if (core === "sing-box") return buildSingBoxConfig(node);
+    if (core === "mihomo") return buildMihomoConfig(node);
+    if (!node.supportedByXray) return null;
+    return buildXrayConfig(node, null);
+  } catch {
+    return null;
+  }
+}
+
+/** Собирает инфо для авто-файловера: текущий сервер + запасные (не-LTE, поддерживаемые ядром). */
+function buildFailoverInfo(core: string, current: VpnNode): FailoverInfo | undefined {
+  const candidates = failoverPool
+    .filter((n) => n.id !== current.id)
+    .filter((n) => n.source !== "lte")
+    .filter((n) => (core === "xray" ? n.supportedByXray : true))
+    .slice(0, FAILOVER_MAX)
+    .map((n) => {
+      const config = buildConfigFor(core, n);
+      if (!config) return null;
+      return { config, host: n.address, port: n.port };
+    })
+    .filter((c): c is { config: string; host: string; port: number } => c !== null);
+  if (!candidates.length) return undefined;
+  return { host: current.address, port: current.port, candidates };
+}
 
 async function fetchText(url: string, userAgent: string): Promise<string | null> {
   try {
@@ -130,6 +168,7 @@ export async function connect(node: VpnNode): Promise<void> {
   const blocked = allowed.length ? [] : filter.blocked;
 
   const core = getSelectedCore();
+  const failover = buildFailoverInfo(core, node);
 
   // Сохраняем конфигурацию для плитки быстрых настроек (включение без приложения)
   const saveTileConfig = (config: string, coreKey: string) => {
@@ -138,18 +177,24 @@ export async function connect(node: VpnNode): Promise<void> {
       setSetting("tile_vpn_config", config);
       setSetting("tile_vpn_allowed", allowed.join(","));
       setSetting("tile_vpn_blocked", blocked.join(","));
+      setSetting("tile_vpn_host", node.address);
+      setSetting("tile_vpn_port", String(node.port));
+      setSetting(
+        "tile_vpn_failover",
+        failover ? JSON.stringify(failover.candidates) : ""
+      );
     } catch {}
   };
   if (core === "sing-box") {
     const config = buildSingBoxConfig(node);
     saveTileConfig(config, "singbox");
-    await startLibCoreVpn("singbox", config, allowed, blocked);
+    await startLibCoreVpn("singbox", config, allowed, blocked, failover);
     return;
   }
   if (core === "mihomo") {
     const config = buildMihomoConfig(node);
     saveTileConfig(config, "mihomo");
-    await startLibCoreVpn("mihomo", config, allowed, blocked);
+    await startLibCoreVpn("mihomo", config, allowed, blocked, failover);
     return;
   }
   if (!node.supportedByXray) {
@@ -157,7 +202,7 @@ export async function connect(node: VpnNode): Promise<void> {
   }
   const config = buildXrayConfig(node, null);
   saveTileConfig(config, "xray");
-  await startVpn(config, allowed, blocked);
+  await startVpn(config, allowed, blocked, failover);
 }
 
 export async function disconnect(): Promise<void> {

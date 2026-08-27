@@ -55,7 +55,7 @@ class XrayCoreModule : Module() {
       }
     }
 
-    AsyncFunction("startVpn") { configJson: String, allowedJson: String?, disallowedJson: String?, promise: Promise ->
+    AsyncFunction("startVpn") { configJson: String, allowedJson: String?, disallowedJson: String?, host: String?, port: Int, failoverJson: String?, promise: Promise ->
       if (XrayVpnService.isRunning.get()) {
         promise.reject("ERR_RUNNING", "VPN уже запущен", null)
         return@AsyncFunction
@@ -66,6 +66,9 @@ class XrayCoreModule : Module() {
         putExtra("config", configJson)
         if (!allowedJson.isNullOrBlank()) putExtra("allowed", allowedJson)
         if (!disallowedJson.isNullOrBlank()) putExtra("disallowed", disallowedJson)
+        if (!host.isNullOrBlank()) putExtra("host", host)
+        if (port > 0) putExtra("port", port)
+        if (!failoverJson.isNullOrBlank()) putExtra("failover", failoverJson)
       }
       try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -348,7 +351,7 @@ class XrayCoreModule : Module() {
       }
     }
 
-    AsyncFunction("startLibCoreVpn") { lib: String, config: String, allowedJson: String?, disallowedJson: String?, promise: Promise ->
+    AsyncFunction("startLibCoreVpn") { lib: String, config: String, allowedJson: String?, disallowedJson: String?, host: String?, port: Int, failoverJson: String?, promise: Promise ->
       if (XrayVpnService.isRunning.get() || CoreVpnService.isRunning.get()) {
         promise.reject("ERR_RUNNING", "Сначала остановите текущий VPN", null)
         return@AsyncFunction
@@ -372,6 +375,9 @@ class XrayCoreModule : Module() {
         putExtra("config", config)
         if (!allowedJson.isNullOrBlank()) putExtra("allowed", allowedJson)
         if (!disallowedJson.isNullOrBlank()) putExtra("disallowed", disallowedJson)
+        if (!host.isNullOrBlank()) putExtra("host", host)
+        if (port > 0) putExtra("port", port)
+        if (!failoverJson.isNullOrBlank()) putExtra("failover", failoverJson)
       }
       try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

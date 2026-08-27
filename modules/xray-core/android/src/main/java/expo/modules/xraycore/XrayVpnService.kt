@@ -55,6 +55,8 @@ class XrayVpnService : VpnService() {
     NotificationTicker(this, CHANNEL_ID, NOTIFICATION_ID, stopPendingIntent)
   }
 
+  private var monitor: FailoverMonitor? = null
+
   override fun onCreate() {
     super.onCreate()
     LibXray.registerDialerController(dialerController)
@@ -73,7 +75,10 @@ class XrayVpnService : VpnService() {
           startVpnCore(
             config,
             intent.getStringExtra("allowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList(),
-            intent.getStringExtra("disallowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
+            intent.getStringExtra("disallowed")?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList(),
+            intent.getStringExtra("host"),
+            intent.getIntExtra("port", 0),
+            intent.getStringExtra("failover")
           )
         } else if (isRunning.get()) {
           startForegroundSilently()
@@ -85,7 +90,14 @@ class XrayVpnService : VpnService() {
     return START_STICKY
   }
 
-  private fun startVpnCore(configJson: String, allowedPkgs: List<String>, disallowedPkgs: List<String>) {
+  private fun startVpnCore(
+    configJson: String,
+    allowedPkgs: List<String>,
+    disallowedPkgs: List<String>,
+    host: String? = null,
+    port: Int = 0,
+    failoverJson: String? = null
+  ) {
     try {
       val builder = Builder()
         .setSession("GhostCloud")
@@ -147,6 +159,7 @@ class XrayVpnService : VpnService() {
       }
 
       isRunning.set(true)
+      startFailoverMonitor(host, port, failoverJson)
       updateNotification(true)
       notifyState(true)
       pendingPromise?.resolve(true)
@@ -162,6 +175,8 @@ class XrayVpnService : VpnService() {
   }
 
   private fun stopVpnCore() {
+    monitor?.destroy()
+    monitor = null
     try {
       XrayApi.invoke(applicationContext, "stopXray")
     } catch (_: Throwable) {
@@ -173,6 +188,39 @@ class XrayVpnService : VpnService() {
       promise.reject("ERR_STOPPED", "VPN остановлен до завершения запуска", null)
     }
     pendingPromise = null
+  }
+
+  private fun startFailoverMonitor(host: String?, port: Int, failoverJson: String?) {
+    monitor?.destroy()
+    monitor = null
+    val candidates = parseFailoverJson(failoverJson)
+    if (candidates.isEmpty() || host.isNullOrBlank() || port <= 0) return
+    val mon = FailoverMonitor(applicationContext, candidates) { candidate ->
+      restartXray(candidate.config)
+    }
+    monitor = mon
+    mon.start(host, port)
+  }
+
+  /** Перезапуск xray с новым конфигом на существующем TUN (для авто-файловера). */
+  private fun restartXray(configJson: String): Boolean {
+    val pfd = tunInterface ?: return false
+    return try {
+      XrayApi.invoke(applicationContext, "stopXray")
+      val json = JSONObject(configJson)
+      val env = json.optJSONObject("env") ?: JSONObject().also { json.put("env", it) }
+      env.put("xray.tun.fd", pfd.fd.toLong().toString())
+      val request = JSONObject().put("xrayJson", json.toString())
+      val response = XrayApi.invoke(applicationContext, "runXray", request)
+      val ok = response.optBoolean("success", false)
+      if (!ok) {
+        android.util.Log.e("GhostCloud", "failover restart: ${response.optString("error", "")}")
+      }
+      ok
+    } catch (e: Throwable) {
+      android.util.Log.e("GhostCloud", "failover restart error", e)
+      false
+    }
   }
 
   private fun closeTun() {
