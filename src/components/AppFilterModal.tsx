@@ -16,7 +16,6 @@ import { PressableScale } from "./PressableScale";
 import * as appFilterMod from "../vpn/appFilter";
 import { getInstalledApps, getAppIcon, type AppInfo } from "../vpn/native";
 import { colors, useTheme } from "../theme";
-import { PrivacyText } from "./PrivacyText";
 
 type AppTab = "allow" | "block";
 
@@ -132,7 +131,7 @@ export function AppFilterModal({
           <PressableScale onPress={onClose} hitSlop={10}>
             <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700" }}>Готово</Text>
           </PressableScale>
-          <PrivacyText style={styles.appsTitle}>Приложения</PrivacyText>
+          <Text style={styles.appsTitle}>Приложения</Text>
           <View style={{ width: 50 }} />
         </View>
 
@@ -148,7 +147,7 @@ export function AppFilterModal({
               style={[styles.appsTabBtn, tab === key && styles.appsTabBtnOn]}
               onPress={() => setTab(key)}
             >
-              <PrivacyText
+              <Text
                 style={{
                   color: tab === key ? "#fff" : colors.textDim,
                   fontWeight: "700",
@@ -156,7 +155,7 @@ export function AppFilterModal({
                 }}
               >
                 {label}
-              </PrivacyText>
+              </Text>
             </PressableScale>
           ))}
         </View>

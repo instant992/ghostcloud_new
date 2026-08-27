@@ -33,9 +33,7 @@ import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import { TabIcon } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
-import { ToastHost, showToast } from "./src/components/Toast";
-import { isPrivacyBlur, setPrivacyBlur } from "./src/privacy";
-import { onScreenshot } from "./src/vpn/native";
+import { ToastHost } from "./src/components/Toast";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -523,23 +521,6 @@ function Root() {
 
 export default function App() {
   const [splashDone, setSplashDone] = React.useState(false);
-
-  // Детект скриншота: включаем размытие конфиденциальных подписей на 20 секунд.
-  // Повторные события таймер не сбрасывают — размытие гарантированно спадёт.
-  React.useEffect(() => {
-    let timer: any = null;
-    const off = onScreenshot(() => {
-      if (isPrivacyBlur()) return;
-      setPrivacyBlur(true);
-      showToast("Скриншот обнаружен — LTE и обход скрыты");
-      clearTimeout(timer);
-      timer = setTimeout(() => setPrivacyBlur(false), 20000);
-    });
-    return () => {
-      off();
-      clearTimeout(timer);
-    };
-  }, []);
 
   // Разрешение на уведомления — запрашиваем сразу после запуска (заставки),
   // не дожидаясь первого подключения VPN (Android 13+)

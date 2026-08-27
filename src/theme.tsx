@@ -367,6 +367,14 @@ export function isLightPalette(): boolean {
   return colors.text !== "#FFFFFF" && colors.text !== "#F0F0FF";
 }
 
+/** Эталонные цвета кнопки питания — как в основной теме, одинаковые во всех темах.
+ *  Меняются только от светлого/тёмного режима, не от стиля темы. */
+export function powerButtonColors(): { off: string; on: string; glow: string } {
+  return isLightPalette()
+    ? { off: "#F3EFFB", on: "#7C3AED", glow: "#9333EA" }
+    : { off: "#251A42", on: "#7C3AED", glow: "#A855F7" };
+}
+
 // ─── Контекст темы: подписка экранов на перерисовку при смене темы ───
 
 const ThemeCtx = createContext<{ style: ThemeName; mode: ThemeMode; version: number }>({

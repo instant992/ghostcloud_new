@@ -18,10 +18,9 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
-import { PrivacyText } from "../../components/PrivacyText";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
 import * as stats from "../../stats";
@@ -236,7 +235,7 @@ export default function MinimalistScreen() {
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <PrivacyText style={styles.lteTitle}>LTE OPEN</PrivacyText>
+              <Text style={styles.lteTitle}>LTE OPEN</Text>
               <View style={styles.lteBeta}>
                 <Text style={styles.lteBetaText}>beta</Text>
               </View>
@@ -253,22 +252,37 @@ export default function MinimalistScreen() {
           />
         </View>
 
-        {/* Кнопка питания с плоским свечением */}
+        {/* Кнопка питания — цвета как в основной теме */}
         <View style={styles.powerArea}>
           <View
             style={[
               styles.powerGlow,
               {
-                shadowColor: vpnRunning ? "#22C55E" : colors.accent,
-                shadowOpacity: vpnRunning ? 0.38 : 0.24,
+                shadowColor: vpnRunning ? powerButtonColors().glow : "#000",
+                shadowOpacity: vpnRunning ? 0.45 : 0.18,
               },
             ]}
           >
-            <Pressable onPress={toggle} disabled={busy} style={[styles.powerBtn, { opacity: busy ? 0.7 : 1 }]}>
+            <Pressable
+              onPress={toggle}
+              disabled={busy}
+              style={[
+                styles.powerBtn,
+                {
+                  opacity: busy ? 0.7 : 1,
+                  backgroundColor: vpnRunning ? powerButtonColors().on : powerButtonColors().off,
+                  borderColor: vpnRunning ? powerButtonColors().on : colors.border,
+                },
+              ]}
+            >
               {busy ? (
-                <ActivityIndicator size="large" color="#fff" />
+                <ActivityIndicator size="large" color={vpnRunning ? "#fff" : colors.accent} />
               ) : (
-                <Ionicons name="power" size={56} color="#fff" />
+                <Ionicons
+                  name="power"
+                  size={56}
+                  color={vpnRunning ? "#fff" : isLightPalette() ? colors.accent : "#fff"}
+                />
               )}
             </Pressable>
           </View>
@@ -470,11 +484,9 @@ const makeStyles = () => StyleSheet.create({
     width: 164,
     height: 164,
     borderRadius: 82,
-    backgroundColor: colors.accentDeep,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: colors.accent,
   },
   statusText: { fontSize: 15, fontWeight: "600", marginTop: 18 },
   timerText: { color: "#22C55E", fontSize: 13, fontWeight: "600", marginTop: 4 },

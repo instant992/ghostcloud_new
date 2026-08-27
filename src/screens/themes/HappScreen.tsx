@@ -25,11 +25,10 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
-import { PrivacyText } from "../../components/PrivacyText";
 import { showToast } from "../../components/Toast";
 import * as stats from "../../stats";
 import {
@@ -310,18 +309,18 @@ export default function HappScreen() {
               },
             ]}
           >
-            <View style={styles.circleInner}>
+            <View style={[styles.circleInner, { backgroundColor: vpnRunning ? powerButtonColors().on : powerButtonColors().off }]}>
               <Pressable onPress={toggle} disabled={busy} style={{ alignItems: "center", justifyContent: "center" }}>
                 {busy ? (
-                  <ActivityIndicator size="large" color={colors.accent} />
+                  <ActivityIndicator size="large" color={vpnRunning ? "#fff" : colors.accent} />
                 ) : vpnRunning ? (
                   <>
-                    <Ionicons name="power" size={34} color={colors.accent} />
+                    <Ionicons name="power" size={34} color="#fff" />
                     <Text style={styles.powerLabel}>Подключено</Text>
                     <Text style={styles.powerTimer}>{formatTimer(seconds)}</Text>
                   </>
                 ) : (
-                  <Ionicons name="power" size={54} color="rgba(108,99,255,0.28)" />
+                  <Ionicons name="power" size={54} color={isLightPalette() ? colors.accent : "rgba(255,255,255,0.5)"} />
                 )}
               </Pressable>
             </View>
@@ -355,7 +354,7 @@ export default function HappScreen() {
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <PrivacyText style={styles.lteTitle}>LTE OPEN</PrivacyText>
+              <Text style={styles.lteTitle}>LTE OPEN</Text>
               <View style={styles.lteBetaBadge}>
                 <Text style={styles.lteBetaText}>beta</Text>
               </View>
@@ -449,7 +448,7 @@ export default function HappScreen() {
               <View style={styles.divider} />
               <View style={styles.lteSectionHeader}>
               <View style={[styles.lteBadge, { backgroundColor: "rgba(108,99,255,0.15)" }]}>
-                <PrivacyText style={[styles.lteBadgeText, { color: PURPLE_BADGE }]}>LTE OPEN</PrivacyText>
+                <Text style={[styles.lteBadgeText, { color: PURPLE_BADGE }]}>LTE OPEN</Text>
               </View>
                 <View style={[styles.lteBadge, { backgroundColor: "rgba(144,144,170,0.18)" }]}>
                   <Text style={[styles.lteBadgeText, { color: colors.textDim }]}>beta</Text>
@@ -996,8 +995,8 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "center",
     elevation: 4,
   },
-  powerLabel: { color: "rgba(26,26,46,0.45)", fontSize: 12, fontWeight: "500", marginTop: 8 },
-  powerTimer: { color: "rgba(26,26,46,0.78)", fontSize: 13, fontWeight: "600", marginTop: 6 },
+  powerLabel: { color: "rgba(255,255,255,0.75)", fontSize: 12, fontWeight: "500", marginTop: 8 },
+  powerTimer: { color: "rgba(255,255,255,0.9)", fontSize: 13, fontWeight: "600", marginTop: 6 },
   lteRow: {
     flexDirection: "row",
     alignItems: "center",

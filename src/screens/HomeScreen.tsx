@@ -24,7 +24,6 @@ import * as appFilterMod from "../vpn/appFilter";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
 import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
-import { PrivacyText } from "../components/PrivacyText";
 
 export default function HomeScreen() {
   useTheme();
@@ -316,14 +315,14 @@ export default function HomeScreen() {
             <Ionicons name="apps" size={20} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            <PrivacyText style={styles.serverName}>Приложения</PrivacyText>
-            <PrivacyText style={styles.serverSub} numberOfLines={1}>
+            <Text style={styles.serverName}>Приложения</Text>
+            <Text style={styles.serverSub} numberOfLines={1}>
               {allowedCount > 0
                 ? `Через VPN: ${allowedCount} · белый список`
                 : blockedCount > 0
                   ? `Мимо VPN: ${blockedCount}`
                   : "Все приложения через VPN"}
-            </PrivacyText>
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
         </PressableScale>
@@ -473,9 +472,9 @@ function ServerPicker({
                 style={[styles.tabBtn, tab === t.key && styles.tabBtnOn]}
               >
                 {t.key === "lte" ? (
-                  <PrivacyText style={[styles.tabText, tab === t.key && { color: "#fff" }]}>
+                  <Text style={[styles.tabText, tab === t.key && { color: "#fff" }]}>
                     {t.label}
-                  </PrivacyText>
+                  </Text>
                 ) : (
                   <Text style={[styles.tabText, tab === t.key && { color: "#fff" }]}>
                     {t.label}

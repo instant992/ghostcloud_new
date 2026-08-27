@@ -23,7 +23,6 @@ import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings
 import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode } from "../../theme";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
-import { PrivacyText } from "../../components/PrivacyText";
 import { showToast } from "../../components/Toast";
 
 function pluralDays(n: number): string {
@@ -290,9 +289,9 @@ export default function V2rayScreen() {
               style={[styles.tabItem, tab === t.key && styles.tabItemOn]}
             >
               {t.key === "lte" ? (
-                <PrivacyText style={[styles.tabLabel, tab === t.key && { color: colors.accent }]}>
+                <Text style={[styles.tabLabel, tab === t.key && { color: colors.accent }]}>
                   {t.label} ({t.count})
-                </PrivacyText>
+                </Text>
               ) : (
                 <Text style={[styles.tabLabel, tab === t.key && { color: colors.accent }]}>
                   {t.label} ({t.count})
@@ -399,7 +398,7 @@ export default function V2rayScreen() {
                 <Ionicons name="cellular-outline" size={21} color={colors.text} />
               )}
               <View style={{ flex: 1, marginLeft: 12 }}>
-                <PrivacyText style={styles.drawerRowTitle}>LTE OPEN</PrivacyText>
+                <Text style={styles.drawerRowTitle}>LTE OPEN</Text>
                 {!lteEnabled && lteBusy && (
                   <Text style={styles.drawerRowSub}>Загружаем профили...</Text>
                 )}
@@ -534,7 +533,7 @@ function DrawerItem({
     <Pressable style={makeStyles().drawerItem} onPress={onPress}>
       <Ionicons name={icon} size={21} color={colors.text} />
       {privacy ? (
-        <PrivacyText style={makeStyles().drawerItemText}>{label}</PrivacyText>
+        <Text style={makeStyles().drawerItemText}>{label}</Text>
       ) : (
         <Text style={makeStyles().drawerItemText}>{label}</Text>
       )}

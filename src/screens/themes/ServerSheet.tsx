@@ -5,7 +5,6 @@ import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
 import { colors, splitNameFlag, useTheme } from "../../theme";
-import { PrivacyText } from "../../components/PrivacyText";
 
 /** Шторка выбора сервера для тем minimalist / liquid glass */
 export function ServerSheet({
@@ -63,9 +62,9 @@ export function ServerSheet({
                       {info.name}
                     </Text>
                     {item.source === "lte" ? (
-                      <PrivacyText style={styles.itemSub}>
+                      <Text style={styles.itemSub}>
                         {transportLabel(item)} · LTE OPEN
-                      </PrivacyText>
+                      </Text>
                     ) : (
                       <Text style={styles.itemSub} numberOfLines={1}>
                         {transportLabel(item)}

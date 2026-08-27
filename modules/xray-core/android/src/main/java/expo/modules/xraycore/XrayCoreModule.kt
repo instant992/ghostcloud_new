@@ -14,113 +14,10 @@ class XrayCoreModule : Module() {
   private val context
     get() = requireNotNull(appContext.reactContext)
 
-  // Детект скриншотов: на Android 14+ системный колбэк, ниже — наблюдение за MediaStore
-  private var screenshotObserver: android.database.ContentObserver? = null
-  private var captureActivity: android.app.Activity? = null
-  private var lastScreenshotAt = 0L
-
-  private val screenCaptureCb = android.app.Activity.ScreenCaptureCallback {
-    notifyScreenshot()
-  }
-
-  private fun notifyScreenshot() {
-    val now = System.currentTimeMillis()
-    if (now - lastScreenshotAt < 2500) return
-    lastScreenshotAt = now
-    android.util.Log.i("XrayCore", "screenshot detected")
-    sendEvent("onScreenshot", mapOf("ts" to now))
-  }
-
-  /** Android 14+: системный колбэк скриншота. Регистрируем при любой возможности —
-   *  активность может быть недоступна в момент OnCreate модуля. */
-  private fun registerScreenCaptureCallback() {
-    if (Build.VERSION.SDK_INT < 34) return
-    try {
-      val activity = appContext.currentActivity ?: return
-      if (activity === captureActivity) return
-      if (captureActivity != null) {
-        try {
-          captureActivity?.unregisterScreenCaptureCallback(screenCaptureCb)
-        } catch (_: Throwable) {
-        }
-      }
-      activity.registerScreenCaptureCallback(
-        java.util.concurrent.Executor { it.run() },
-        screenCaptureCb
-      )
-      captureActivity = activity
-      android.util.Log.i("XrayCore", "screen capture callback registered")
-    } catch (e: Throwable) {
-      android.util.Log.w("XrayCore", "screen capture callback failed: ${e.message}")
-    }
-  }
-
-  private fun registerScreenshotObserver() {
-    if (screenshotObserver != null) return
-    try {
-      val handler = android.os.Handler(android.os.Looper.getMainLooper())
-      screenshotObserver = object : android.database.ContentObserver(handler) {
-        override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
-          checkScreenshotUri(uri)
-        }
-      }
-      // Наблюдаем и за конкретным томом изображений, и за родителем — так надёжнее
-      // на разных версиях Android (в т.ч. 16), где уведомления могут приходить по-разному
-      context.contentResolver.registerContentObserver(
-        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-        true,
-        screenshotObserver!!
-      )
-      try {
-        context.contentResolver.registerContentObserver(
-          android.net.Uri.parse("content://media/external/images"),
-          true,
-          screenshotObserver!!
-        )
-      } catch (_: Throwable) {
-      }
-      android.util.Log.i("XrayCore", "screenshot observer registered")
-    } catch (e: Throwable) {
-      android.util.Log.w("XrayCore", "screenshot observer failed: ${e.message}")
-    }
-  }
-
-  private fun checkScreenshotUri(uri: android.net.Uri?) {
-    try {
-      val now = System.currentTimeMillis()
-      if (now - lastScreenshotAt < 4000) return
-      var confirmed = false
-      var undecidable = false
-      if (uri != null && uri.toString().lowercase().contains("screenshot")) confirmed = true
-      if (!confirmed && uri != null) {
-        try {
-          context.contentResolver.query(
-            uri,
-            arrayOf(android.provider.MediaStore.Images.Media.DISPLAY_NAME),
-            null, null, null
-          )?.use { c ->
-            if (c.moveToFirst()) {
-              val name = c.getString(0) ?: ""
-              if (name.lowercase().contains("screenshot")) confirmed = true
-            } else {
-              undecidable = true
-            }
-          } ?: run { undecidable = true }
-        } catch (_: Throwable) {
-          // нет доступа к метаданным (типично для Android 10+): считаем скриншотом,
-          // чтобы размытие точно срабатывало — лучше ложное срабатывание, чем пропуск
-          undecidable = true
-        }
-      }
-      if (confirmed || undecidable) notifyScreenshot()
-    } catch (_: Throwable) {
-    }
-  }
-
   override fun definition() = ModuleDefinition {
     Name("XrayCore")
 
-    Events("onVpnStateChanged", "onCoreDownloadProgress", "onScreenshot")
+    Events("onVpnStateChanged", "onCoreDownloadProgress")
 
     OnCreate {
       XrayVpnService.stateListener = { running ->
@@ -135,56 +32,12 @@ class XrayCoreModule : Module() {
         sendEvent("onVpnStateChanged", mapOf("running" to running))
         GhostCloudTileService.notifyStateChange()
       }
-
-      if (Build.VERSION.SDK_INT < 34) {
-        registerScreenshotObserver()
-      } else {
-        // Android 14+: только системный колбэк — он точный, без ложных срабатываний.
-        // MediaStore-наблюдатель здесь НЕ нужен: он реагировал бы на любые картинки
-        // и держал бы размытие включённым постоянно.
-        registerScreenCaptureCallback()
-        if (captureActivity == null) {
-          val handler = android.os.Handler(android.os.Looper.getMainLooper())
-          var tries = 0
-          val retry = object : Runnable {
-            override fun run() {
-              if (captureActivity != null || tries >= 60) return
-              tries++
-              registerScreenCaptureCallback()
-              handler.postDelayed(this, 1000)
-            }
-          }
-          handler.postDelayed(retry, 1000)
-        }
-      }
-    }
-
-    OnActivityEntersForeground {
-      registerScreenCaptureCallback()
-    }
-
-    OnActivityEntersBackground {
-      if (Build.VERSION.SDK_INT >= 34) {
-        val activity = appContext.currentActivity
-        if (activity != null && activity === captureActivity) {
-          try {
-            activity.unregisterScreenCaptureCallback(screenCaptureCb)
-          } catch (_: Throwable) {
-          }
-          captureActivity = null
-        }
-      }
     }
 
     OnDestroy {
       XrayVpnService.stateListener = null
       CoreVpnService.stateListener = null
       LibCoreVpnService.stateListener = null
-      try {
-        screenshotObserver?.let { context.contentResolver.unregisterContentObserver(it) }
-      } catch (_: Throwable) {
-      }
-      screenshotObserver = null
     }
 
     AsyncFunction("requestPermission") { promise: Promise ->

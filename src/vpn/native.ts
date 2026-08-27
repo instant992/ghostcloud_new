@@ -114,13 +114,6 @@ export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
   return () => sub.remove();
 }
 
-/** Детект скриншота (Android 14+ — системный колбэк, ниже — эвристика по MediaStore) */
-export function onScreenshot(cb: () => void): () => void {
-  if (!emitter) return () => {};
-  const sub: any = emitter.addListener("onScreenshot", () => cb());
-  return () => sub.remove();
-}
-
 export async function startVpn(
   configJson: string,
   allowedApps: string[] = [],

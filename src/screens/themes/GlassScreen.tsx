@@ -25,11 +25,10 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
-import { PrivacyText } from "../../components/PrivacyText";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
 import * as stats from "../../stats";
@@ -136,18 +135,6 @@ function GlassBackground() {
           <RadialGradient id="gcBlob5">
             <Stop offset="0" stopColor="#8B5CF6" stopOpacity={light ? "0.2" : "0.15"} />
             <Stop offset="1" stopColor="#8B5CF6" stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="gcSphereOff" cx="0.35" cy="0.3" r="0.85">
-            <Stop offset="0" stopColor="#7C3AED" stopOpacity="0.7" />
-            <Stop offset="0.35" stopColor="#7C3AED" stopOpacity="0.45" />
-            <Stop offset="0.7" stopColor="#2D1B69" stopOpacity="0.85" />
-            <Stop offset="1" stopColor="#2D1B69" stopOpacity="0.95" />
-          </RadialGradient>
-          <RadialGradient id="gcSphereOn" cx="0.35" cy="0.3" r="0.85">
-            <Stop offset="0" stopColor="#22C55E" stopOpacity="0.7" />
-            <Stop offset="0.35" stopColor="#22C55E" stopOpacity="0.45" />
-            <Stop offset="0.7" stopColor="#0D4A22" stopOpacity="0.85" />
-            <Stop offset="1" stopColor="#0D4A22" stopOpacity="0.95" />
           </RadialGradient>
         </Defs>
         <Rect width={width} height={height} fill="url(#gcGlassBg)" />
@@ -348,6 +335,9 @@ export default function GlassScreen() {
   const expireColor =
     daysLeft <= 0 ? colors.red : daysLeft <= 3 ? colors.orange : colors.textDim;
 
+  const light = isLightPalette();
+  const pc = powerButtonColors();
+
   return (
     <View style={styles.screen}>
       <GlassBackground />
@@ -424,12 +414,31 @@ export default function GlassScreen() {
               },
             ]}
           />
-          <View style={[styles.sphereWrap, { shadowColor: vpnRunning ? "#22C55E" : "#7C3AED" }]}>
+          <View style={[styles.sphereWrap, { shadowColor: vpnRunning ? pc.glow : "transparent" }]}>
             <View style={styles.sphereRing} pointerEvents="none" />
             <Svg width={180} height={180}>
+              <Defs>
+                <RadialGradient id="gcSphereOff" cx="0.35" cy="0.3" r="0.85">
+                  <Stop offset="0" stopColor={light ? "#FFFFFF" : "#3B2D5E"} stopOpacity="1" />
+                  <Stop offset="1" stopColor={light ? "#E0D9F0" : "#1A1030"} stopOpacity="1" />
+                </RadialGradient>
+                <RadialGradient id="gcSphereOn" cx="0.35" cy="0.3" r="0.85">
+                  <Stop offset="0" stopColor="#8B5CF6" stopOpacity="1" />
+                  <Stop offset="0.6" stopColor="#7C3AED" stopOpacity="1" />
+                  <Stop offset="1" stopColor="#5B21B6" stopOpacity="1" />
+                </RadialGradient>
+              </Defs>
               <Circle cx={90} cy={90} r={90} fill={vpnRunning ? "url(#gcSphereOn)" : "url(#gcSphereOff)"} />
-              <Ellipse cx={90} cy={48} rx={56} ry={26} fill="#FFFFFF" opacity={0.07} />
-              <Circle cx={90} cy={90} r={89} stroke="#FFFFFF" strokeOpacity={0.16} strokeWidth={1.5} fill="none" />
+              <Ellipse cx={90} cy={48} rx={56} ry={26} fill="#FFFFFF" opacity={light ? 0.35 : 0.07} />
+              <Circle
+                cx={90}
+                cy={90}
+                r={89}
+                stroke="#FFFFFF"
+                strokeOpacity={light ? 0.5 : 0.16}
+                strokeWidth={1.5}
+                fill="none"
+              />
             </Svg>
             <Pressable
               onPress={toggle}
@@ -437,9 +446,13 @@ export default function GlassScreen() {
               style={styles.spherePress}
             >
               {busy ? (
-                <ActivityIndicator size="large" color="#fff" />
+                <ActivityIndicator size="large" color={vpnRunning ? "#fff" : colors.accent} />
               ) : (
-                <Ionicons name="power" size={60} color="rgba(255,255,255,0.92)" />
+                <Ionicons
+                  name="power"
+                  size={60}
+                  color={vpnRunning ? "#fff" : light ? colors.accent : "rgba(255,255,255,0.92)"}
+                />
               )}
             </Pressable>
           </View>
@@ -471,9 +484,9 @@ export default function GlassScreen() {
           </View>
           <View style={{ flex: 1, marginLeft: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <PrivacyText style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>
+              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>
                 LTE OPEN
-              </PrivacyText>
+              </Text>
               <View style={styles.lteBeta}>
                 <Text style={styles.lteBetaText}>beta</Text>
               </View>
@@ -524,8 +537,8 @@ export default function GlassScreen() {
               <Ionicons name="shield-half-outline" size={20} color={colors.accent} />
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
-              <PrivacyText style={styles.serverName}>Фильтр соединения</PrivacyText>
-              <PrivacyText style={styles.serverSub}>Какие приложения идут через VPN</PrivacyText>
+              <Text style={styles.serverName}>Фильтр соединения</Text>
+              <Text style={styles.serverSub}>Какие приложения идут через VPN</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>
@@ -595,7 +608,7 @@ export default function GlassScreen() {
 }
 
 const makeStyles = () => StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#08080E" },
+  screen: { flex: 1, backgroundColor: colors.bg },
   headerLogo: { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
     color: "#7B2FBE",
