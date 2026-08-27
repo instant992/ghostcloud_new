@@ -11,8 +11,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 
-/** Общее построение VPN-уведомления: таймер в заголовке (как в старом приложении),
- *  кнопка «Отключить», обновление раз в секунду. */
+/** Общее построение VPN-уведомления: заголовок «GhostCloud», в тексте
+ *  «Подключено · таймер» одной строкой, кнопка «Отключить», обновление раз в секунду. */
 object VpnNotifications {
 
   fun ensureChannel(ctx: Context, channelId: String) {
@@ -38,7 +38,7 @@ object VpnNotifications {
     service: Service,
     channelId: String,
     running: Boolean,
-    title: String,
+    timer: String,
     stopIntent: PendingIntent
   ): Notification {
     ensureChannel(service, channelId)
@@ -57,7 +57,7 @@ object VpnNotifications {
       Notification.Builder(service)
     }
     builder
-      .setContentTitle(title)
+      .setContentTitle("GhostCloud")
       .setSmallIcon(android.R.drawable.ic_lock_lock)
       .setOngoing(true)
       .setShowWhen(false)
@@ -65,7 +65,8 @@ object VpnNotifications {
     if (contentIntent != null) builder.setContentIntent(contentIntent)
 
     if (running) {
-      builder.setContentText("Подключено")
+      // Таймер и «Подключено» в одной строке — без лишнего разрыва
+      builder.setContentText(if (timer.isNotEmpty()) "Подключено · $timer" else "Подключено")
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
         builder.addAction(Notification.Action.Builder(null, "Отключить", stopIntent).build())
       } else {
@@ -79,7 +80,7 @@ object VpnNotifications {
   }
 }
 
-/** Тикер: раз в секунду обновляет уведомление, подставляя прошедшее время в заголовок. */
+/** Тикер: раз в секунду обновляет уведомление, подставляя прошедшее время в текст. */
 class NotificationTicker(
   private val service: Service,
   private val channelId: String,

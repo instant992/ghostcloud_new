@@ -189,7 +189,7 @@ class XrayVpnService : VpnService() {
   }
 
   private fun startForegroundSilently() {
-    val notification = VpnNotifications.build(this, CHANNEL_ID, isRunning.get(), "GhostCloud", stopPendingIntent)
+    val notification = VpnNotifications.build(this, CHANNEL_ID, isRunning.get(), "", stopPendingIntent)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(
         NOTIFICATION_ID,
@@ -207,7 +207,7 @@ class XrayVpnService : VpnService() {
     } else {
       ticker.stop()
       val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-      nm.notify(NOTIFICATION_ID, VpnNotifications.build(this, CHANNEL_ID, false, "GhostCloud", stopPendingIntent))
+      nm.notify(NOTIFICATION_ID, VpnNotifications.build(this, CHANNEL_ID, false, "", stopPendingIntent))
     }
   }
 
