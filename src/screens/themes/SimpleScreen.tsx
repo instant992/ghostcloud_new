@@ -42,7 +42,9 @@ export default function SimpleScreen() {
   }, [vpnRunning]);
 
   const connectBest = async () => {
-    const candidates = nodes.filter((n) => n.source !== "lte");
+    // LTE-серверы в автовыбор не попадают — только обычные
+    const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-");
+    const candidates = nodes.filter((n) => !isLte(n));
     if (candidates.length === 0) {
       showToast("Нет доступных серверов");
       return;
