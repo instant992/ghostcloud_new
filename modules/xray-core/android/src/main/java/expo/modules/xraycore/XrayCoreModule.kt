@@ -125,12 +125,15 @@ class XrayCoreModule : Module() {
     OnCreate {
       XrayVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
+        GhostCloudTileService.notifyStateChange()
       }
       CoreVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
+        GhostCloudTileService.notifyStateChange()
       }
       LibCoreVpnService.stateListener = { running ->
         sendEvent("onVpnStateChanged", mapOf("running" to running))
+        GhostCloudTileService.notifyStateChange()
       }
 
       if (Build.VERSION.SDK_INT < 34) {

@@ -283,13 +283,6 @@ export default function MinimalistScreen() {
           <Pressable style={styles.squareIcon} onPress={() => setAppsOpen(true)}>
             <Ionicons name="grid-outline" size={22} color={colors.text} />
           </Pressable>
-          <Pressable style={styles.refreshBtn} onPress={refreshServers} disabled={refreshing}>
-            {refreshing ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.refreshBtnText}>Обновить серверы</Text>
-            )}
-          </Pressable>
           <Pressable
             style={styles.squareIcon}
             onPress={async () => {
@@ -359,6 +352,13 @@ export default function MinimalistScreen() {
           <View style={styles.otherLine} />
           <Text style={styles.otherText}>Другие локации</Text>
           <View style={styles.otherLine} />
+          <Pressable onPress={refreshServers} hitSlop={8} disabled={refreshing} style={styles.roundRefresh}>
+            {refreshing ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Ionicons name="refresh" size={14} color={colors.textDim} />
+            )}
+          </Pressable>
         </View>
 
         {otherNodes.map((n) => {
@@ -494,16 +494,16 @@ const makeStyles = () => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  refreshBtn: {
-    flex: 1,
-    height: 50,
-    borderRadius: 16,
-    backgroundColor: colors.accentDeep,
+  roundRefresh: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardLight,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
   },
-  refreshBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
   miniCard: {
     backgroundColor: colors.cardLight,
     borderWidth: 1,

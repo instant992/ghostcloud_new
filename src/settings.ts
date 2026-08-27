@@ -9,17 +9,16 @@ if (Platform.OS === "android") {
   }
 }
 
+/** Стили темы (дизайн). Режим (dark/light/auto) хранится отдельно в "theme_mode". */
 export type ThemeName =
-  | "auto"
   | "default"
-  | "dark"
-  | "light"
   | "minimalist"
   | "v2ray"
   | "glass"
   | "foxcloud"
   | "pickme"
   | "happ";
+export type ThemeMode = "dark" | "light" | "auto";
 export type CoreName = "xray" | "sing-box" | "mihomo";
 
 export function getSetting(key: string, fallback: string): string {
@@ -38,10 +37,7 @@ export function setSetting(key: string, value: string) {
 }
 
 const THEME_NAMES: ThemeName[] = [
-  "auto",
   "default",
-  "dark",
-  "light",
   "minimalist",
   "v2ray",
   "glass",
@@ -52,7 +48,24 @@ const THEME_NAMES: ThemeName[] = [
 
 export function getThemeName(): ThemeName {
   const v = getSetting("theme", "glass");
-  return (THEME_NAMES as string[]).includes(v) ? (v as ThemeName) : "glass";
+  if ((THEME_NAMES as string[]).includes(v)) return v as ThemeName;
+  // старые значения (когда режим и стиль хранились вместе) → стиль «Основная»
+  if (v === "dark" || v === "light" || v === "auto") return "default";
+  return "glass";
+}
+
+const THEME_MODES: ThemeMode[] = ["dark", "light", "auto"];
+
+export function getThemeMode(): ThemeMode {
+  const v = getSetting("theme_mode", "");
+  if ((THEME_MODES as string[]).includes(v)) return v as ThemeMode;
+  // миграция со старого единого значения темы
+  const legacy = getSetting("theme", "");
+  if (legacy === "light") return "light";
+  if (legacy === "auto") return "auto";
+  // Happ исторически светлая тема
+  if (legacy === "happ") return "light";
+  return "dark";
 }
 
 export function getSelectedCore(): CoreName {

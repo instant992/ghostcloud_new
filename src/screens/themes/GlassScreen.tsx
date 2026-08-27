@@ -25,7 +25,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -50,7 +50,7 @@ function formatTimer(total: number): string {
 export function GlassCard({
   radius = 20,
   intensity = 50,
-  overlay = "rgba(255,255,255,0.05)",
+  overlay,
   style,
   children,
   onPress,
@@ -62,16 +62,24 @@ export function GlassCard({
   children?: React.ReactNode;
   onPress?: () => void;
 }) {
+  useTheme();
+  const light = isLightPalette();
   const outer = {
     borderRadius: radius,
     overflow: "hidden" as const,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
+    borderColor: light ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.22)",
   };
   const body = (
     <>
-      <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: overlay }]} pointerEvents="none" />
+      <BlurView intensity={intensity} tint={light ? "light" : "dark"} style={StyleSheet.absoluteFill} />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: overlay ?? (light ? "rgba(255,255,255,0.30)" : "rgba(255,255,255,0.05)") },
+        ]}
+        pointerEvents="none"
+      />
       {children}
     </>
   );
@@ -87,35 +95,46 @@ export function GlassCard({
 
 /** Фон темы: диагональный градиент + пять цветных «блобов» — как в Flutter-версии */
 function GlassBackground() {
+  useTheme();
+  const light = isLightPalette();
   const { width, height } = Dimensions.get("window");
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <Svg width={width} height={height}>
         <Defs>
           <LinearGradient id="gcGlassBg" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#08080E" />
-            <Stop offset="0.35" stopColor="#0E0C16" />
-            <Stop offset="0.65" stopColor="#0A0A14" />
-            <Stop offset="1" stopColor="#060610" />
+            {light
+              ? [
+                  <Stop key="l0" offset="0" stopColor="#E8E2F0" />,
+                  <Stop key="l1" offset="0.35" stopColor="#DDD6EA" />,
+                  <Stop key="l2" offset="0.65" stopColor="#E2DCF0" />,
+                  <Stop key="l3" offset="1" stopColor="#D8D2E6" />,
+                ]
+              : [
+                  <Stop key="d0" offset="0" stopColor="#08080E" />,
+                  <Stop key="d1" offset="0.35" stopColor="#0E0C16" />,
+                  <Stop key="d2" offset="0.65" stopColor="#0A0A14" />,
+                  <Stop key="d3" offset="1" stopColor="#060610" />,
+                ]}
           </LinearGradient>
           <RadialGradient id="gcBlob1">
-            <Stop offset="0" stopColor="#7B2FBE" stopOpacity="0.25" />
-            <Stop offset="1" stopColor="#7B2FBE" stopOpacity="0" />
+            <Stop offset="0" stopColor={light ? "#9B59B6" : "#7B2FBE"} stopOpacity={light ? "0.35" : "0.25"} />
+            <Stop offset="1" stopColor={light ? "#9B59B6" : "#7B2FBE"} stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="gcBlob2">
-            <Stop offset="0" stopColor="#3B82F6" stopOpacity="0.2" />
-            <Stop offset="1" stopColor="#3B82F6" stopOpacity="0" />
+            <Stop offset="0" stopColor={light ? "#5B9CF6" : "#3B82F6"} stopOpacity={light ? "0.3" : "0.2"} />
+            <Stop offset="1" stopColor={light ? "#5B9CF6" : "#3B82F6"} stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="gcBlob3">
-            <Stop offset="0" stopColor="#EC4899" stopOpacity="0.18" />
+            <Stop offset="0" stopColor="#EC4899" stopOpacity={light ? "0.25" : "0.18"} />
             <Stop offset="1" stopColor="#EC4899" stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="gcBlob4">
-            <Stop offset="0" stopColor="#06B6D4" stopOpacity="0.15" />
+            <Stop offset="0" stopColor="#06B6D4" stopOpacity={light ? "0.22" : "0.15"} />
             <Stop offset="1" stopColor="#06B6D4" stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="gcBlob5">
-            <Stop offset="0" stopColor="#8B5CF6" stopOpacity="0.15" />
+            <Stop offset="0" stopColor="#8B5CF6" stopOpacity={light ? "0.2" : "0.15"} />
             <Stop offset="1" stopColor="#8B5CF6" stopOpacity="0" />
           </RadialGradient>
           <RadialGradient id="gcSphereOff" cx="0.35" cy="0.3" r="0.85">
@@ -294,12 +313,17 @@ export default function GlassScreen() {
     }
   };
 
+  const [syncBusy, setSyncBusy] = useState(false);
   const syncAll = async () => {
+    if (syncBusy) return;
+    setSyncBusy(true);
     try {
       await Promise.all([reloadNodes(), refreshMe()]);
       showToast("Профиль обновлён");
     } catch {
       showToast("Не удалось обновить профиль");
+    } finally {
+      setSyncBusy(false);
     }
   };
 
@@ -322,7 +346,7 @@ export default function GlassScreen() {
     ? new Date(String(me.expire_at)).toLocaleDateString("ru-RU")
     : "—";
   const expireColor =
-    daysLeft <= 0 ? colors.red : daysLeft <= 3 ? colors.orange : "rgba(255,255,255,0.6)";
+    daysLeft <= 0 ? colors.red : daysLeft <= 3 ? colors.orange : colors.textDim;
 
   return (
     <View style={styles.screen}>
@@ -351,12 +375,12 @@ export default function GlassScreen() {
         {/* Статус + баланс */}
         <View style={{ flexDirection: "row", alignItems: "flex-start", marginTop: 6 }}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.status, { color: vpnRunning ? "#22C55E" : "rgba(255,255,255,0.4)" }]}>
+            <Text style={[styles.status, { color: vpnRunning ? "#22C55E" : colors.textDim }]}>
               {vpnRunning ? "Подключено" : "Не подключено"}
               {!!vpnRunning && ` · ${formatTimer(seconds)}`}
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
-              <Ionicons name="swap-vertical" size={13} color="rgba(255,255,255,0.5)" />
+              <Ionicons name="swap-vertical" size={13} color={colors.textDim} />
               <Text style={styles.trafficHint}>Трафик: {formatBytes(totalToday)} сегодня</Text>
             </View>
             <View style={styles.trafficTrack}>
@@ -365,8 +389,8 @@ export default function GlassScreen() {
           </View>
           <GlassCard radius={14} style={{ padding: 10, marginLeft: 12 }} onPress={() => setBalanceOpen(true)}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-              <Ionicons name="wallet-outline" size={13} color="rgba(255,255,255,0.4)" />
-              <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>Баланс:</Text>
+              <Ionicons name="wallet-outline" size={13} color={colors.textFaint} />
+              <Text style={{ color: colors.textFaint, fontSize: 12 }}>Баланс:</Text>
               <Text style={{ color: balance > 0 ? "#4CAF50" : colors.orange, fontSize: 13, fontWeight: "600" }}>
                 {balance.toFixed(0)} ₽
               </Text>
@@ -375,8 +399,8 @@ export default function GlassScreen() {
               </View>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }}>
-              <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.5)" />
-              <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>Истекает:</Text>
+              <Ionicons name="calendar-outline" size={12} color={colors.textFaint} />
+              <Text style={{ color: colors.textFaint, fontSize: 11 }}>Истекает:</Text>
               <Text style={{ color: expireColor, fontSize: 11, fontWeight: "500" }}>{expireStr}</Text>
             </View>
           </GlassCard>
@@ -424,19 +448,19 @@ export default function GlassScreen() {
         {/* LTE OPEN */}
         <GlassCard
           radius={16}
-          overlay={lteEnabled ? "rgba(124,58,237,0.12)" : "rgba(255,255,255,0.05)"}
+          overlay={lteEnabled ? "rgba(124,58,237,0.12)" : undefined}
           style={{
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 14,
             paddingVertical: 10,
-            borderColor: lteEnabled ? "rgba(124,58,237,0.45)" : "rgba(255,255,255,0.22)",
+            borderColor: lteEnabled ? "rgba(124,58,237,0.45)" : colors.border,
           }}
         >
           <View
             style={[
               styles.lteIconBox,
-              { backgroundColor: lteEnabled ? "rgba(124,58,237,0.18)" : "rgba(255,255,255,0.09)" },
+              { backgroundColor: lteEnabled ? "rgba(124,58,237,0.18)" : colors.cardLight },
             ]}
           >
             {lteBusy ? (
@@ -454,14 +478,14 @@ export default function GlassScreen() {
                 <Text style={styles.lteBetaText}>beta</Text>
               </View>
             </View>
-            <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 1 }}>
+            <Text style={{ color: colors.textDim, fontSize: 11, marginTop: 1 }}>
               {lteBusy ? "Загружаем профили..." : lteEnabled ? `${lteNodes.length} серверов` : "Нажмите для включения"}
             </Text>
           </View>
           <Switch
             value={lteEnabled}
             onValueChange={toggleLte}
-            trackColor={{ false: "rgba(255,255,255,0.15)", true: "rgba(124,58,237,0.45)" }}
+            trackColor={{ false: colors.border, true: "rgba(124,58,237,0.45)" }}
             thumbColor={lteEnabled ? PURPLE : "#fff"}
           />
         </GlassCard>
@@ -485,7 +509,14 @@ export default function GlassScreen() {
             ) : pingText ? (
               <Text style={{ color: pingColor, fontSize: 12, fontWeight: "600" }}>{pingText}</Text>
             ) : null}
-            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
+            <Pressable onPress={syncAll} hitSlop={8} style={styles.roundRefresh}>
+              {syncBusy ? (
+                <ActivityIndicator size="small" color={colors.accent} />
+              ) : (
+                <Ionicons name="refresh" size={15} color={colors.textDim} />
+              )}
+            </Pressable>
+            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>
           <View style={styles.glassDivider} />
           <Pressable style={styles.serverRow} onPress={() => setAppsOpen(true)}>
@@ -496,7 +527,7 @@ export default function GlassScreen() {
               <PrivacyText style={styles.serverName}>Фильтр соединения</PrivacyText>
               <PrivacyText style={styles.serverSub}>Какие приложения идут через VPN</PrivacyText>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
+            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>
         </GlassCard>
 
@@ -513,7 +544,7 @@ export default function GlassScreen() {
             <Text style={styles.serverName}>Поддержка</Text>
             <Text style={styles.serverSub}>Напишите нам, если что-то не так</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
+          <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
         </GlassCard>
 
         {/* Два стеклянных блока */}
@@ -539,13 +570,6 @@ export default function GlassScreen() {
             <Text style={styles.tileLabel}>Тарифы</Text>
           </GlassCard>
         </View>
-
-        <Pressable style={{ alignItems: "center", marginTop: 18 }} onPress={syncAll}>
-          <Ionicons name="refresh" size={16} color="rgba(255,255,255,0.35)" />
-          <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 11, marginTop: 2 }}>
-            Обновить профиль
-          </Text>
-        </Pressable>
       </ScrollView>
 
       <AppFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
@@ -583,11 +607,11 @@ const makeStyles = () => StyleSheet.create({
   headerVersion: { color: colors.green, fontSize: 12, fontWeight: "500", marginLeft: 8, marginTop: 8 },
   headerIconBox: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   status: { fontSize: 14, fontWeight: "600" },
-  trafficHint: { color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: "500" },
+  trafficHint: { color: colors.textDim, fontSize: 12, fontWeight: "500" },
   trafficTrack: {
     height: 3,
     borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: colors.cardLight,
     marginTop: 6,
     maxWidth: 180,
     overflow: "hidden",
@@ -625,8 +649,8 @@ const makeStyles = () => StyleSheet.create({
     height: 194,
     borderRadius: 97,
     borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.13)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: colors.border,
+    backgroundColor: colors.cardLight,
   },
   spherePress: {
     position: "absolute",
@@ -665,10 +689,21 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "center",
   },
   serverName: { color: colors.text, fontSize: 14, fontWeight: "600" },
-  serverSub: { color: "rgba(255,255,255,0.4)", fontSize: 11, marginTop: 2 },
+  serverSub: { color: colors.textDim, fontSize: 11, marginTop: 2 },
+  roundRefresh: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.cardLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
   glassDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: colors.border,
     marginHorizontal: 16,
   },
   tileIconBox: {

@@ -291,7 +291,7 @@ function GlassDockBar({ state, navigation }: any) {
           }
           return (
             <Pressable key={t.name} style={dockStyles.slot} onPress={press}>
-              <Ionicons name={t.icon as any} size={24} color="rgba(255,255,255,0.4)" />
+              <Ionicons name={t.icon as any} size={24} color={colors.textFaint} />
             </Pressable>
           );
         })}
@@ -469,7 +469,7 @@ function GlassFlow() {
 }
 
 function Root() {
-  const { name: themeName } = useTheme();
+  const { style } = useTheme();
   const { loading, session } = useApp();
   if (loading) {
     return (
@@ -479,13 +479,13 @@ function Root() {
     );
   }
   const MainFlow =
-    themeName === "v2ray"
+    style === "v2ray"
       ? V2rayFlow
-      : themeName === "happ"
+      : style === "happ"
         ? HappFlow
-        : themeName === "minimalist" || themeName === "pickme" || themeName === "foxcloud"
+        : style === "minimalist" || style === "pickme" || style === "foxcloud"
           ? MinimalistFlow
-          : themeName === "glass"
+          : style === "glass"
             ? GlassFlow
             : MainTabs;
   return (

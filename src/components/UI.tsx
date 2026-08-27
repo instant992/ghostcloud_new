@@ -93,7 +93,7 @@ export function Button({ title, onPress, loading, disabled, variant = "primary",
       ]}
     >
       {loading ? (
-        <ActivityIndicator color="#fff" size={compact ? "small" : "large"} />
+        <ActivityIndicator color="#fff" size="small" />
       ) : (
         <Text
           style={[
@@ -188,15 +188,15 @@ const makeStyles = () => StyleSheet.create({
     marginBottom: 12,
   },
   btn: {
-    borderRadius: 28,
-    paddingVertical: 15,
+    borderRadius: 24,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 6,
   },
   btnSm: {
-    borderRadius: 18,
-    paddingVertical: 9,
+    borderRadius: 16,
+    height: 36,
     paddingHorizontal: 14,
     marginVertical: 4,
   },
@@ -213,7 +213,7 @@ const makeStyles = () => StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.red + "55",
   },
-  btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   btnTextSm: { fontSize: 13 },
   input: {
     backgroundColor: colors.bgSoft,

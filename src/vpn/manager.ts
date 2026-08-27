@@ -1,5 +1,5 @@
 import { deviceHeaders, loadSession } from "../storage";
-import { getSelectedCore } from "../settings";
+import { getSelectedCore, setSetting } from "../settings";
 import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "./parse";
 import type { VpnNode } from "./parse";
 import { buildXrayConfig } from "./xrayConfig";
@@ -130,13 +130,25 @@ export async function connect(node: VpnNode): Promise<void> {
   const blocked = allowed.length ? [] : filter.blocked;
 
   const core = getSelectedCore();
+
+  // Сохраняем конфигурацию для плитки быстрых настроек (включение без приложения)
+  const saveTileConfig = (config: string, coreKey: string) => {
+    try {
+      setSetting("tile_vpn_core", coreKey);
+      setSetting("tile_vpn_config", config);
+      setSetting("tile_vpn_allowed", allowed.join(","));
+      setSetting("tile_vpn_blocked", blocked.join(","));
+    } catch {}
+  };
   if (core === "sing-box") {
     const config = buildSingBoxConfig(node);
+    saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked);
     return;
   }
   if (core === "mihomo") {
     const config = buildMihomoConfig(node);
+    saveTileConfig(config, "mihomo");
     await startLibCoreVpn("mihomo", config, allowed, blocked);
     return;
   }
@@ -144,6 +156,7 @@ export async function connect(node: VpnNode): Promise<void> {
     throw new Error("Hysteria2 доступен только на ядрах sing-box и mihomo — выберите их в настройках");
   }
   const config = buildXrayConfig(node, null);
+  saveTileConfig(config, "xray");
   await startVpn(config, allowed, blocked);
 }
 

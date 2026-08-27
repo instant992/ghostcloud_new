@@ -20,7 +20,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
-import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeName } from "../../theme";
+import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode } from "../../theme";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { PrivacyText } from "../../components/PrivacyText";
@@ -444,16 +444,17 @@ export default function V2rayScreen() {
                   ["dark", "moon-outline", "Тёмная"],
                   ["auto", "contrast", "Авто"],
                   ["light", "sunny-outline", "Светлая"],
-                ] as Array<[ThemeName, any, string]>
+                ] as Array<[ThemeMode, any, string]>
               ).map(([key, icon, label]) => {
-                const on = theme.name === key;
+                const on = theme.mode === key;
                 return (
                   <Pressable
                     key={key}
                     style={[styles.themeSeg, on && styles.themeSegOn]}
                     onPress={() => {
-                      setSetting("theme", key);
-                      switchTheme(key);
+                      setSetting("theme_mode", key);
+                      setSetting("theme_schedule_enabled", key === "auto" ? "1" : "0");
+                      switchTheme({ mode: key });
                     }}
                   >
                     <Ionicons name={icon} size={14} color={on ? "#fff" : colors.textDim} />

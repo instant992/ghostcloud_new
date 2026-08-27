@@ -7,7 +7,7 @@ import { Card, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import { colors, THEME_LABELS, THEME_ORDER, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
-import { getSelectedCore, getSetting, getThemeName, setSetting, type CoreName } from "../settings";
+import { getSelectedCore, getSetting, getThemeName, getThemeMode, setSetting, type CoreName, type ThemeMode } from "../settings";
 import {
   downloadCore,
   getCpuAbi,
@@ -85,15 +85,14 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
 
 /** Стили, доступные только спонсорам — как во Flutter-версии */
 const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ"];
-/** Режимы (не стили) — управляются переключателем «Режим темы», в списке стилей не показываются */
-const MODE_ONLY: ThemeName[] = ["auto", "dark", "light"];
 
 export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
   const { me } = useApp();
-  const [theme, setTheme] = useState<ThemeName>(getThemeName());
+  const [style, setStyle] = useState<ThemeName>(getThemeName());
+  const [mode, setMode] = useState<ThemeMode>(getThemeMode());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
   const [xrayVersion, setXrayVersion] = useState("");
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
@@ -103,9 +102,6 @@ export default function SettingsScreen() {
   const [themeOpen, setThemeOpen] = useState(false);
   const [sunrise, setSunrise] = useState(getSetting("theme_sunrise", "06:00"));
   const [sunset, setSunset] = useState(getSetting("theme_sunset", "20:00"));
-  const [scheduleEnabled, setScheduleEnabled] = useState(
-    () => getSetting("theme_schedule_enabled", "0") === "1"
-  );
   const [scheduleMode, setScheduleMode] = useState<"sun" | "custom">(() =>
     getSetting("theme_schedule_mode", "sun") === "custom" ? "custom" : "sun"
   );
@@ -118,7 +114,7 @@ export default function SettingsScreen() {
     setter(clean);
     if (/^\d{2}:\d{2}$/.test(clean)) {
       setSetting(key, clean);
-      if (theme === "auto") switchTheme("auto");
+      if (mode === "auto") switchTheme({ mode: "auto" });
     }
   };
 
@@ -144,7 +140,7 @@ export default function SettingsScreen() {
         setSunset(setT);
         setSetting("theme_sunrise", rise);
         setSetting("theme_sunset", setT);
-        if (theme === "auto") switchTheme("auto");
+        if (mode === "auto") switchTheme({ mode: "auto" });
       }
     } catch {
       // сеть недоступна — оставляем текущие значения
@@ -154,24 +150,25 @@ export default function SettingsScreen() {
     }
   };
 
-  const toggleSchedule = (v: boolean) => {
-    setScheduleEnabled(v);
-    setSetting("theme_schedule_enabled", v ? "1" : "0");
-    if (v && theme !== "auto") changeTheme("auto");
+  /** Режим темы: тёмная/светлая/авто — стиль при этом не меняется */
+  const changeMode = (m: ThemeMode) => {
+    setMode(m);
+    setSetting("theme_mode", m);
+    setSetting("theme_schedule_enabled", m === "auto" ? "1" : "0");
+    switchTheme({ mode: m });
   };
 
   const changeScheduleMode = (m: "sun" | "custom") => {
     setScheduleMode(m);
     setSetting("theme_schedule_mode", m);
-    if (theme === "auto") switchTheme("auto");
+    if (mode === "auto") switchTheme({ mode: "auto" });
   };
 
   const isSponsor = me?.is_sponsor === true;
   const visibleStyles = THEME_ORDER.filter((t) => {
-    if (MODE_ONLY.includes(t)) return false;
     if (!SPONSOR_STYLES.includes(t)) return true;
     // спонсорские стили скрыты, если не выбраны (как во Flutter-версии)
-    return isSponsor || theme === t;
+    return isSponsor || style === t;
   });
 
   useEffect(() => {
@@ -186,10 +183,11 @@ export default function SettingsScreen() {
     return off;
   }, []);
 
-  const changeTheme = (next: ThemeName) => {
-    setTheme(next);
+  /** Стиль темы: меняет дизайн, режим (тёмный/светлый) сохраняется */
+  const changeStyle = (next: ThemeName) => {
+    setStyle(next);
     setSetting("theme", next);
-    switchTheme(next);
+    switchTheme({ style: next });
   };
 
   const changeCore = (next: CoreName) => {
@@ -232,30 +230,28 @@ export default function SettingsScreen() {
       <Card>
         <Text style={styles.sectionTitle}>Тема</Text>
 
-        {/* Режим темы: Тёмная / Авто / Светлая */}
+        {/* Режим темы: Тёмная / Авто / Светлая — меняет вариацию текущего стиля */}
         <View style={styles.themeRowLine}>
           <Ionicons name="sunny-outline" size={20} color={colors.accent} />
           <Text style={styles.themeRowTitle}>Режим темы</Text>
-          {!!scheduleEnabled && (
-            <Text style={styles.scheduleNote}>Управляется расписанием</Text>
-          )}
+          <View style={{ flex: 1 }} />
+          <Text style={styles.themeRowSub}>стиль сохраняется</Text>
         </View>
-        <View style={[styles.modePill, scheduleEnabled && { opacity: 0.45 }]}>
+        <View style={styles.modePill}>
           {(
             [
               ["dark", "moon-outline", "Тёмная"],
               ["auto", "contrast", "Авто"],
               ["light", "sunny-outline", "Светлая"],
-            ] as Array<[ThemeName, any, string]>
+            ] as Array<[ThemeMode, any, string]>
           ).map(([m, icon, label]) => (
             <PressableScale
               key={m}
-              disabled={scheduleEnabled}
-              style={[styles.modeSeg, theme === m && styles.modeSegOn]}
-              onPress={() => changeTheme(m)}
+              style={[styles.modeSeg, mode === m && styles.modeSegOn]}
+              onPress={() => changeMode(m)}
             >
-              <Ionicons name={icon} size={14} color={theme === m ? "#fff" : colors.textDim} />
-              <Text style={[styles.modeSegText, theme === m && { color: "#fff" }]}>{label}</Text>
+              <Ionicons name={icon} size={14} color={mode === m ? "#fff" : colors.textDim} />
+              <Text style={[styles.modeSegText, mode === m && { color: "#fff" }]}>{label}</Text>
             </PressableScale>
           ))}
         </View>
@@ -270,13 +266,13 @@ export default function SettingsScreen() {
             <Text style={styles.themeRowSub}>Светлая днём, тёмная ночью</Text>
           </View>
           <Switch
-            value={scheduleEnabled}
-            onValueChange={toggleSchedule}
+            value={mode === "auto"}
+            onValueChange={(v) => changeMode(v ? "auto" : "dark")}
             trackColor={{ false: colors.border, true: colors.accent }}
             thumbColor="#fff"
           />
         </View>
-        {!!scheduleEnabled && (
+        {mode === "auto" && (
           <View style={{ marginTop: 10 }}>
             <View style={styles.segRow}>
               <PressableScale
@@ -365,14 +361,14 @@ export default function SettingsScreen() {
           <View style={{ flex: 1 }} />
           <PressableScale style={styles.styleDropdownBtn} onPress={() => setThemeOpen(true)}>
             <Ionicons name="sparkles" size={13} color={colors.accent} />
-            <Text style={styles.styleDropdownText}>{THEME_LABELS[theme]}</Text>
+            <Text style={styles.styleDropdownText}>{THEME_LABELS[style]}</Text>
             <Ionicons name="chevron-down" size={14} color={colors.accent} />
           </PressableScale>
         </View>
         <Text style={styles.hint}>
-          {theme === "auto"
-            ? "Светлая тема включается автоматически по расписанию"
-            : "Тема применяется сразу, без перезагрузки"}
+          {mode === "auto"
+            ? "Светлая вариация включается автоматически по расписанию"
+            : "Применяется сразу, без перезагрузки"}
         </Text>
 
         <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
@@ -382,19 +378,19 @@ export default function SettingsScreen() {
               {visibleStyles.map((t: ThemeName) => (
                 <PressableScale
                   key={t}
-                  style={[styles.styleItem, theme === t && styles.styleItemOn]}
+                  style={[styles.styleItem, style === t && styles.styleItemOn]}
                   onPress={() => {
-                    changeTheme(t);
+                    changeStyle(t);
                     setThemeOpen(false);
                   }}
                 >
-                  <View style={[styles.stylePreviewBox, theme === t && styles.stylePreviewBoxOn]}>
+                  <View style={[styles.stylePreviewBox, style === t && styles.stylePreviewBoxOn]}>
                     <ThemeGlyph t={t} size={16} />
                   </View>
                   <Text
                     style={[
                       styles.styleItemText,
-                      theme === t && { color: colors.accent, fontWeight: "700" },
+                      style === t && { color: colors.accent, fontWeight: "700" },
                     ]}
                   >
                     {THEME_LABELS[t]}
@@ -403,7 +399,7 @@ export default function SettingsScreen() {
                     <Ionicons name="heart" size={12} color="#FF5F93" />
                   )}
                   <View style={{ flex: 1 }} />
-                  {theme === t && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+                  {style === t && <Ionicons name="checkmark" size={16} color={colors.accent} />}
                 </PressableScale>
               ))}
               {!isSponsor && (
@@ -519,9 +515,6 @@ function AlertFallback(msg: string) {
 
 function themeIcon(t: ThemeName): any {
   switch (t) {
-    case "auto": return "time-outline";
-    case "light": return "sunny-outline";
-    case "dark": return "moon-outline";
     case "default": return "sparkles-outline";
     case "minimalist": return "brightness-2-outline";
     case "v2ray": return "hub-outline";
