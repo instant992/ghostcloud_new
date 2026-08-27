@@ -10,7 +10,8 @@ export type ThemeName =
   | "glass"
   | "foxcloud"
   | "pickme"
-  | "happ";
+  | "happ"
+  | "simple";
 
 export type { ThemeMode };
 
@@ -293,6 +294,43 @@ const happDark: Palette = {
   gradient: ["#5856D6", "#7C74FF"],
 };
 
+/** «Простой» — светлая, максимально контрастная, для пожилых людей. */
+const simpleLight: Palette = {
+  bg: "#F5F5F7",
+  bgSoft: "#ECECF1",
+  card: "#FFFFFF",
+  cardLight: "#F0F0F4",
+  border: "#D8D8E0",
+  text: "#1A1A1E",
+  textDim: "#55555E",
+  textFaint: "#8A8A95",
+  accent: "#3B82F6",
+  accentDeep: "#2563EB",
+  accentSoft: "rgba(59,130,246,0.12)",
+  green: "#22C55E",
+  red: "#DC2626",
+  orange: "#D97706",
+  gradient: ["#2563EB", "#3B82F6"],
+};
+
+const simpleDark: Palette = {
+  bg: "#121216",
+  bgSoft: "#1A1A1E",
+  card: "#1E1E24",
+  cardLight: "#26262C",
+  border: "#34343C",
+  text: "#FFFFFF",
+  textDim: "#A5A5AE",
+  textFaint: "#6E6E78",
+  accent: "#3B82F6",
+  accentDeep: "#2563EB",
+  accentSoft: "rgba(59,130,246,0.14)",
+  green: "#22C55E",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#2563EB", "#3B82F6"],
+};
+
 const PALETTES: Record<ThemeName, PalettePair> = {
   default: { dark: defaultDark, light: defaultLight },
   minimalist: { dark: minimalistDark, light: minimalistLight },
@@ -301,6 +339,7 @@ const PALETTES: Record<ThemeName, PalettePair> = {
   foxcloud: { dark: foxcloudDark, light: foxcloudLight },
   pickme: { dark: pickmeDark, light: pickmeLight },
   happ: { dark: happDark, light: happLight },
+  simple: { dark: simpleDark, light: simpleLight },
 };
 
 /** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью.
@@ -349,9 +388,11 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   foxcloud: "FoxCloud",
   pickme: "Pink",
   happ: "Happ",
+  simple: "Простой",
 };
 
-/** Порядок стилей в списке выбора */
+/** Порядок стилей в списке выбора. «Простой» — секретная тема, в список не входит
+ *  (добавляется динамически в настройках после разблокировки кодом). */
 export const THEME_ORDER: ThemeName[] = [
   "default",
   "glass",

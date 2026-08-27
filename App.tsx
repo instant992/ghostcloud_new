@@ -31,6 +31,7 @@ import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
+import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import { TabIcon } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 import { ToastHost } from "./src/components/Toast";
@@ -466,6 +467,10 @@ function GlassFlow() {
   return <DockedThemedFlow Home={GlassScreen} DockBar={GlassDockBar} />;
 }
 
+function SimpleFlow() {
+  return <ThemedFlow Home={SimpleScreen} />;
+}
+
 function Root() {
   const { style } = useTheme();
   const { loading, session } = useApp();
@@ -485,7 +490,9 @@ function Root() {
           ? MinimalistFlow
           : style === "glass"
             ? GlassFlow
-            : MainTabs;
+            : style === "simple"
+              ? SimpleFlow
+              : MainTabs;
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       {!session ? (

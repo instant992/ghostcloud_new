@@ -17,7 +17,8 @@ export type ThemeName =
   | "glass"
   | "foxcloud"
   | "pickme"
-  | "happ";
+  | "happ"
+  | "simple";
 export type ThemeMode = "dark" | "light" | "auto";
 export type CoreName = "xray" | "sing-box" | "mihomo";
 
@@ -44,6 +45,7 @@ const THEME_NAMES: ThemeName[] = [
   "foxcloud",
   "pickme",
   "happ",
+  "simple",
 ];
 
 export function getThemeName(): ThemeName {
@@ -63,8 +65,8 @@ export function getThemeMode(): ThemeMode {
   const legacy = getSetting("theme", "");
   if (legacy === "light") return "light";
   if (legacy === "auto") return "auto";
-  // Happ исторически светлая тема
-  if (legacy === "happ") return "light";
+  // Happ и Простой исторически светлые темы
+  if (legacy === "happ" || legacy === "simple") return "light";
   return "dark";
 }
 

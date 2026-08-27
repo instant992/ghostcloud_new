@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
 import { Card, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { showToast } from "../components/Toast";
 import { useApp } from "../context";
 import { colors, THEME_LABELS, THEME_ORDER, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
 import { getSelectedCore, getSetting, getThemeName, getThemeMode, setSetting, type CoreName, type ThemeMode } from "../settings";
@@ -86,6 +87,11 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
 /** Стили, доступные только спонсорам — как во Flutter-версии */
 const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ"];
 
+/** Секретная тема «Простой»: не видна в списке, пока не ввести код.
+ *  Код вводится после 5 нажатий на заголовок «Стиль темы». */
+const SIMPLE_UNLOCK_CODE = "8ecctywih";
+const SIMPLE_UNLOCK_KEY = "simple_theme_unlocked";
+
 export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
@@ -108,6 +114,13 @@ export default function SettingsScreen() {
   const [customRise, setCustomRise] = useState(() => getSetting("theme_custom_rise", "07:00"));
   const [customSet, setCustomSet] = useState(() => getSetting("theme_custom_set", "21:00"));
   const [sunBusy, setSunBusy] = useState(false);
+
+  // Секретная тема «Простой»
+  const [simpleUnlocked, setSimpleUnlocked] = useState(() => getSetting(SIMPLE_UNLOCK_KEY, "0") === "1");
+  const [styleTaps, setStyleTaps] = useState(0);
+  const tapReset = useRef<any>(null);
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
 
   const saveTime = (key: string, value: string, setter: (v: string) => void) => {
     const clean = value.replace(/[^\d:]/g, "").slice(0, 5);
@@ -170,6 +183,10 @@ export default function SettingsScreen() {
     // спонсорские стили скрыты, если не выбраны (как во Flutter-версии)
     return isSponsor || style === t;
   });
+  // Секретная тема «Простой»: видна только после разблокировки (или если уже активна)
+  if ((simpleUnlocked || style === "simple") && !visibleStyles.includes("simple")) {
+    visibleStyles.splice(1, 0, "simple");
+  }
 
   useEffect(() => {
     setXrayVersion(getXrayVersion());
@@ -188,6 +205,33 @@ export default function SettingsScreen() {
     setStyle(next);
     setSetting("theme", next);
     switchTheme({ style: next });
+  };
+
+  /** 5 нажатий на заголовок «Стиль темы» → диалог ввода кода секретной темы */
+  const handleStyleTitleTap = () => {
+    if (simpleUnlocked) return;
+    clearTimeout(tapReset.current);
+    const next = styleTaps + 1;
+    if (next >= 5) {
+      setStyleTaps(0);
+      setCodeOpen(true);
+    } else {
+      setStyleTaps(next);
+      tapReset.current = setTimeout(() => setStyleTaps(0), 2000);
+    }
+  };
+
+  const submitUnlockCode = () => {
+    if (codeInput.trim().toLowerCase() === SIMPLE_UNLOCK_CODE) {
+      setSetting(SIMPLE_UNLOCK_KEY, "1");
+      setSimpleUnlocked(true);
+      setCodeOpen(false);
+      setCodeInput("");
+      changeStyle("simple");
+      showToast("Тема «Простой» открыта");
+    } else {
+      showToast("Неверный код");
+    }
   };
 
   const changeCore = (next: CoreName) => {
@@ -357,7 +401,9 @@ export default function SettingsScreen() {
         {/* Стиль темы: дропдаун с превью */}
         <View style={styles.themeRowLine}>
           <Ionicons name="color-palette-outline" size={20} color={colors.accent} />
-          <Text style={styles.themeRowTitle}>Стиль темы</Text>
+          <Pressable onPress={handleStyleTitleTap} hitSlop={8} style={{ flexShrink: 1 }}>
+            <Text style={styles.themeRowTitle}>Стиль темы</Text>
+          </Pressable>
           <View style={{ flex: 1 }} />
           <PressableScale style={styles.styleDropdownBtn} onPress={() => setThemeOpen(true)}>
             <Ionicons name="sparkles" size={13} color={colors.accent} />
@@ -407,6 +453,40 @@ export default function SettingsScreen() {
                   Темы со значком ♥ доступны спонсорам (пополнение от 444 ₽ за 24 ч)
                 </Text>
               )}
+            </PressableScale>
+          </PressableScale>
+        </Modal>
+
+        {/* Секретная тема: диалог ввода кода */}
+        <Modal visible={codeOpen} transparent animationType="fade" onRequestClose={() => setCodeOpen(false)}>
+          <PressableScale style={styles.modalBackdrop} onPress={() => setCodeOpen(false)}>
+            <PressableScale style={styles.modalCard} onPress={() => {}}>
+              <Text style={styles.modalTitle}>Секретная тема</Text>
+              <Text style={{ color: colors.textDim, fontSize: 13, textAlign: "center", marginBottom: 14 }}>
+                Введите код, чтобы открыть тему «Простой»
+              </Text>
+              <TextInput
+                style={styles.coreInput}
+                value={codeInput}
+                onChangeText={setCodeInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder="Код"
+                placeholderTextColor={colors.textFaint}
+                secureTextEntry
+              />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <PressableScale style={styles.modalBtnGhost} onPress={() => { setCodeOpen(false); setCodeInput(""); }}>
+                    <Text style={styles.modalBtnGhostText}>Отмена</Text>
+                  </PressableScale>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PressableScale style={styles.modalBtnPrimary} onPress={submitUnlockCode}>
+                    <Text style={styles.modalBtnPrimaryText}>Открыть</Text>
+                  </PressableScale>
+                </View>
+              </View>
             </PressableScale>
           </PressableScale>
         </Modal>
@@ -796,6 +876,18 @@ const makeStyles = () => StyleSheet.create({
     borderColor: colors.border,
     padding: 20,
     alignItems: "center",
+  },
+  coreInput: {
+    width: "100%",
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: colors.text,
+    fontSize: 15,
+    marginBottom: 14,
   },
   modalIcon: {
     width: 60,
