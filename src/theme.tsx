@@ -391,6 +391,9 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   simple: "Простой",
 };
 
+/** Код разблокировки секретной темы «Простой» (общий для настроек и экрана блокировки) */
+export const SIMPLE_UNLOCK_CODE = "8ecctywih";
+
 /** Порядок стилей в списке выбора. «Простой» — секретная тема, в список не входит
  *  (добавляется динамически в настройках после разблокировки кодом). */
 export const THEME_ORDER: ThemeName[] = [

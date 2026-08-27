@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -9,7 +9,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { tcpPing } from "../../vpn/native";
 import type { VpnNode } from "../../vpn/parse";
-import { colors, splitNameFlag, useTheme } from "../../theme";
+import { colors, splitNameFlag, useTheme, SIMPLE_UNLOCK_CODE } from "../../theme";
 import { showToast } from "../../components/Toast";
 
 function formatTimer(total: number): string {
@@ -32,6 +32,19 @@ export default function SimpleScreen() {
   const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [serverName, setServerName] = useState<string | null>(null);
+
+  // Экран блокировки: при каждом входе на главную «Простого» режима нужен код
+  const [locked, setLocked] = useState(true);
+  const [lockCode, setLockCode] = useState("");
+
+  const unlock = () => {
+    if (lockCode.trim().toLowerCase() === SIMPLE_UNLOCK_CODE) {
+      setLocked(false);
+      setLockCode("");
+    } else {
+      showToast("Неверный код");
+    }
+  };
 
   // Авто-переключение при падении сервера
   const failCount = useRef(0);
@@ -190,6 +203,29 @@ export default function SimpleScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 8 }]}>
+      {locked ? (
+        <View style={styles.lockWrap}>
+          <View style={styles.lockBox}>
+            <Ionicons name="lock-closed" size={40} color={colors.accent} />
+            <Text style={styles.lockTitle}>Простой режим</Text>
+            <Text style={styles.lockHint}>Введите код, чтобы открыть</Text>
+            <TextInput
+              style={styles.lockInput}
+              value={lockCode}
+              onChangeText={setLockCode}
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+              placeholder="Код"
+              placeholderTextColor={colors.textFaint}
+            />
+            <Pressable style={styles.lockBtn} onPress={unlock}>
+              <Text style={styles.lockBtnText}>Открыть</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : (
+        <>
       {/* Шапка */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
@@ -208,7 +244,7 @@ export default function SimpleScreen() {
           disabled={busy}
           style={[
             styles.bigButton,
-            { backgroundColor: vpnRunning ? colors.green : colors.accent },
+            { backgroundColor: vpnRunning ? "#7C3AED" : "#251A42" },
             busy && { opacity: 0.75 },
           ]}
         >
@@ -223,18 +259,12 @@ export default function SimpleScreen() {
           {busy ? "Подождите…" : vpnRunning ? "ВЫКЛЮЧИТЬ" : "ВКЛЮЧИТЬ"}
         </Text>
 
-        <View style={styles.statusBox}>
-          {vpnRunning ? (
-            <>
-              <Ionicons name="checkmark-circle" size={26} color={colors.green} />
-              <Text style={[styles.statusText, { color: colors.green }]}>Защищено</Text>
-            </>
-          ) : (
-            <Text style={[styles.statusText, { color: colors.textDim }]}>
-              Нажмите кнопку — интернет будет под защитой
-            </Text>
-          )}
-        </View>
+        {!!vpnRunning && (
+          <View style={styles.statusBox}>
+            <Ionicons name="checkmark-circle" size={26} color={colors.green} />
+            <Text style={[styles.statusText, { color: colors.green }]}>Защищено</Text>
+          </View>
+        )}
 
         {!!vpnRunning && (
           <View style={styles.timerBox}>
@@ -248,12 +278,47 @@ export default function SimpleScreen() {
           </View>
         )}
       </View>
+        </>
+      )}
     </View>
   );
 }
 
 const makeStyles = () => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  lockWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
+  lockBox: {
+    width: "100%",
+    alignItems: "center",
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 24,
+    padding: 24,
+  },
+  lockTitle: { color: colors.text, fontSize: 22, fontWeight: "800", marginTop: 12 },
+  lockHint: { color: colors.textDim, fontSize: 14, marginTop: 6, marginBottom: 18 },
+  lockInput: {
+    width: "100%",
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: colors.text,
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  lockBtn: {
+    width: "100%",
+    backgroundColor: colors.accentDeep,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  lockBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
   header: {
     flexDirection: "row",
     alignItems: "center",

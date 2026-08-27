@@ -7,7 +7,7 @@ import { Card, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { showToast } from "../components/Toast";
 import { useApp } from "../context";
-import { colors, THEME_LABELS, THEME_ORDER, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
+import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
 import { getSelectedCore, getSetting, getThemeName, getThemeMode, setSetting, type CoreName, type ThemeMode } from "../settings";
 import {
   downloadCore,
@@ -89,7 +89,6 @@ const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ"];
 
 /** Секретная тема «Простой»: не видна в списке, пока не ввести код.
  *  Код вводится после 5 нажатий на заголовок «Стиль темы». */
-const SIMPLE_UNLOCK_CODE = "8ecctywih";
 const SIMPLE_UNLOCK_KEY = "simple_theme_unlocked";
 
 export default function SettingsScreen() {
