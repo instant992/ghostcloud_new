@@ -6,23 +6,41 @@ import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
 import { colors, splitNameFlag, useTheme } from "../../theme";
 
-/** Шторка выбора сервера для тем minimalist / liquid glass */
+/** Шторка выбора сервера для тем minimalist / liquid glass.
+ *  pingRight=true — кнопка «Пинг» прижата вправо к кнопке закрытия (как в остальных темах). */
 export function ServerSheet({
   visible,
   onClose,
   nodes,
   selectedId,
   onSelect,
+  pingRight = false,
 }: {
   visible: boolean;
   onClose: () => void;
   nodes: VpnNode[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  pingRight?: boolean;
 }) {
   useTheme();
   const styles = makeStyles();
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
+
+  const pingBtn = (
+    <Pressable onPress={() => pingStore.pingAll(nodes)} hitSlop={8} style={{ padding: 6 }}>
+      {pingStore.isRunning() ? (
+        <ActivityIndicator size="small" color={colors.accent} />
+      ) : (
+        <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 13 }}>Пинг</Text>
+      )}
+    </Pressable>
+  );
+  const closeBtn = (
+    <Pressable onPress={onClose} hitSlop={8} style={{ padding: 6 }}>
+      <Ionicons name="close" size={18} color={colors.textFaint} />
+    </Pressable>
+  );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -31,16 +49,17 @@ export function ServerSheet({
           <View style={styles.handle} />
           <View style={styles.header}>
             <Text style={styles.title}>Выбор сервера</Text>
-            <Pressable onPress={() => pingStore.pingAll(nodes)} hitSlop={8} style={{ padding: 6 }}>
-              {pingStore.isRunning() ? (
-                <ActivityIndicator size="small" color={colors.accent} />
-              ) : (
-                <Text style={{ color: colors.accent, fontWeight: "700", fontSize: 13 }}>Пинг</Text>
-              )}
-            </Pressable>
-            <Pressable onPress={onClose} hitSlop={8} style={{ padding: 6 }}>
-              <Ionicons name="close" size={18} color={colors.textFaint} />
-            </Pressable>
+            {pingRight ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                {pingBtn}
+                {closeBtn}
+              </View>
+            ) : (
+              <>
+                {pingBtn}
+                {closeBtn}
+              </>
+            )}
           </View>
           <FlatList
             data={nodes}

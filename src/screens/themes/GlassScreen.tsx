@@ -510,6 +510,15 @@ export default function GlassScreen() {
               <Text style={{ fontSize: 20 }}>{selectedInfo?.flag || "🌍"}</Text>
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
+              {selPing?.status === "pending" ? (
+                <Text style={{ color: colors.textDim, fontSize: 10, fontWeight: "600", marginBottom: 1 }}>
+                  пинг…
+                </Text>
+              ) : pingText ? (
+                <Text style={{ color: pingColor, fontSize: 10, fontWeight: "600", marginBottom: 1 }}>
+                  {pingText}
+                </Text>
+              ) : null}
               <Text style={styles.serverName} numberOfLines={1}>
                 {selectedInfo?.name || "Сервер не выбран"}
               </Text>
@@ -517,11 +526,6 @@ export default function GlassScreen() {
                 {selectedNode ? transportLabel(selectedNode) : "Выберите локацию"}
               </Text>
             </View>
-            {selPing?.status === "pending" ? (
-              <ActivityIndicator size="small" color={colors.accent} />
-            ) : pingText ? (
-              <Text style={{ color: pingColor, fontSize: 12, fontWeight: "600" }}>{pingText}</Text>
-            ) : null}
             <Pressable onPress={syncAll} hitSlop={8} style={styles.roundRefresh}>
               {syncBusy ? (
                 <ActivityIndicator size="small" color={colors.accent} />
@@ -597,6 +601,7 @@ export default function GlassScreen() {
         onClose={() => setPickerOpen(false)}
         nodes={allVisible}
         selectedId={selectedNode?.id || null}
+        pingRight
         onSelect={(id) => {
           setPickerOpen(false);
           const node = allVisible.find((n) => n.id === id);
@@ -697,7 +702,7 @@ const makeStyles = () => StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: "#251D3A",
+    backgroundColor: "rgba(168,85,247,0.15)",
     alignItems: "center",
     justifyContent: "center",
   },
