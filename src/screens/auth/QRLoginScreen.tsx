@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Card, ErrorText, Screen, Subtitle, Title } from "../../components/UI";
 import { saveSession } from "../../storage";
 import { qrCreateSession, qrStatus } from "../../api";
@@ -12,6 +13,7 @@ import { colors, useTheme } from "../../theme";
  *  сканирует его и подтверждает вход. */
 export default function QRLoginScreen() {
   useTheme();
+  const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const { refreshMe, reloadNodes } = useApp();
   const [sessionId, setSessionId] = useState("");
@@ -89,7 +91,7 @@ export default function QRLoginScreen() {
   const minutes = Math.max(0, Math.ceil(expiresIn / 60));
 
   return (
-    <Screen>
+    <Screen style={{ paddingTop: insets.top + 12 }}>
       <Title>Вход по QR-коду</Title>
       <Subtitle>
         Откройте GhostCloud на устройстве, где вы уже вошли: Профиль → «Отсканировать QR», и
