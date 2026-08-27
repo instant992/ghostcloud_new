@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
+import { tcpPing } from "../../vpn/native";
 import type { VpnNode } from "../../vpn/parse";
 import { colors, splitNameFlag, useTheme } from "../../theme";
 import { showToast } from "../../components/Toast";
@@ -26,11 +27,21 @@ export default function SimpleScreen() {
   const styles = makeStyles();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
-  const { nodes, selectNode, vpnRunning, setVpnRunning, subscriptionActive } = useApp();
+  const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, subscriptionActive } = useApp();
 
   const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [serverName, setServerName] = useState<string | null>(null);
+
+  // Авто-переключение при падении сервера
+  const failCount = useRef(0);
+  const failingOver = useRef(false);
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const selectedIdRef = useRef(selectedNodeId);
+  selectedIdRef.current = selectedNodeId;
+  const runningRef = useRef(vpnRunning);
+  runningRef.current = vpnRunning;
 
   useEffect(() => {
     if (!vpnRunning) {
@@ -73,6 +84,84 @@ export default function SimpleScreen() {
     await connect(best);
     setVpnRunning(true);
   };
+
+  /** Авто-переключение: текущий сервер недоступен → выбираем лучший рабочий. */
+  const failover = async () => {
+    if (failingOver.current) return;
+    const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-");
+    const all = nodesRef.current;
+    const currentId = selectedIdRef.current;
+    const candidates = all.filter((n) => !isLte(n) && n.id !== currentId);
+    if (candidates.length === 0) {
+      showToast("Нет других доступных серверов");
+      return;
+    }
+    failingOver.current = true;
+    showToast("Сервер недоступен — переключаюсь…");
+    let best: VpnNode | null = null;
+    try {
+      await pingStore.pingAll(candidates);
+      const snap = pingStore.getSnapshot();
+      let bestDelay = Infinity;
+      for (const n of candidates) {
+        const p = snap[n.id];
+        if (p?.status === "done" && p.delay > 0 && p.delay < bestDelay) {
+          best = n;
+          bestDelay = p.delay;
+        }
+      }
+    } catch {}
+    if (!best) best = candidates.find((n) => n.supportedByXray) || candidates[0];
+    if (!best) {
+      failingOver.current = false;
+      return;
+    }
+    try {
+      selectNode(best.id);
+      setServerName(splitNameFlag(best.name).name);
+      await disconnect();
+      await connect(best);
+      setVpnRunning(true);
+      setSeconds(0);
+      showToast(`Подключено: ${splitNameFlag(best.name).name}`);
+    } catch {
+      showToast("Не удалось переключиться");
+      setVpnRunning(false);
+    } finally {
+      failingOver.current = false;
+    }
+  };
+
+  // Проверка связи: если текущий сервер несколько раз подряд недоступен — фейловер
+  useEffect(() => {
+    if (!vpnRunning) {
+      failCount.current = 0;
+      return;
+    }
+    const check = async () => {
+      if (!runningRef.current || failingOver.current) return;
+      const current = nodesRef.current.find((n) => n.id === selectedIdRef.current);
+      if (!current) return;
+      let ok = false;
+      try {
+        const delay = await tcpPing(current.address, current.port, 4000);
+        ok = delay > 0;
+      } catch {
+        ok = false;
+      }
+      if (ok) {
+        failCount.current = 0;
+      } else {
+        failCount.current += 1;
+        if (failCount.current >= 3) {
+          failCount.current = 0;
+          failover();
+        }
+      }
+    };
+    const t = setInterval(check, 10000);
+    return () => clearInterval(t);
+  }, [vpnRunning]);
 
   const toggle = async () => {
     if (busy) return;
