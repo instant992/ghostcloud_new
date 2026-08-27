@@ -34,6 +34,19 @@ class LibCoreVpnService : VpnService() {
     private var tunInterface: ParcelFileDescriptor? = null
   }
 
+  private val stopPendingIntent: PendingIntent by lazy {
+    PendingIntent.getService(
+      this,
+      3,
+      Intent(this, LibCoreVpnService::class.java).setAction(ACTION_STOP),
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+  }
+
+  private val ticker: NotificationTicker by lazy {
+    NotificationTicker(this, CHANNEL_ID, NOTIFICATION_ID, stopPendingIntent)
+  }
+
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
     when (intent?.action) {
       ACTION_STOP -> {
@@ -157,7 +170,7 @@ class LibCoreVpnService : VpnService() {
   }
 
   private fun startForegroundSilently() {
-    val notification = buildNotification(isRunning.get())
+    val notification = VpnNotifications.build(this, CHANNEL_ID, isRunning.get(), "GhostCloud", stopPendingIntent)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(
         NOTIFICATION_ID,
@@ -170,57 +183,17 @@ class LibCoreVpnService : VpnService() {
   }
 
   private fun updateNotification(running: Boolean) {
-    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-    nm.notify(NOTIFICATION_ID, buildNotification(running))
-  }
-
-  private fun buildNotification(running: Boolean): Notification {
-    val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      nm.createNotificationChannel(
-        NotificationChannel(CHANNEL_ID, "GhostCloud VPN", NotificationManager.IMPORTANCE_LOW)
-      )
-    }
-    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-    val contentIntent = PendingIntent.getActivity(
-      this,
-      0,
-      launchIntent,
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    val stopIntent = PendingIntent.getService(
-      this,
-      3,
-      Intent(this, LibCoreVpnService::class.java).setAction(ACTION_STOP),
-      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-    )
-    val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      Notification.Builder(this, CHANNEL_ID)
-    } else {
-      @Suppress("DEPRECATION")
-      Notification.Builder(this)
-    }
-    builder
-      .setContentTitle("GhostCloud")
-      .setSmallIcon(android.R.drawable.ic_lock_lock)
-      .setContentIntent(contentIntent)
-      .setOngoing(true)
-
     if (running) {
-      builder
-        .setContentText("Подключено · тапните для открытия")
-        .setUsesChronometer(true)
-        .setWhen(System.currentTimeMillis())
-      builder.addAction(
-        Notification.Action.Builder(null, "Отключить", stopIntent).build()
-      )
+      ticker.start()
     } else {
-      builder.setContentText("Подключение…")
+      ticker.stop()
+      val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+      nm.notify(NOTIFICATION_ID, VpnNotifications.build(this, CHANNEL_ID, false, "GhostCloud", stopPendingIntent))
     }
-    return builder.build()
   }
 
   private fun stopForegroundAndSelf() {
+    ticker.stop()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       stopForeground(STOP_FOREGROUND_REMOVE)
     } else {
@@ -237,6 +210,7 @@ class LibCoreVpnService : VpnService() {
   }
 
   override fun onDestroy() {
+    ticker.stop()
     if (isRunning.get()) {
       stopCore()
     }

@@ -947,7 +947,9 @@ function PromoDialog({ visible, onClose }: { visible: boolean; onClose: () => vo
   );
 }
 
-const makeStyles = () => StyleSheet.create({
+const makeStyles = () => {
+  const light = isLightPalette();
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
@@ -978,7 +980,7 @@ const makeStyles = () => StyleSheet.create({
     borderRadius: 82,
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: "rgba(190,183,216,0.6)",
+    borderColor: light ? "rgba(190,183,216,0.6)" : "rgba(190,183,216,0.28)",
     alignItems: "center",
     justifyContent: "center",
     shadowRadius: 18,
@@ -990,7 +992,7 @@ const makeStyles = () => StyleSheet.create({
     borderRadius: 56,
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: "rgba(190,183,216,0.45)",
+    borderColor: light ? "rgba(190,183,216,0.45)" : "rgba(190,183,216,0.22)",
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,
@@ -1044,8 +1046,8 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "center",
   },
   avatarLetter: { color: colors.accent, fontSize: 13, fontWeight: "800" },
-  panelName: { color: "rgba(26,26,46,0.72)", fontSize: 17, fontWeight: "700" },
-  panelSub: { color: "rgba(26,26,46,0.36)", fontSize: 10, marginTop: 1 },
+  panelName: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  panelSub: { color: colors.textFaint, fontSize: 10, marginTop: 1 },
   trafficStrip: {
     flexDirection: "row",
     alignItems: "center",
@@ -1053,8 +1055,8 @@ const makeStyles = () => StyleSheet.create({
     paddingVertical: 8,
     gap: 8,
   },
-  trafficText: { color: "rgba(26,26,46,0.58)", fontSize: 11, fontWeight: "600" },
-  trafficDays: { color: "rgba(26,26,46,0.58)", fontSize: 11, fontWeight: "600" },
+  trafficText: { color: colors.textDim, fontSize: 11, fontWeight: "600" },
+  trafficDays: { color: colors.textDim, fontSize: 11, fontWeight: "600" },
   divider: { height: 1, backgroundColor: "rgba(144,144,170,0.3)", marginHorizontal: 4 },
   tileDivider: { height: 1, backgroundColor: "rgba(144,144,170,0.28)" },
   emptyText: { color: colors.textDim, textAlign: "center", paddingVertical: 18 },
@@ -1064,12 +1066,12 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 7,
     borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.4)",
+    backgroundColor: colors.cardLight,
     borderWidth: 0.85,
     borderColor: "rgba(144,144,170,0.3)",
   },
-  tileName: { color: "rgba(26,26,46,0.72)", fontSize: 14.5, fontWeight: "700" },
-  tileSub: { color: "rgba(26,26,46,0.3)", fontSize: 9, fontWeight: "600", letterSpacing: 0.15, marginTop: 1 },
+  tileName: { color: colors.text, fontSize: 14.5, fontWeight: "700" },
+  tileSub: { color: colors.textFaint, fontSize: 9, fontWeight: "600", letterSpacing: 0.15, marginTop: 1 },
   lteSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -1106,7 +1108,7 @@ const makeStyles = () => StyleSheet.create({
   },
   sheetTitle: { color: colors.text, fontSize: 22, fontWeight: "800", marginBottom: 16 },
   heroCard: {
-    backgroundColor: "#E8DAFF",
+    backgroundColor: light ? "#E8DAFF" : "#2B2B4A",
     borderRadius: 22,
     borderWidth: 1.25,
     borderColor: "rgba(108,99,255,0.5)",
@@ -1120,7 +1122,7 @@ const makeStyles = () => StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 2,
   },
-  heroRowLabel: { color: "rgba(26,26,46,0.54)", fontSize: 14, fontWeight: "600" },
+  heroRowLabel: { color: colors.textDim, fontSize: 14, fontWeight: "600" },
   heroRowValue: { color: colors.text, fontSize: 14, fontWeight: "800" },
   chip: {
     flex: 1,
@@ -1133,7 +1135,7 @@ const makeStyles = () => StyleSheet.create({
   },
   chipText: { color: colors.accent, fontSize: 11, fontWeight: "800" },
   menuCard: {
-    backgroundColor: "#E8DAFF",
+    backgroundColor: light ? "#E8DAFF" : "#2B2B4A",
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(108,99,255,0.16)",
@@ -1153,7 +1155,7 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "center",
   },
   menuTitle: { color: colors.text, fontSize: 15, fontWeight: "800" },
-  menuSub: { color: "rgba(26,26,46,0.42)", fontSize: 12, marginTop: 1 },
+  menuSub: { color: colors.textDim, fontSize: 12, marginTop: 1 },
   editAvatar: { width: 84, height: 84, borderRadius: 42 },
   cameraBadge: {
     position: "absolute",
@@ -1202,4 +1204,5 @@ const makeStyles = () => StyleSheet.create({
     borderColor: colors.border,
     padding: 18,
   },
-});
+  });
+};
