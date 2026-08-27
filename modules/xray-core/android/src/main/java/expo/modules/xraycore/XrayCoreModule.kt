@@ -27,7 +27,62 @@ class XrayCoreModule : Module() {
     val now = System.currentTimeMillis()
     if (now - lastScreenshotAt < 2500) return
     lastScreenshotAt = now
+    android.util.Log.i("XrayCore", "screenshot detected")
     sendEvent("onScreenshot", mapOf("ts" to now))
+  }
+
+  /** Android 14+: системный колбэк скриншота. Регистрируем при любой возможности —
+   *  активность может быть недоступна в момент OnCreate модуля. */
+  private fun registerScreenCaptureCallback() {
+    if (Build.VERSION.SDK_INT < 34) return
+    try {
+      val activity = appContext.currentActivity ?: return
+      if (activity === captureActivity) return
+      if (captureActivity != null) {
+        try {
+          captureActivity?.unregisterScreenCaptureCallback(screenCaptureCb)
+        } catch (_: Throwable) {
+        }
+      }
+      activity.registerScreenCaptureCallback(
+        java.util.concurrent.Executor { it.run() },
+        screenCaptureCb
+      )
+      captureActivity = activity
+      android.util.Log.i("XrayCore", "screen capture callback registered")
+    } catch (e: Throwable) {
+      android.util.Log.w("XrayCore", "screen capture callback failed: ${e.message}")
+    }
+  }
+
+  private fun registerScreenshotObserver() {
+    if (screenshotObserver != null) return
+    try {
+      val handler = android.os.Handler(android.os.Looper.getMainLooper())
+      screenshotObserver = object : android.database.ContentObserver(handler) {
+        override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
+          checkScreenshotUri(uri)
+        }
+      }
+      // Наблюдаем и за конкретным томом изображений, и за родителем — так надёжнее
+      // на разных версиях Android (в т.ч. 16), где уведомления могут приходить по-разному
+      context.contentResolver.registerContentObserver(
+        android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+        true,
+        screenshotObserver!!
+      )
+      try {
+        context.contentResolver.registerContentObserver(
+          android.net.Uri.parse("content://media/external/images"),
+          true,
+          screenshotObserver!!
+        )
+      } catch (_: Throwable) {
+      }
+      android.util.Log.i("XrayCore", "screenshot observer registered")
+    } catch (e: Throwable) {
+      android.util.Log.w("XrayCore", "screenshot observer failed: ${e.message}")
+    }
   }
 
   private fun checkScreenshotUri(uri: android.net.Uri?) {
@@ -79,48 +134,31 @@ class XrayCoreModule : Module() {
       }
 
       if (Build.VERSION.SDK_INT < 34) {
-        try {
+        registerScreenshotObserver()
+      } else {
+        // Android 14+: пробуем сразу; если активность ещё не готова —
+        // повторяем попытки, пока не зарегистрируется
+        registerScreenCaptureCallback()
+        if (captureActivity == null) {
           val handler = android.os.Handler(android.os.Looper.getMainLooper())
-          screenshotObserver = object : android.database.ContentObserver(handler) {
-            override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
-              checkScreenshotUri(uri)
+          var tries = 0
+          val retry = object : Runnable {
+            override fun run() {
+              if (captureActivity != null || tries >= 60) return
+              tries++
+              registerScreenCaptureCallback()
+              handler.postDelayed(this, 1000)
             }
           }
-          context.contentResolver.registerContentObserver(
-            android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            true,
-            screenshotObserver!!
-          )
-        } catch (_: Throwable) {
+          handler.postDelayed(retry, 1000)
         }
-      } else {
-        // Android 14+: регистрируем сразу, не дожидаясь первого foreground-события
-        try {
-          val activity = appContext.currentActivity
-          if (activity != null) {
-            activity.registerScreenCaptureCallback(
-              java.util.concurrent.Executor { it.run() },
-              screenCaptureCb
-            )
-            captureActivity = activity
-          }
-        } catch (_: Throwable) {
-        }
+        // резервный путь, если системный колбэк так и не сработает
+        registerScreenshotObserver()
       }
     }
 
     OnActivityEntersForeground {
-      if (Build.VERSION.SDK_INT >= 34) {
-        val activity = appContext.currentActivity ?: return@OnActivityEntersForeground
-        try {
-          activity.registerScreenCaptureCallback(
-            java.util.concurrent.Executor { it.run() },
-            screenCaptureCb
-          )
-          captureActivity = activity
-        } catch (_: Throwable) {
-        }
-      }
+      registerScreenCaptureCallback()
     }
 
     OnActivityEntersBackground {

@@ -275,36 +275,23 @@ function GlassDockBar({ state, navigation }: any) {
       >
         {DOCK_TABS.map((t, index) => {
           const focused = state.index === index;
-          if (t.name === "Главная") {
+          const press = () => {
+            Haptics.selectionAsync().catch(() => {});
+            navigation.navigate(t.name);
+          };
+          if (focused) {
             return (
               <View key={t.name} style={dockStyles.slot}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    navigation.navigate(t.name);
-                  }}
-                  style={dockStyles.glassPill}
-                >
-                  <Ionicons name="home" size={22} color={colors.accent} />
-                  <Text style={dockStyles.glassPillText}>Главная</Text>
+                <Pressable onPress={press} style={dockStyles.glassPill}>
+                  <Ionicons name={t.iconActive as any} size={22} color={colors.accent} />
+                  <Text style={dockStyles.glassPillText}>{t.name}</Text>
                 </Pressable>
               </View>
             );
           }
           return (
-            <Pressable
-              key={t.name}
-              style={dockStyles.slot}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                navigation.navigate(t.name);
-              }}
-            >
-              <Ionicons
-                name={focused ? (t.iconActive as any) : (t.icon as any)}
-                size={24}
-                color={focused ? colors.accent : "rgba(255,255,255,0.4)"}
-              />
+            <Pressable key={t.name} style={dockStyles.slot} onPress={press}>
+              <Ionicons name={t.icon as any} size={24} color="rgba(255,255,255,0.4)" />
             </Pressable>
           );
         })}
@@ -329,45 +316,31 @@ function MinimalDockBar({ state, navigation }: any) {
       <View style={dockStyles.minimalBar}>
         {DOCK_TABS.map((t, index) => {
           const focused = state.index === index;
-          if (t.name === "Главная") {
+          const press = () => {
+            Haptics.selectionAsync().catch(() => {});
+            navigation.navigate(t.name);
+          };
+          if (focused) {
             return (
               <View key={t.name} style={dockStyles.slot}>
-                <Pressable
-                  onPress={() => {
-                    Haptics.selectionAsync().catch(() => {});
-                    navigation.navigate(t.name);
-                  }}
-                  style={dockStyles.minimalPill}
-                >
+                <Pressable onPress={press} style={dockStyles.minimalPill}>
                   <View style={[dockStyles.minimalPillCircle, { backgroundColor: colors.accent }]}>
-                    <Ionicons name="home" size={21} color="#fff" />
+                    <Ionicons name={t.iconActive as any} size={21} color="#fff" />
                   </View>
-                  <Text style={[dockStyles.minimalPillText, { color: colors.text }]}>Главная</Text>
+                  <Text style={[dockStyles.minimalPillText, { color: colors.text }]}>{t.name}</Text>
                 </Pressable>
               </View>
             );
           }
           return (
-            <Pressable
-              key={t.name}
-              style={dockStyles.slot}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {});
-                navigation.navigate(t.name);
-              }}
-            >
+            <Pressable key={t.name} style={dockStyles.slot} onPress={press}>
               <View
                 style={[
                   dockStyles.minimalCircle,
                   { backgroundColor: colors.card, borderColor: colors.border },
-                  focused && { borderColor: colors.accent },
                 ]}
               >
-                <Ionicons
-                  name={(focused ? t.iconActive : t.icon) as any}
-                  size={23}
-                  color={focused ? colors.accent : colors.textFaint}
-                />
+                <Ionicons name={t.icon as any} size={23} color={colors.textFaint} />
               </View>
             </Pressable>
           );

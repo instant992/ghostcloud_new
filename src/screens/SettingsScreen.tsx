@@ -86,7 +86,7 @@ async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null
 /** Стили, доступные только спонсорам — как во Flutter-версии */
 const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ"];
 /** Режимы (не стили) — управляются переключателем «Режим темы», в списке стилей не показываются */
-const MODE_ONLY: ThemeName[] = ["auto", "dark", "light", "default"];
+const MODE_ONLY: ThemeName[] = ["auto", "dark", "light"];
 
 export default function SettingsScreen() {
   useTheme();
