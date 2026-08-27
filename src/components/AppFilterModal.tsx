@@ -15,7 +15,7 @@ import * as Haptics from "expo-haptics";
 import { PressableScale } from "./PressableScale";
 import * as appFilterMod from "../vpn/appFilter";
 import { getInstalledApps, getAppIcon, type AppInfo } from "../vpn/native";
-import { colors, useTheme } from "../theme";
+import { colors, sheetSurfaceBg, useTheme } from "../theme";
 
 type AppTab = "allow" | "block";
 
@@ -261,7 +261,7 @@ const makeStyles = () => StyleSheet.create({
   systemRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 14,
@@ -269,7 +269,7 @@ const makeStyles = () => StyleSheet.create({
     marginBottom: 10,
   },
   appsSearch: {
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,

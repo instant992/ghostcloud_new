@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
-import { colors, splitNameFlag, useTheme } from "../../theme";
+import { colors, splitNameFlag, sheetSurfaceBg, useTheme } from "../../theme";
 
 /** Шторка выбора сервера для тем minimalist / liquid glass.
  *  pingRight=true — кнопка «Пинг» прижата вправо к кнопке закрытия (как в остальных темах). */
@@ -126,7 +126,7 @@ export function ServerSheet({
 const makeStyles = () => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,

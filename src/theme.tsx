@@ -367,6 +367,18 @@ export function isLightPalette(): boolean {
   return colors.text !== "#FFFFFF" && colors.text !== "#F0F0FF";
 }
 
+/** Непрозрачный фон для всплывающих штор/модалок. В теме Liquid Glass
+ *  colors.card полупрозрачный и под шторкой просвечивает текст — поэтому
+ *  там используется плотный тёмный фон. Размытие внутри RN-модалок не
+ *  работает (модалка — отдельное окно), потому именно непрозрачность. */
+export function sheetSurfaceBg(): string {
+  const c = colors.card;
+  if (typeof c === "string" && c.startsWith("rgba")) {
+    return "#14141E";
+  }
+  return c;
+}
+
 /** Эталонные цвета кнопки питания — как в основной теме, одинаковые во всех темах.
  *  Меняются только от светлого/тёмного режима, не от стиля темы. */
 export function powerButtonColors(): { off: string; on: string; glow: string } {

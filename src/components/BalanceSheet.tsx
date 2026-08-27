@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Te
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { autoRenewGet, autoRenewSet, balanceHistory } from "../api";
-import { colors, useTheme } from "../theme";
+import { colors, sheetSurfaceBg, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { showToast } from "./Toast";
 
@@ -286,7 +286,7 @@ export function BalanceSheet({
 const makeStyles = () => StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
   sheet: {
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,
@@ -374,7 +374,7 @@ const makeStyles = () => StyleSheet.create({
   autoTitle: { color: colors.text, fontSize: 14, fontWeight: "600" },
   autoHint: { color: colors.textDim, fontSize: 12, marginTop: 8, marginBottom: 6 },
   planChip: {
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
