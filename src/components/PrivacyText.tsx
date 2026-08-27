@@ -1,32 +1,33 @@
 import React, { useSyncExternalStore } from "react";
-import { StyleSheet, Text, type StyleProp, type TextProps, type TextStyle } from "react-native";
+import { StyleSheet, Text, View, type StyleProp, type TextProps, type TextStyle } from "react-native";
+import { BlurView } from "expo-blur";
 import { isPrivacyBlur, subscribePrivacy } from "../privacy";
 
-/** Текст, который размывается при детекте скриншота (LTE, обход и т.п.).
- *  Размытие рисуется прямо на экране, поэтому и на снимке текст не читается. */
+/** Текст, который закрывается настоящим блюром при детекте скриншота
+ *  (LTE, обход и т.п.). Поверх текста кладётся BlurView — размытие видно
+ *  и на экране, и на снимке. На Android < 12 BlurView работает как
+ *  полупрозрачная плёнка (тоже скрывает текст). */
 export function PrivacyText({
   children,
   style,
   ...rest
 }: TextProps & { children: React.ReactNode; style?: StyleProp<TextStyle> }) {
   const blurred = useSyncExternalStore(subscribePrivacy, isPrivacyBlur);
-  if (!blurred) return <Text style={style} {...rest}>{children}</Text>;
-  const flat: any = StyleSheet.flatten(style) || {};
-  const color = typeof flat?.color === "string" ? flat.color : "#FFFFFF";
+  if (!blurred) {
+    return (
+      <Text style={style} {...rest}>
+        {children}
+      </Text>
+    );
+  }
   return (
-    <Text
-      {...rest}
-      style={[
-        style,
-        {
-          color: "transparent",
-          textShadowColor: color,
-          textShadowRadius: 8,
-          textShadowOffset: { width: 0, height: 0 },
-        },
-      ]}
-    >
-      {children}
-    </Text>
+    <View collapsable={false}>
+      <Text style={style} {...rest}>
+        {children}
+      </Text>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <BlurView intensity={60} tint="default" style={{ flex: 1 }} />
+      </View>
+    </View>
   );
 }

@@ -136,8 +136,9 @@ class XrayCoreModule : Module() {
       if (Build.VERSION.SDK_INT < 34) {
         registerScreenshotObserver()
       } else {
-        // Android 14+: пробуем сразу; если активность ещё не готова —
-        // повторяем попытки, пока не зарегистрируется
+        // Android 14+: только системный колбэк — он точный, без ложных срабатываний.
+        // MediaStore-наблюдатель здесь НЕ нужен: он реагировал бы на любые картинки
+        // и держал бы размытие включённым постоянно.
         registerScreenCaptureCallback()
         if (captureActivity == null) {
           val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -152,8 +153,6 @@ class XrayCoreModule : Module() {
           }
           handler.postDelayed(retry, 1000)
         }
-        // резервный путь, если системный колбэк так и не сработает
-        registerScreenshotObserver()
       }
     }
 

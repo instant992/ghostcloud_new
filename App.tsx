@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, PermissionsAndroid, Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { NavigationContainer, DefaultTheme, useNavigation } from "@react-navigation/native";
@@ -34,7 +34,7 @@ import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import { TabIcon } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 import { ToastHost, showToast } from "./src/components/Toast";
-import { setPrivacyBlur } from "./src/privacy";
+import { isPrivacyBlur, setPrivacyBlur } from "./src/privacy";
 import { onScreenshot } from "./src/vpn/native";
 
 class ErrorBoundary extends React.Component<
@@ -524,10 +524,12 @@ function Root() {
 export default function App() {
   const [splashDone, setSplashDone] = React.useState(false);
 
-  // Детект скриншота: включаем размытие конфиденциальных подписей на 20 секунд
+  // Детект скриншота: включаем размытие конфиденциальных подписей на 20 секунд.
+  // Повторные события таймер не сбрасывают — размытие гарантированно спадёт.
   React.useEffect(() => {
     let timer: any = null;
     const off = onScreenshot(() => {
+      if (isPrivacyBlur()) return;
       setPrivacyBlur(true);
       showToast("Скриншот обнаружен — LTE и обход скрыты");
       clearTimeout(timer);
@@ -538,6 +540,17 @@ export default function App() {
       clearTimeout(timer);
     };
   }, []);
+
+  // Разрешение на уведомления — запрашиваем сразу после запуска (заставки),
+  // не дожидаясь первого подключения VPN (Android 13+)
+  React.useEffect(() => {
+    if (!splashDone) return;
+    if (Platform.OS !== "android" || Platform.Version < 33) return;
+    const t = setTimeout(() => {
+      PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS).catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
+  }, [splashDone]);
 
   return (
     <ErrorBoundary>
