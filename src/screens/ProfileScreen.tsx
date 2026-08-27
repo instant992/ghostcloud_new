@@ -21,6 +21,7 @@ import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { BalanceSheet } from "../components/BalanceSheet";
+import { QRScannerModal } from "../components/QRScannerModal";
 import { useApp } from "../context";
 import {
   BASE_URL,
@@ -102,6 +103,7 @@ export default function ProfileScreen() {
   const [qrOpen, setQrOpen] = useState(false);
   const [qrCode, setQrCode] = useState("");
   const [qrBusy, setQrBusy] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
 
   const avatarUri = me?.avatar_url ? `${BASE_URL}${me.avatar_url}?t=${Date.now()}` : null;
 
@@ -325,24 +327,32 @@ export default function ProfileScreen() {
     }
   };
 
-  /** QR-авторизация: подтвердить вход другого устройства кодом из QR */
-  const confirmQr = async () => {
-    const raw = qrCode.trim();
-    if (!raw || qrBusy) return;
-    const m = raw.match(/qr-auth\/([A-Za-z0-9_-]+)/);
-    const sessionId = m ? m[1] : raw;
+  /** QR-авторизация: подтвердить вход другого устройства по коду из QR */
+  const confirmQrRaw = async (raw: string) => {
+    const value = raw.trim();
+    if (!value || qrBusy) return;
+    const m = value.match(/qr-auth\/([A-Za-z0-9_-]+)/);
+    const sessionId = m ? m[1] : value;
     setQrBusy(true);
     try {
       const r = await qrConfirm(sessionId);
       if (!r?.success) throw new Error(r?.error || "Не удалось подтвердить вход");
       setQrCode("");
       setQrOpen(false);
-      showToast("Вход подтверждён");
+      setScanOpen(false);
+      showToast("Устройство успешно авторизовано!");
     } catch (e: any) {
       showToast(e?.message || "Не удалось подтвердить вход");
     } finally {
       setQrBusy(false);
     }
+  };
+
+  const confirmQr = () => confirmQrRaw(qrCode);
+
+  /** Отсканировали QR — сразу подтверждаем (как в старом приложении, без диалога) */
+  const handleScanned = (value: string) => {
+    confirmQrRaw(value);
   };
 
   return (
@@ -537,7 +547,12 @@ export default function ProfileScreen() {
         <MenuItem icon="🎁" label="Реферальная программа" onPress={() => nav.navigate("Referral")} />
         <MenuItem icon="📱" label="Устройства и HWID" onPress={() => nav.navigate("Devices")} />
         <MenuItem icon="💰" label="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
-        <MenuItem icon="📷" label="QR-авторизация" sub="Подтвердить вход другого устройства" onPress={() => setQrOpen(true)} />
+        <MenuItem icon="📷" label="QR-авторизация" sub="Отсканировать код с другого устройства" onPress={() => setScanOpen(true)} />
+        <PressableScale onPress={() => setQrOpen(true)} style={{ marginHorizontal: 4, marginBottom: 10, paddingVertical: 4 }}>
+          <Text style={{ color: colors.textDim, fontSize: 12, textDecorationLine: "underline" }}>
+            Или ввести код вручную
+          </Text>
+        </PressableScale>
         <MenuItem icon="💬" label="Поддержка" onPress={() => nav.navigate("Support")} />
 
         <Card>
@@ -701,6 +716,13 @@ export default function ProfileScreen() {
           </PressableScale>
         </PressableScale>
       </Modal>
+
+      {/* Сканер QR (подтверждение входа другого устройства) */}
+      <QRScannerModal
+        visible={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onScan={handleScanned}
+      />
 
       {/* Редактирование профиля */}
       <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { useNavigation } from "@react-navigation/native";
 import { Button, Card, ErrorText, Screen, Subtitle, Title } from "../../components/UI";
 import { saveSession } from "../../storage";
@@ -7,39 +8,69 @@ import { qrCreateSession, qrStatus } from "../../api";
 import { useApp } from "../../context";
 import { colors, useTheme } from "../../theme";
 
+/** Экран входа по QR: это устройство показывает QR-код, другое (авторизованное)
+ *  сканирует его и подтверждает вход. */
 export default function QRLoginScreen() {
   useTheme();
   const nav = useNavigation<any>();
   const { refreshMe, reloadNodes } = useApp();
   const [sessionId, setSessionId] = useState("");
-  const [linkCode, setLinkCode] = useState("");
+  const [expiresIn, setExpiresIn] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+  const [creating, setCreating] = useState(true);
   const [confirmedUrl, setConfirmedUrl] = useState("");
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdown = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await qrCreateSession();
-        if (!r?.success) throw new Error(r?.error || "Не удалось создать сессию");
-        if (cancelled) return;
-        setSessionId(r.session_id);
-        setLinkCode(r.session_id);
-      } catch (e: any) {
-        setError(e?.message || "Ошибка");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const createSession = useCallback(async () => {
+    setCreating(true);
+    setError(null);
+    setExpired(false);
+    setSessionId("");
+    try {
+      const r = await qrCreateSession();
+      if (!r?.success) throw new Error(r?.error || "Не удалось создать QR-код");
+      setSessionId(r.session_id);
+      setExpiresIn(typeof r.expires_in === "number" ? r.expires_in : 300);
+    } catch (e: any) {
+      setError(e?.message || "Ошибка");
+    } finally {
+      setCreating(false);
+    }
   }, []);
 
   useEffect(() => {
+    createSession();
+  }, [createSession]);
+
+  // Таймер обратного отсчёта срока жизни кода
+  useEffect(() => {
     if (!sessionId || confirmedUrl) return;
+    countdown.current = setInterval(() => {
+      setExpiresIn((s) => {
+        if (s <= 1) {
+          setExpired(true);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => {
+      if (countdown.current) clearInterval(countdown.current);
+    };
+  }, [sessionId, confirmedUrl]);
+
+  // Поллинг статуса подтверждения
+  useEffect(() => {
+    if (!sessionId || confirmedUrl || expired) return;
     timer.current = setInterval(async () => {
       try {
         const r = await qrStatus(sessionId);
+        if (r?.status === "expired") {
+          setExpired(true);
+          return;
+        }
         if (r?.status === "confirmed" && r.subscription_url) {
           if (timer.current) clearInterval(timer.current);
           setConfirmedUrl(r.subscription_url);
@@ -48,49 +79,68 @@ export default function QRLoginScreen() {
           await reloadNodes().catch(() => {});
         }
       } catch {}
-    }, 2500);
+    }, 2000);
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-  }, [sessionId, confirmedUrl, refreshMe, reloadNodes]);
+  }, [sessionId, confirmedUrl, expired, refreshMe, reloadNodes]);
+
+  const qrData = sessionId ? `ghostcloud://qr-auth/${sessionId}` : "";
+  const minutes = Math.max(0, Math.ceil(expiresIn / 60));
 
   return (
     <Screen>
       <Title>Вход по QR-коду</Title>
       <Subtitle>
-        Откройте GhostCloud на устройстве, где вы уже авторизованы: Профиль → Вход по QR-коду,
-        и подтвердите вход для этого устройства
+        Откройте GhostCloud на устройстве, где вы уже вошли: Профиль → «Отсканировать QR», и
+        наведите камеру на этот код
       </Subtitle>
-      <Card style={{ alignItems: "center", paddingVertical: 30 }}>
-        <View
-          style={{
-            width: 220,
-            minHeight: 120,
-            borderRadius: 16,
-            borderWidth: 2,
-            borderColor: colors.accentDeep,
-            borderStyle: "dashed",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 14,
-            backgroundColor: colors.bgSoft,
-          }}
-        >
-          <Text style={{ color: colors.textDim, fontSize: 12, textAlign: "center", marginBottom: 8 }}>
-            Код подтверждения:
+
+      <Card style={{ alignItems: "center", paddingVertical: 26 }}>
+        {creating ? (
+          <View style={{ width: 220, height: 220, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: colors.textDim, fontSize: 13 }}>Создаём QR-код…</Text>
+          </View>
+        ) : expired ? (
+          <View style={{ width: 220, height: 220, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: colors.red, fontSize: 15, fontWeight: "700", marginBottom: 6 }}>
+              QR-код истёк
+            </Text>
+            <Text style={{ color: colors.textDim, fontSize: 12, textAlign: "center" }}>
+              Создайте новый код
+            </Text>
+          </View>
+        ) : qrData ? (
+          <View
+            style={{
+              backgroundColor: "#FFFFFF",
+              padding: 14,
+              borderRadius: 16,
+            }}
+          >
+            <QRCode value={qrData} size={200} backgroundColor="#FFFFFF" color="#111111" />
+          </View>
+        ) : null}
+
+        {!!sessionId && !expired && (
+          <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 14 }}>
+            Код действителен ещё ~{minutes} мин.
           </Text>
-          <Text selectable style={{ color: colors.accent, fontSize: 22, fontWeight: "800", letterSpacing: 1.5 }}>
-            {linkCode ? linkCode.slice(0, 8).toUpperCase() : "..."}
-          </Text>
-        </View>
+        )}
       </Card>
+
       <ErrorText>{error}</ErrorText>
-      {!confirmedUrl && (
+
+      {expired ? (
+        <Button title="Попробовать снова" onPress={createSession} />
+      ) : (
         <>
           <Button title="Отменить" variant="ghost" onPress={() => nav.goBack()} />
-          <Text style={{ color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: 10 }}>
-            Ожидание подтверждения…
-          </Text>
+          {!confirmedUrl && (
+            <Text style={{ color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: 10 }}>
+              Ожидание подтверждения…
+            </Text>
+          )}
         </>
       )}
     </Screen>
