@@ -304,7 +304,7 @@ export default function SettingsScreen() {
         {/* Смена темы по времени */}
         <View style={styles.themeRowLine}>
           <Ionicons name="time-outline" size={20} color={colors.accent} />
-          <View style={{ flex: 1, marginLeft: 2 }}>
+          <View style={{ flex: 1 }}>
             <Text style={styles.themeRowTitle}>Смена темы по времени</Text>
             <Text style={styles.themeRowSub}>Светлая днём, тёмная ночью</Text>
           </View>
