@@ -227,7 +227,10 @@ export async function qrConfirm(sessionId: string) {
 // ── Support ──
 
 export async function supportSend(text: string, imageBase64?: string) {
-  return request("POST", "/api/auth/mobile/support/send", { text, image: imageBase64 });
+  const body: Record<string, any> = {};
+  if (text.trim()) body.text = text.trim();
+  if (imageBase64) body.image = imageBase64;
+  return request("POST", "/api/auth/mobile/support/send", body);
 }
 
 export async function supportMessages(afterId?: number) {
@@ -237,6 +240,26 @@ export async function supportMessages(afterId?: number) {
 
 export async function supportClose() {
   return request("POST", "/api/auth/mobile/support/close");
+}
+
+/** Список всех обращений (история тикетов) */
+export async function supportHistory() {
+  return request("GET", "/api/auth/mobile/support/history");
+}
+
+/** Сообщения конкретного тикета (просмотр истории) */
+export async function supportTicketMessages(ticketId: number) {
+  return request("GET", `/api/auth/mobile/support/history/${ticketId}`);
+}
+
+/** Переоткрыть закрытый тикет (в течение 24 часов) */
+export async function supportReopen(ticketId: number) {
+  return request("POST", "/api/auth/mobile/support/reopen", { ticket_id: ticketId });
+}
+
+/** Аватар сотрудника поддержки */
+export async function supportAvatar() {
+  return request("GET", "/api/auth/mobile/support/avatar", undefined, { auth: false });
 }
 
 // ── Серверы ──

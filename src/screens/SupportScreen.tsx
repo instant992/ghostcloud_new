@@ -1,74 +1,285 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { PressableScale } from "../components/PressableScale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { supportClose, supportMessages, supportSend } from "../api";
+import { useNavigation } from "@react-navigation/native";
+import { BASE_URL, supportAvatar, supportClose, supportHistory, supportMessages, supportSend } from "../api";
 import { colors, useTheme } from "../theme";
 import { showToast } from "../components/Toast";
 
-type Msg = {
+export type Msg = {
   id: number;
   sender: string;
-  text: string;
+  text?: string | null;
+  image_url?: string | null;
   is_read: boolean;
   created_at: string;
 };
 
+export type TicketInfo = {
+  id: number;
+  status: string;
+  message_count: number;
+  first_message?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Полный URL картинки: сервер отдаёт относительные пути */
+export function fullImageUrl(url: string): string {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  return `${BASE_URL}${url}`;
+}
+
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  } catch {
+    return "";
+  }
+}
+
+function formatDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+  } catch {
+    return "";
+  }
+}
+
+/** Пузырь сообщения — как в старом приложении: аватар «Жени», картинки, галочки прочтения */
+export function MessageBubble({ msg, adminAvatarUrl, onImageTap }: { msg: Msg; adminAvatarUrl: string | null; onImageTap: (url: string) => void }) {
+  const isUser = msg.sender === "user";
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "flex-start",
+        marginBottom: 6,
+        ...(isUser ? { marginLeft: 48, justifyContent: "flex-end" } : { marginRight: 48 }),
+      }}
+    >
+      {!isUser && (
+        <View style={{ paddingTop: 16, marginRight: 6 }}>
+          {adminAvatarUrl ? (
+            <Image source={{ uri: adminAvatarUrl }} style={{ width: 32, height: 32, borderRadius: 16 }} />
+          ) : (
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: colors.accentSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: colors.accent, fontSize: 14, fontWeight: "700" }}>Ж</Text>
+            </View>
+          )}
+        </View>
+      )}
+      <View style={{ maxWidth: "100%" }}>
+        {!isUser && (
+          <Text style={{ color: colors.accent, fontSize: 11, fontWeight: "600", marginLeft: 4, marginBottom: 2 }}>
+            Женя
+          </Text>
+        )}
+        <View
+          style={{
+            backgroundColor: isUser ? colors.accentDeep : colors.card,
+            borderRadius: 16,
+            borderBottomRightRadius: isUser ? 4 : 16,
+            borderBottomLeftRadius: isUser ? 16 : 4,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          {!!msg.image_url && (
+            <PressableScale onPress={() => onImageTap(msg.image_url!)} style={{ marginBottom: 6 }}>
+              <Image
+                source={{ uri: fullImageUrl(msg.image_url) }}
+                style={{ width: 180, height: 140, borderRadius: 8 }}
+                resizeMode="cover"
+              />
+            </PressableScale>
+          )}
+          {!!msg.text && (
+            <Text style={{ color: isUser ? "#fff" : colors.text, fontSize: 14 }}>{msg.text}</Text>
+          )}
+          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+            <Text
+              style={{
+                fontSize: 10,
+                color: isUser ? "rgba(255,255,255,0.6)" : colors.textFaint,
+              }}
+            >
+              {formatTime(msg.created_at)}
+            </Text>
+            {isUser && (
+              <Ionicons
+                name={msg.is_read ? "checkmark-done" : "checkmark"}
+                size={13}
+                color="rgba(255,255,255,0.55)"
+                style={{ marginLeft: 3 }}
+              />
+            )}
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/** Плитка обращения в истории */
+function HistoryTile({ ticket, onPress }: { ticket: TicketInfo; onPress: () => void }) {
+  return (
+    <PressableScale
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: colors.card,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 8,
+      }}
+    >
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          backgroundColor: colors.accentSoft,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>#{ticket.id}</Text>
+      </View>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>Обращение #{ticket.id}</Text>
+        {!!ticket.first_message && (
+          <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+            {ticket.first_message}
+          </Text>
+        )}
+      </View>
+      <View style={{ alignItems: "flex-end", marginLeft: 8 }}>
+        <Text style={{ color: colors.textFaint, fontSize: 11 }}>{formatDate(ticket.created_at)}</Text>
+        <View
+          style={{
+            backgroundColor: colors.bgSoft,
+            borderRadius: 8,
+            paddingHorizontal: 6,
+            paddingVertical: 2,
+            marginTop: 4,
+          }}
+        >
+          <Text style={{ color: colors.textDim, fontSize: 10 }}>{ticket.message_count} сообщ.</Text>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} style={{ marginLeft: 4 }} />
+    </PressableScale>
+  );
+}
+
 export default function SupportScreen() {
   useTheme();
+  const nav = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Msg[]>([]);
+  const [history, setHistory] = useState<TicketInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [closing, setClosing] = useState(false);
-  const listRef = useRef<FlatList<Msg>>(null);
-  const insets = useSafeAreaInsets();
-  const lastIdRef = useRef(0);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ uri: string; base64: string } | null>(null);
+  const [adminAvatarUrl, setAdminAvatarUrl] = useState<string | null>(null);
+  const [fullImage, setFullImage] = useState<string | null>(null);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const firstLoad = useRef(true);
 
-  // При открытии подгружаем всю историю (старые обращения), дальше — только новое
-  const poll = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     try {
-      const afterId = lastIdRef.current > 0 ? lastIdRef.current : undefined;
-      const r = await supportMessages(afterId);
-      if (r?.success && Array.isArray(r.messages)) {
-        const incoming: Msg[] = r.messages;
-        if (incoming.length > 0) {
-          lastIdRef.current = Math.max(lastIdRef.current, ...incoming.map((m) => m.id));
-          if (afterId === undefined) {
-            setMessages(incoming);
-          } else {
-            setMessages((prev) => {
-              const known = new Set(prev.map((m) => m.id));
-              const fresh = incoming.filter((m) => !known.has(m.id));
-              return fresh.length ? [...prev, ...fresh] : prev;
-            });
-          }
-        } else if (afterId === undefined) {
-          setMessages([]);
-        }
-      }
+      const [m, h] = await Promise.all([supportMessages(), supportHistory()]);
+      if (m?.success && Array.isArray(m.messages)) setMessages(m.messages);
+      if (h?.success && Array.isArray(h.tickets)) setHistory(h.tickets);
     } catch {}
-    setLoading(false);
+    if (firstLoad.current) {
+      firstLoad.current = false;
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    poll();
-    const t = setInterval(poll, 5000);
+    loadAll();
+    supportAvatar()
+      .then((r) => {
+        const url = r?.success ? r?.avatar_url : null;
+        if (url) setAdminAvatarUrl(String(url).startsWith("http") ? url : `${BASE_URL}${url}`);
+      })
+      .catch(() => {});
+    const t = setInterval(loadAll, 4000);
     return () => clearInterval(t);
-  }, [poll]);
+  }, [loadAll]);
+
+  const pickImage = async () => {
+    try {
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+        base64: true,
+      });
+      const asset = picked?.assets?.[0];
+      if (!asset?.uri) return;
+      let b64 = asset.base64 || "";
+      if (!b64) {
+        b64 = await FileSystem.readAsStringAsync(asset.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      }
+      setPendingImage({ uri: asset.uri, base64: b64 });
+    } catch {}
+  };
 
   const send = async () => {
     const value = text.trim();
-    if (!value || sending) return;
+    if ((!value && !pendingImage) || sending) return;
     setSending(true);
     try {
-      const r = await supportSend(value);
+      const r = await supportSend(value, pendingImage?.base64);
       if (r?.success === false) {
         showToast(r?.error || "Не удалось отправить сообщение");
       } else {
         setText("");
-        await poll();
+        setPendingImage(null);
+        await loadAll();
       }
     } catch (e: any) {
       showToast(e?.message || "Не удалось отправить сообщение");
@@ -85,144 +296,81 @@ export default function SupportScreen() {
         showToast(r?.error || "Не удалось закрыть обращение");
       } else {
         showToast("Обращение закрыто");
-        lastIdRef.current = 0;
-        await poll();
+        await loadAll();
       }
     } catch (e: any) {
       showToast(e?.message || "Не удалось закрыть обращение");
     }
     setClosing(false);
+    setConfirmClose(false);
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={100}
-    >
-      {/* Шапка: статус обращения + закрытие */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingVertical: 10,
-          borderBottomWidth: 1,
-          borderBottomColor: colors.border,
-          backgroundColor: colors.card,
-          gap: 10,
-        }}
-      >
-        <View
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 10,
-            backgroundColor: colors.accentSoft,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons name="chatbubbles-outline" size={17} color={colors.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>Чат поддержки</Text>
-          <Text style={{ color: colors.textDim, fontSize: 11 }}>
-            {messages.length > 0 ? "История обращений сохраняется" : "Опишите проблему — мы поможем"}
-          </Text>
-        </View>
-        {messages.length > 0 && (
-          <PressableScale
-            onPress={closeTicket}
-            disabled={closing}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              backgroundColor: colors.red + "1A",
-              borderWidth: 1,
-              borderColor: colors.red + "55",
-              borderRadius: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              opacity: closing ? 0.6 : 1,
-            }}
-          >
-            {closing ? (
-              <ActivityIndicator size="small" color={colors.red} />
-            ) : (
-              <Ionicons name="checkmark-done-outline" size={15} color={colors.red} />
-            )}
-            <Text style={{ color: colors.red, fontSize: 12, fontWeight: "700" }}>Закрыть</Text>
-          </PressableScale>
-        )}
-      </View>
+  const openHistoryTicket = (ticket: TicketInfo) => {
+    nav.navigate("SupportTicket", {
+      ticketId: ticket.id,
+      status: ticket.status,
+      updatedAt: ticket.updated_at,
+      adminAvatarUrl,
+    });
+  };
 
-      {loading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={colors.accent} />
-          <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 10 }}>
-            Загружаем историю обращений…
-          </Text>
-        </View>
-      ) : messages.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-          <Ionicons name="chatbox-ellipses-outline" size={44} color={colors.textFaint} />
-          <Text style={{ color: colors.textDim, fontSize: 13, textAlign: "center", marginTop: 12 }}>
-            Пока нет сообщений.{"\n"}Напишите нам — ответим в этом чате.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          ref={listRef}
-          data={[...messages].reverse()}
-          keyExtractor={(m) => String(m.id)}
-          inverted
-          contentContainerStyle={{ padding: 16 }}
-          renderItem={({ item }) => (
-            <View
+  const hasActiveChat = messages.length > 0;
+  const closedTickets = history.filter((t) => t.status === "closed");
+  const VISIBLE_COUNT = 5;
+  const recentTickets = historyExpanded ? closedTickets : closedTickets.slice(0, VISIBLE_COUNT);
+  const hiddenCount = closedTickets.length - VISIBLE_COUNT;
+
+  const inputBar = (
+    <View>
+      {pendingImage && (
+        <View style={{ paddingHorizontal: 12, paddingTop: 8, alignItems: "flex-start" }}>
+          <View>
+            <Image source={{ uri: pendingImage.uri }} style={{ width: 80, height: 80, borderRadius: 8 }} />
+            <PressableScale
+              onPress={() => setPendingImage(null)}
               style={{
-                alignSelf: item.sender === "user" ? "flex-end" : "flex-start",
-                maxWidth: "80%",
-                backgroundColor: item.sender === "user" ? colors.accentDeep : colors.card,
-                borderRadius: 16,
-                borderBottomRightRadius: item.sender === "user" ? 4 : 16,
-                borderBottomLeftRadius: item.sender === "user" ? 16 : 4,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                marginBottom: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
+                position: "absolute",
+                right: -6,
+                top: -6,
+                width: 20,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: colors.red,
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              <Text style={{ color: item.sender === "user" ? "#fff" : colors.text, fontSize: 14 }}>
-                {item.text}
-              </Text>
-              <Text
-                style={{
-                  color: item.sender === "user" ? "rgba(255,255,255,0.6)" : colors.textFaint,
-                  fontSize: 10,
-                  marginTop: 4,
-                }}
-              >
-                {String(item.created_at).slice(5, 16)}
-              </Text>
-            </View>
-          )}
-        />
+              <Ionicons name="close" size={13} color="#fff" />
+            </PressableScale>
+          </View>
+        </View>
       )}
-
       <View
         style={{
           flexDirection: "row",
-          padding: 12,
-          paddingBottom: insets.bottom + 12,
+          alignItems: "flex-end",
+          padding: 10,
+          paddingBottom: insets.bottom + 10,
           borderTopWidth: 1,
           borderTopColor: colors.border,
           backgroundColor: colors.card,
-          gap: 8,
+          gap: 6,
         }}
       >
+        <PressableScale
+          onPress={pickImage}
+          disabled={sending}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 12,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: sending ? 0.5 : 1,
+          }}
+        >
+          <Ionicons name="image-outline" size={24} color={colors.accent} />
+        </PressableScale>
         <TextInput
           style={{
             flex: 1,
@@ -233,8 +381,9 @@ export default function SupportScreen() {
             color: colors.text,
             paddingHorizontal: 14,
             paddingVertical: 10,
+            maxHeight: 100,
           }}
-          placeholder="Опишите проблему…"
+          placeholder="Сообщение…"
           placeholderTextColor={colors.textFaint}
           multiline
           value={text}
@@ -244,7 +393,8 @@ export default function SupportScreen() {
           onPress={send}
           disabled={sending}
           style={{
-            width: 48,
+            width: 44,
+            height: 44,
             borderRadius: 12,
             backgroundColor: colors.accentDeep,
             alignItems: "center",
@@ -255,10 +405,190 @@ export default function SupportScreen() {
           {sending ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={{ color: "#fff", fontSize: 18 }}>➤</Text>
+            <Ionicons name="send" size={18} color="#fff" />
           )}
         </PressableScale>
       </View>
+    </View>
+  );
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
+        <ActivityIndicator color={colors.accent} />
+        <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 10 }}>Загружаем историю обращений…</Text>
+      </View>
+    );
+  }
+
+  // Активного чата нет — экран приветствия + история обращений
+  if (!hasActiveChat) {
+    return (
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: colors.bg }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <FlatList
+          data={recentTickets}
+          keyExtractor={(t) => String(t.id)}
+          contentContainerStyle={{ padding: 16 }}
+          ListHeaderComponent={
+            <View style={{ alignItems: "center", marginTop: 24, marginBottom: 8 }}>
+              <Ionicons name="headset-outline" size={64} color={colors.accent} style={{ opacity: 0.5 }} />
+              <Text style={{ color: colors.text, fontSize: 20, fontWeight: "800", marginTop: 14 }}>
+                Напишите нам!
+              </Text>
+              <Text style={{ color: colors.textDim, fontSize: 13, textAlign: "center", marginTop: 8 }}>
+                Опишите проблему или задайте вопрос.{"\n"}Можно приложить скриншот.
+              </Text>
+            </View>
+          }
+          ListEmptyComponent={null}
+          renderItem={({ item }) => <HistoryTile ticket={item} onPress={() => openHistoryTicket(item)} />}
+        />
+        {hiddenCount > 0 && (
+          <PressableScale
+            onPress={() => setHistoryExpanded((v) => !v)}
+            style={{ paddingHorizontal: 16, paddingVertical: 6 }}
+          >
+            <Text style={{ color: colors.accent, fontSize: 14 }}>
+              {historyExpanded ? "Свернуть" : `Ещё ${hiddenCount} обращений`}
+            </Text>
+          </PressableScale>
+        )}
+        {inputBar}
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // Активный чат
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: colors.bg }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      {/* Кнопка закрытия тикета — как в старом приложении, сверху над чатом */}
+      <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+        <PressableScale
+          onPress={() => setConfirmClose(true)}
+          disabled={closing}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            backgroundColor: colors.red + "26",
+            borderRadius: 12,
+            paddingVertical: 10,
+            opacity: closing ? 0.6 : 1,
+          }}
+        >
+          {closing ? (
+            <ActivityIndicator size="small" color={colors.red} />
+          ) : (
+            <Ionicons name="close" size={17} color={colors.red} />
+          )}
+          <Text style={{ color: colors.red, fontSize: 14, fontWeight: "600" }}>Завершить обращение</Text>
+        </PressableScale>
+      </View>
+
+      <FlatList
+        data={[...messages].reverse()}
+        keyExtractor={(m) => String(m.id)}
+        inverted
+        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8 }}
+        renderItem={({ item }) => (
+          <MessageBubble msg={item} adminAvatarUrl={adminAvatarUrl} onImageTap={(url) => setFullImage(fullImageUrl(url))} />
+        )}
+      />
+
+      {inputBar}
+
+      {/* Подтверждение закрытия */}
+      <Modal visible={confirmClose} transparent animationType="fade" onRequestClose={() => setConfirmClose(false)}>
+        <PressableScale style={modalStyles.backdrop} onPress={() => setConfirmClose(false)}>
+          <PressableScale style={modalStyles.card} onPress={() => {}}>
+            <Text style={modalStyles.title}>Закрыть обращение?</Text>
+            <Text style={modalStyles.text}>Обращение будет закрыто и перемещено в историю.</Text>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 18 }}>
+              <View style={{ flex: 1 }}>
+                <PressableScale style={modalStyles.btnGhost} onPress={() => setConfirmClose(false)}>
+                  <Text style={modalStyles.btnGhostText}>Отмена</Text>
+                </PressableScale>
+              </View>
+              <View style={{ flex: 1 }}>
+                <PressableScale style={modalStyles.btnDanger} onPress={closeTicket}>
+                  <Text style={modalStyles.btnDangerText}>Закрыть</Text>
+                </PressableScale>
+              </View>
+            </View>
+          </PressableScale>
+        </PressableScale>
+      </Modal>
+
+      {/* Просмотр картинки на весь экран */}
+      <Modal visible={!!fullImage} transparent animationType="fade" onRequestClose={() => setFullImage(null)}>
+        <View style={{ flex: 1, backgroundColor: "#000" }}>
+          <PressableScale
+            onPress={() => setFullImage(null)}
+            style={{ position: "absolute", top: insets.top + 8, right: 16, zIndex: 2, padding: 8 }}
+          >
+            <Ionicons name="close" size={28} color="#fff" />
+          </PressableScale>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            {!!fullImage && (
+              <Image source={{ uri: fullImage }} style={{ width: "92%", height: "80%" }} resizeMode="contain" />
+            )}
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  card: {
+    width: "100%",
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 20,
+  },
+  title: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  text: {
+    color: colors.textDim,
+    fontSize: 13,
+    textAlign: "center",
+    marginTop: 8,
+    lineHeight: 19,
+  },
+  btnGhost: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  btnGhostText: { color: colors.textDim, fontWeight: "700", fontSize: 14 },
+  btnDanger: {
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: "center",
+    backgroundColor: colors.red,
+  },
+  btnDangerText: { color: "#fff", fontWeight: "800", fontSize: 14 },
+});

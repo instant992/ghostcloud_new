@@ -26,6 +26,7 @@ import DevicesScreen from "./src/screens/DevicesScreen";
 import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
+import SupportTicketScreen from "./src/screens/SupportTicketScreen";
 import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
@@ -231,6 +232,11 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
         name="Support"
         component={SupportScreen}
         options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="SupportTicket"
+        component={SupportTicketScreen}
+        options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
     </Stack.Navigator>
   );
@@ -455,6 +461,11 @@ function DockedThemedFlow({
         component={SupportScreen}
         options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen
+        name="SupportTicket"
+        component={SupportTicketScreen}
+        options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
     </Stack.Navigator>
   );
 }
@@ -519,6 +530,11 @@ function Root() {
             name="Support"
             component={SupportScreen}
             options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+          />
+          <Stack.Screen
+            name="SupportTicket"
+            component={SupportTicketScreen}
+            options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
           />
         </>
       )}
