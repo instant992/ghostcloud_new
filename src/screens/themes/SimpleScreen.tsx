@@ -33,14 +33,15 @@ export default function SimpleScreen() {
   const [seconds, setSeconds] = useState(0);
   const [serverName, setServerName] = useState<string | null>(null);
 
-  // Экран блокировки: при каждом входе на главную «Простого» режима нужен код
-  const [locked, setLocked] = useState(true);
+  // Код нужен только для входа в настройки (шестерёнка), главный экран открыт
+  const [locked, setLocked] = useState(false);
   const [lockCode, setLockCode] = useState("");
 
   const unlock = () => {
     if (lockCode.trim().toLowerCase() === SIMPLE_UNLOCK_CODE) {
       setLocked(false);
       setLockCode("");
+      nav.navigate("Настройки");
     } else {
       showToast("Неверный код");
     }
@@ -208,7 +209,7 @@ export default function SimpleScreen() {
           <View style={styles.lockBox}>
             <Ionicons name="lock-closed" size={40} color={colors.accent} />
             <Text style={styles.lockTitle}>Простой режим</Text>
-            <Text style={styles.lockHint}>Введите код, чтобы открыть</Text>
+            <Text style={styles.lockHint}>Введите код, чтобы открыть настройки</Text>
             <TextInput
               style={styles.lockInput}
               value={lockCode}
@@ -222,6 +223,15 @@ export default function SimpleScreen() {
             <Pressable style={styles.lockBtn} onPress={unlock}>
               <Text style={styles.lockBtnText}>Открыть</Text>
             </Pressable>
+            <Pressable
+              style={styles.lockCancel}
+              onPress={() => {
+                setLocked(false);
+                setLockCode("");
+              }}
+            >
+              <Text style={styles.lockCancelText}>Отмена</Text>
+            </Pressable>
           </View>
         </View>
       ) : (
@@ -232,7 +242,7 @@ export default function SimpleScreen() {
           <Text style={styles.appName}>GhostCloud</Text>
           <Text style={styles.modeLabel}>Простой режим</Text>
         </View>
-        <Pressable onPress={() => nav.navigate("Настройки")} hitSlop={10} style={styles.gearBtn}>
+        <Pressable onPress={() => setLocked(true)} hitSlop={10} style={styles.gearBtn}>
           <Ionicons name="settings-outline" size={22} color={colors.textDim} />
         </Pressable>
       </View>
@@ -319,6 +329,8 @@ const makeStyles = () => StyleSheet.create({
     alignItems: "center",
   },
   lockBtnText: { color: "#fff", fontWeight: "800", fontSize: 16 },
+  lockCancel: { marginTop: 10, paddingVertical: 8, paddingHorizontal: 16 },
+  lockCancelText: { color: colors.textDim, fontWeight: "700", fontSize: 14 },
   header: {
     flexDirection: "row",
     alignItems: "center",
