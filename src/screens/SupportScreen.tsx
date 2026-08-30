@@ -360,6 +360,8 @@ export default function SupportScreen() {
         <PressableScale
           onPress={pickImage}
           disabled={sending}
+          accessibilityRole="button"
+          accessibilityLabel="Прикрепить скриншот"
           style={{
             width: 44,
             height: 44,
@@ -392,6 +394,8 @@ export default function SupportScreen() {
         <PressableScale
           onPress={send}
           disabled={sending}
+          accessibilityRole="button"
+          accessibilityLabel="Отправить сообщение"
           style={{
             width: 44,
             height: 44,
@@ -472,6 +476,8 @@ export default function SupportScreen() {
         <PressableScale
           onPress={() => setConfirmClose(true)}
           disabled={closing}
+          accessibilityRole="button"
+          accessibilityLabel="Завершить обращение"
           style={{
             flexDirection: "row",
             alignItems: "center",
