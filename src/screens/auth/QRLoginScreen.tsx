@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Card, ErrorText, Screen, Subtitle, Title } from "../../components/UI";
+import { IconButton } from "../../components/Foundations";
 import { saveSession } from "../../storage";
 import { qrCreateSession, qrStatus } from "../../api";
 import { useApp } from "../../context";
@@ -92,6 +93,10 @@ export default function QRLoginScreen() {
 
   return (
     <Screen style={{ paddingTop: insets.top + 12 }}>
+      <View style={styles.header}>
+        <IconButton icon="arrow-back" label="Назад" onPress={() => nav.goBack()} />
+        <View style={{ flex: 1 }} />
+      </View>
       <Title>Вход по QR-коду</Title>
       <Subtitle>
         Откройте GhostCloud на устройстве, где вы уже вошли: Профиль → «Отсканировать QR», и
@@ -137,7 +142,6 @@ export default function QRLoginScreen() {
         <Button title="Попробовать снова" onPress={createSession} />
       ) : (
         <>
-          <Button title="Отменить" variant="ghost" onPress={() => nav.goBack()} />
           {!confirmedUrl && (
             <Text style={{ color: colors.textFaint, fontSize: 12, textAlign: "center", marginTop: 10 }}>
               Ожидание подтверждения…
@@ -148,3 +152,11 @@ export default function QRLoginScreen() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+});

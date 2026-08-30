@@ -1,10 +1,15 @@
 import React, { useState } from "react";
-import { Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Screen, Subtitle, Title } from "../../components/UI";
+import { IconButton } from "../../components/Foundations";
 import { resetPassword } from "../../api";
+import { colors, useTheme } from "../../theme";
 
 export default function ResetPasswordScreen() {
+  useTheme();
+  const styles = makeStyles();
   const nav = useNavigation<any>();
   const [step, setStep] = useState<"email" | "done">("email");
   const [email, setEmail] = useState("");
@@ -12,6 +17,10 @@ export default function ResetPasswordScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
+    if (!email.trim()) {
+      setError("Введите email");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -27,24 +36,32 @@ export default function ResetPasswordScreen() {
 
   return (
     <Screen>
+      <View style={styles.header}>
+        <IconButton icon="arrow-back" label="Назад" onPress={() => nav.goBack()} />
+        <View style={{ flex: 1 }} />
+      </View>
       <Title>Сброс пароля</Title>
       <Subtitle>Мы отправим новый пароль на вашу почту</Subtitle>
       {step === "email" ? (
         <>
           <Input
+            label="Email"
             placeholder="Ваш email"
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
             onChangeText={setEmail}
+            returnKeyType="go"
+            onSubmitEditing={submit}
           />
           <ErrorText>{error}</ErrorText>
           <Button title="Отправить новый пароль" onPress={submit} loading={loading} />
-          <Button title="Назад" variant="ghost" onPress={() => nav.goBack()} />
         </>
       ) : (
         <Card style={{ alignItems: "center", paddingVertical: 30 }}>
-          <Text style={{ color: "#fff", fontSize: 40, marginBottom: 10 }}>📧</Text>
+          <View style={styles.doneIcon}>
+            <Ionicons name="mail-open-outline" size={30} color={colors.green} />
+          </View>
           <Subtitle>Проверьте почту — там новый пароль</Subtitle>
           <Button title="К экрану входа" onPress={() => nav.popToTop()} />
         </Card>
@@ -52,3 +69,21 @@ export default function ResetPasswordScreen() {
     </Screen>
   );
 }
+
+const makeStyles = () =>
+  StyleSheet.create({
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    doneIcon: {
+      width: 64,
+      height: 64,
+      borderRadius: 20,
+      backgroundColor: colors.green + "26",
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 12,
+    },
+  });

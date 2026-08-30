@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { Button, ErrorText, Input, Row, Screen, Subtitle, Title, Card } from "../../components/UI";
+import { PressableScale } from "../../components/PressableScale";
+import { StepIndicator } from "../../components/Foundations";
 import {
   checkEmail,
   createPayment,
@@ -10,12 +13,20 @@ import {
   sendEmailCode,
   verifyEmailCode,
 } from "../../api";
-import { colors, useTheme } from "../../theme";
+import { colors, typo, useTheme } from "../../theme";
 
 type Step = "email" | "code" | "plan" | "pay";
 
+const STEPS: Record<Step, { index: number; labels: string[] }> = {
+  email: { index: 0, labels: ["Email", "Код", "Тариф", "Оплата"] },
+  code: { index: 1, labels: ["Email", "Код", "Тариф", "Оплата"] },
+  plan: { index: 2, labels: ["Email", "Код", "Тариф", "Оплата"] },
+  pay: { index: 3, labels: ["Email", "Код", "Тариф", "Оплата"] },
+};
+
 export default function RegisterScreen() {
   useTheme();
+  const styles = makeStyles();
   const nav = useNavigation<any>();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
@@ -30,6 +41,10 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const submitEmail = async () => {
+    if (!email.trim()) {
+      setError("Введите email");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -49,6 +64,10 @@ export default function RegisterScreen() {
   };
 
   const submitCode = async () => {
+    if (!code.trim()) {
+      setError("Введите код из письма");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -132,23 +151,35 @@ export default function RegisterScreen() {
     }
   };
 
+  const goBack = () => {
+    setError(null);
+    if (step === "email") nav.goBack();
+    else if (step === "code") setStep("email");
+    else if (step === "plan") setStep("code");
+    else if (step === "pay") setStep("plan");
+  };
+
   return (
     <Screen>
       <Title>Регистрация</Title>
       <Subtitle>Создайте аккаунт GhostCloud за минуту</Subtitle>
+      <StepIndicator steps={STEPS[step].labels} current={STEPS[step].index} />
 
       {step === "email" && (
         <>
           <Input
+            label="Email"
             placeholder="Ваш email"
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
             onChangeText={setEmail}
+            returnKeyType="go"
+            onSubmitEditing={submitEmail}
           />
           <ErrorText>{error}</ErrorText>
           <Button title="Получить код" onPress={submitEmail} loading={loading} />
-          <Button title="Назад" variant="ghost" onPress={() => nav.goBack()} />
+          <Button title="Назад" variant="ghost" onPress={goBack} />
         </>
       )}
 
@@ -158,14 +189,18 @@ export default function RegisterScreen() {
             <Row label="Email" value={email} />
           </Card>
           <Input
+            label="Код из письма"
             placeholder="Код из письма"
             keyboardType="number-pad"
             maxLength={6}
             value={code}
             onChangeText={setCode}
+            returnKeyType="go"
+            onSubmitEditing={submitCode}
           />
           <ErrorText>{error}</ErrorText>
           <Button title="Подтвердить" onPress={submitCode} loading={loading} />
+          <Button title="Назад" variant="ghost" onPress={goBack} />
         </>
       )}
 
@@ -182,19 +217,21 @@ export default function RegisterScreen() {
           ))}
           <ErrorText>{error}</ErrorText>
           <Button title={`Оплатить ${plans[selectedPlan]} ₽`} onPress={startPayment} loading={loading} />
+          <Button title="Назад" variant="ghost" onPress={goBack} />
         </>
       )}
 
       {step === "pay" && (
         <>
           <Card style={{ alignItems: "center", paddingVertical: 28 }}>
-            <Text style={{ color: colors.textDim, textAlign: "center", marginBottom: 14 }}>
+            <Text style={styles.payHint}>
               Оплата открыта в браузере.{"\n"}После успешной оплаты вернитесь сюда.
             </Text>
             <Button title="Открыть страницу оплаты" variant="ghost" onPress={() => payUrl && WebBrowser.openBrowserAsync(payUrl)} />
           </Card>
           <ErrorText>{error}</ErrorText>
           <Button title="Я оплатил(а) — проверить" onPress={checkPaid} loading={loading} />
+          <Button title="Назад" variant="ghost" onPress={goBack} />
         </>
       )}
     </Screen>
@@ -212,20 +249,59 @@ function PlanOption({
   selected: boolean;
   onPress: () => void;
 }) {
+  useTheme();
+  const styles = makeStyles();
   return (
-    <View
-      style={{
-        backgroundColor: colors.card,
-        borderColor: selected ? colors.accent : colors.border,
-        borderWidth: 1.5,
-        borderRadius: 14,
-        padding: 16,
-        marginBottom: 10,
-      }}
+    <PressableScale
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected }}
+      style={[styles.planOption, selected && styles.planOptionOn]}
     >
-      <Text style={{ color: colors.text, fontWeight: "700", fontSize: 15 }} onPress={onPress}>
-        {label} — {price} ₽
+      <Text style={styles.planOptionLabel}>{label}</Text>
+      <View style={{ flex: 1 }} />
+      <Text style={[styles.planOptionPrice, selected && { color: colors.accent }]}>
+        {price} ₽
       </Text>
-    </View>
+      <View style={[styles.planRadio, selected && styles.planRadioOn]} />
+    </PressableScale>
   );
 }
+
+const makeStyles = () =>
+  StyleSheet.create({
+    payHint: {
+      color: colors.textDim,
+      ...typo.sub,
+      textAlign: "center",
+      marginBottom: 14,
+    },
+    planOption: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+      borderWidth: 1.5,
+      borderRadius: 14,
+      padding: 16,
+      marginBottom: 10,
+    },
+    planOptionOn: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accentSoft,
+    },
+    planOptionLabel: { color: colors.text, ...typo.bodyStrong, fontSize: 15 },
+    planOptionPrice: { color: colors.text, ...typo.bodyStrong, fontSize: 15 },
+    planRadio: {
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      borderWidth: 2,
+      borderColor: colors.border,
+    },
+    planRadioOn: {
+      borderColor: colors.accent,
+      backgroundColor: colors.accent,
+    },
+  });

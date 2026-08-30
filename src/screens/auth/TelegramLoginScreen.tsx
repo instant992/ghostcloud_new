@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { Linking } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, ErrorText, Screen, Subtitle, Title } from "../../components/UI";
+import { IconButton } from "../../components/Foundations";
 import { BASE_URL, BOT_USERNAME } from "../../api";
 import { useApp } from "../../context";
-import { colors, useTheme } from "../../theme";
+import { colors, typo, useTheme } from "../../theme";
 
 function randomToken(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -17,6 +18,7 @@ function randomToken(): string {
 
 export default function TelegramLoginScreen() {
   useTheme();
+  const styles = makeStyles();
   const nav = useNavigation<any>();
   const { signInViaToken } = useApp();
   const [token, setToken] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export default function TelegramLoginScreen() {
 
   const start = async () => {
     setError(null);
+    setLoading(true);
     const t = randomToken();
     setToken(t);
     try {
@@ -51,11 +54,17 @@ export default function TelegramLoginScreen() {
       }, 2500);
     } catch (e: any) {
       setError(e?.message || "Ошибка");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <Screen>
+      <View style={styles.header}>
+        <IconButton icon="arrow-back" label="Назад" onPress={() => nav.goBack()} />
+        <View style={{ flex: 1 }} />
+      </View>
       <Title>Вход через Telegram</Title>
       <Subtitle>
         Нажмите кнопку — откроется бот GhostCloud. Отправьте команду в чате, и вы
@@ -64,7 +73,7 @@ export default function TelegramLoginScreen() {
 
       {token && (
         <Card style={{ alignItems: "center", paddingVertical: 24 }}>
-          <Text style={{ color: colors.textFaint, fontSize: 13 }}>Ожидание подтверждения в боте…</Text>
+          <Text style={styles.waiting}>Ожидание подтверждения в боте…</Text>
           <Button
             title="Скопировать ссылку бота"
             variant="ghost"
@@ -75,7 +84,20 @@ export default function TelegramLoginScreen() {
 
       <ErrorText>{error}</ErrorText>
       <Button title="Открыть бота в Telegram" onPress={start} loading={loading} />
-      <Button title="Назад" variant="ghost" onPress={() => nav.goBack()} />
     </Screen>
   );
 }
+
+const makeStyles = () =>
+  StyleSheet.create({
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    waiting: {
+      color: colors.textFaint,
+      ...typo.sub,
+      marginBottom: 12,
+    },
+  });

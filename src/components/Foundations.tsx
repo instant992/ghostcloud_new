@@ -187,6 +187,29 @@ export function SpinnerRing({ size = 76 }: { size?: number }) {
   );
 }
 
+/** Индикатор шагов (регистрация, оплата): точки с активной. */
+export function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
+  useTheme();
+  return (
+    <View style={styles.stepsRow} accessibilityLabel={`Шаг ${current + 1} из ${steps.length}: ${steps[current]}`}>
+      {steps.map((s, i) => (
+        <View key={s} style={styles.stepItem}>
+          <View
+            style={[
+              styles.stepDot,
+              i === current && { backgroundColor: colors.accentDeep, borderColor: colors.accentDeep },
+              i < current && { backgroundColor: colors.accent, borderColor: colors.accent },
+            ]}
+          />
+          <Text style={[styles.stepLabel, i === current && { color: colors.text, fontWeight: "700" }]}>
+            {s}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   iconBtn: {
     minWidth: hit.min,
@@ -262,4 +285,21 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   emptyActionText: { color: "#fff", ...typo.bodyStrong },
+  stepsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 18,
+    marginBottom: 20,
+  },
+  stepItem: { alignItems: "center", gap: 5 },
+  stepDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+  },
+  stepLabel: { color: colors.textFaint, ...typo.caption, fontSize: 10 },
 });

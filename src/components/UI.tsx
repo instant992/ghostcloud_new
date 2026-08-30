@@ -109,30 +109,36 @@ export function Button({ title, onPress, loading, disabled, variant = "primary",
   );
 }
 
-export function Input(props: TextInputProps) {
+export function Input({ label, ...props }: TextInputProps & { label?: string }) {
   useTheme();
   const styles = makeStyles();
   return (
-    <TextInput
-      placeholderTextColor={colors.textFaint}
-      style={styles.input}
-      {...props}
-    />
+    <View>
+      {!!label && <Text style={styles.inputLabel}>{label}</Text>}
+      <TextInput
+        placeholderTextColor={colors.textFaint}
+        style={styles.input}
+        accessibilityLabel={label || (props.placeholder as string | undefined)}
+        {...props}
+      />
+    </View>
   );
 }
 
-export function PasswordInput(props: TextInputProps) {
+export function PasswordInput({ label, ...props }: TextInputProps & { label?: string }) {
   useTheme();
   const styles = makeStyles();
   const [show, setShow] = React.useState(false);
   return (
     <View>
+      {!!label && <Text style={styles.inputLabel}>{label}</Text>}
       <TextInput
         placeholderTextColor={colors.textFaint}
         style={styles.input}
         secureTextEntry={!show}
         autoCapitalize="none"
         autoCorrect={false}
+        accessibilityLabel={label || (props.placeholder as string | undefined)}
         {...props}
       />
       <Pressable
@@ -225,6 +231,12 @@ const makeStyles = () => StyleSheet.create({
     paddingVertical: 13,
     fontSize: 15,
     marginBottom: 10,
+  },
+  inputLabel: {
+    color: colors.textDim,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 6,
   },
   row: {
     flexDirection: "row",
