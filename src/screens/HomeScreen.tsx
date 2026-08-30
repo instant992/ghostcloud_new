@@ -17,6 +17,7 @@ import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
@@ -28,6 +29,7 @@ import { colors, splitNameFlag, formatBytes, useTheme, pingColor } from "../them
 export default function HomeScreen() {
   useTheme();
   const styles = makeStyles();
+  const insets = useSafeAreaInsets();
 
   const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes } = useApp();
@@ -172,7 +174,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerLeft}>
           <Image
             source={{ uri: "app_icon" }}
@@ -623,7 +625,6 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 60,
   },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   appBadge: {

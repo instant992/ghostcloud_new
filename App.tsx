@@ -36,6 +36,7 @@ import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import { TabIcon } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 import { ToastHost } from "./src/components/Toast";
+import { TabAreaContext } from "./src/components/UI";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -84,6 +85,7 @@ const Tabs = createBottomTabNavigator();
 
 const TAB_META: Record<string, { icon: string; outline: string; label: string }> = {
   Главная: { icon: "home", outline: "home-outline", label: "Главная" },
+  Статистика: { icon: "bar-chart", outline: "bar-chart-outline", label: "Статистика" },
   Тарифы: { icon: "card", outline: "card-outline", label: "Тарифы" },
   Профиль: { icon: "person", outline: "person-outline", label: "Профиль" },
   Настройки: { icon: "settings", outline: "settings-outline", label: "Настройки" },
@@ -101,6 +103,10 @@ function CustomTabBar({ state, navigation }: any) {
           <Pressable
             key={route.key}
             hitSlop={8}
+            style={tabStyles.tabSlot}
+            accessibilityRole="tab"
+            accessibilityLabel={meta.label}
+            accessibilityState={{ selected: focused }}
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
               navigation.navigate(route.name);
@@ -122,27 +128,33 @@ const tabStyles = StyleSheet.create({
   bar: {
     flexDirection: "row",
     backgroundColor: "transparent",
-    justifyContent: "center",
     alignItems: "center",
-    gap: 14,
+    paddingHorizontal: 8,
     paddingTop: 10,
+  },
+  tabSlot: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 
 function MainTabs() {
   return (
-    <Tabs.Navigator
-      screenOptions={{
-        headerShown: false,
-      }}
-      tabBar={(props) => <CustomTabBar {...props} />}
-    >
-      <Tabs.Screen name="Главная" component={HomeScreen} />
-      <Tabs.Screen name="Статистика" component={StatsScreen} />
-      <Tabs.Screen name="Тарифы" component={PlansScreen} />
-      <Tabs.Screen name="Профиль" component={ProfileScreen} />
-      <Tabs.Screen name="Настройки" component={SettingsScreen} />
-    </Tabs.Navigator>
+    <TabAreaContext.Provider value={true}>
+      <Tabs.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+        tabBar={(props) => <CustomTabBar {...props} />}
+      >
+        <Tabs.Screen name="Главная" component={HomeScreen} />
+        <Tabs.Screen name="Статистика" component={StatsScreen} />
+        <Tabs.Screen name="Тарифы" component={PlansScreen} />
+        <Tabs.Screen name="Профиль" component={ProfileScreen} />
+        <Tabs.Screen name="Настройки" component={SettingsScreen} />
+      </Tabs.Navigator>
+    </TabAreaContext.Provider>
   );
 }
 

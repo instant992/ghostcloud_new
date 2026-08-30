@@ -4,7 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { Button, Card, ErrorText, Row, Screen, Title } from "../components/UI";
+import { Button, Card, ErrorText, Row, Screen, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { ProviderPicker } from "../components/ProviderPicker";
 import { SpinnerRing } from "../components/Foundations";
@@ -29,6 +29,7 @@ export default function PlansScreen() {
 
   const nav = useNavigation<any>();
   const { me, refreshMe } = useApp();
+  const topPad = useScreenTopPad();
 
   const [step, setStep] = useState<Step>("plans");
   const [prices, setPrices] = useState<Record<string, number>>({});
@@ -209,7 +210,7 @@ export default function PlansScreen() {
     })();
 
     return (
-      <Screen style={{ paddingTop: 64 }}>
+      <Screen style={topPad}>
         <Title>{me?.plan ? "Продлить подписку" : "Купить подписку"}</Title>
 
         {!!anySale && (
@@ -340,7 +341,7 @@ export default function PlansScreen() {
 
   // ── Шаг: email + промокод + оплата ──
   return (
-    <Screen style={{ paddingTop: 64 }}>
+    <Screen style={topPad}>
       <PressableScale style={styles.backBtn} onPress={() => setStep("plans")} hitSlop={8}>
         <Ionicons name="arrow-back" size={22} color={colors.text} />
         <Text style={styles.backBtnText}>К выбору тарифа</Text>

@@ -14,6 +14,22 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+/** Контекст: экран находится во вкладках (таб-бар), а не под стековым хедером.
+ *  Используется для корректных верхних отступов вместо магических чисел. */
+export const TabAreaContext = React.createContext(false);
+export function useInTabArea(): boolean {
+  return React.useContext(TabAreaContext);
+}
+
+/** Верхний отступ экрана: во вкладках отступ добавляет сам <Screen>
+ *  (safe-area + 12), а в стеке под плавающей кнопкой «назад» нужен
+ *  фиксированный отступ 64, чтобы контент не залезал под неё. */
+export function useScreenTopPad(): ViewStyle {
+  const inTabs = useInTabArea();
+  return inTabs ? {} : { paddingTop: 64 };
+}
 
 export function Screen({
   children,
@@ -25,12 +41,17 @@ export function Screen({
   style?: ViewStyle;
 }) {
   useTheme();
+  const inTabs = useInTabArea();
+  const insets = useSafeAreaInsets();
   const styles = makeStyles();
+  // Во вкладках контент начинается сразу под статус-баром — добавляем
+  // безопасный отступ вместо магических чисел (вне вкладок отступ задаёт экран).
+  const safeTop = inTabs ? { paddingTop: insets.top + 12 } : null;
   if (scroll) {
     return (
       <ScrollView
         style={styles.screen}
-        contentContainerStyle={[styles.content, style]}
+        contentContainerStyle={[styles.content, safeTop, style]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -38,7 +59,7 @@ export function Screen({
       </ScrollView>
     );
   }
-  return <View style={[styles.screen, styles.content, style]}>{children}</View>;
+  return <View style={[styles.screen, styles.content, safeTop, style]}>{children}</View>;
 }
 
 export function Title({ children }: { children: React.ReactNode }) {

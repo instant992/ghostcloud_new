@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Switch, Text, T
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
-import { Card, Row, Screen, Title } from "../components/UI";
+import { Card, Row, Screen, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { showToast } from "../components/Toast";
 import { useApp } from "../context";
@@ -267,7 +267,7 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen style={{ paddingTop: 64 }}>
+    <Screen style={useScreenTopPad()}>
       <Title>Настройки</Title>
 
       <Card>

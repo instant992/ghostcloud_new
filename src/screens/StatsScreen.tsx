@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { Screen, Subtitle, Title } from "../components/UI";
+import { Screen, Subtitle, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
@@ -84,7 +84,7 @@ export default function StatsScreen() {
   };
 
   return (
-    <Screen style={{ paddingTop: 64 }}>
+    <Screen style={useScreenTopPad()}>
       <Title>Статистика трафика</Title>
       <Subtitle>Считается локально на устройстве</Subtitle>
 
