@@ -93,8 +93,8 @@ export async function updateDisplayName(displayName: string) {
   return request("PUT", "/api/auth/mobile/display-name", { display_name: displayName });
 }
 
-export async function updateLogin(login: string) {
-  return request("PUT", "/api/auth/mobile/login", { login });
+export async function updateLogin(login: string, sponsorNick = false) {
+  return request("PUT", "/api/auth/mobile/login", { login, sponsor_nick: sponsorNick });
 }
 
 export async function uploadAvatar(uri: string): Promise<any> {

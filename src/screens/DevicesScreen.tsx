@@ -5,9 +5,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Screen, Subtitle } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { LoadingState } from "../components/Foundations";
+import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
 import { banDevice, buyDevices, deleteDevice, getDevices, unbanDevice } from "../api";
 import * as deviceNames from "../deviceNames";
 import { colors, useTheme } from "../theme";
+import { useApp } from "../context";
 
 type Device = {
   os: string;
@@ -21,6 +23,8 @@ type Device = {
 export default function DevicesScreen() {
   useTheme();
   const styles = makeStyles();
+  const { me } = useApp();
+  const isSponsor = me?.is_sponsor === true;
 
   const [devices, setDevices] = useState<Device[]>([]);
   const [count, setCount] = useState(0);
@@ -36,6 +40,7 @@ export default function DevicesScreen() {
   const [names, setNames] = useState<Record<string, string>>({});
   const [renameTarget, setRenameTarget] = useState<Device | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [benefitsOpen, setBenefitsOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -210,17 +215,28 @@ export default function DevicesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor={colors.accent} />}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            <PressableScale
-              onPress={() => {
-                setRenameTarget(item);
-                setRenameValue(names[item.hwid_full] || "");
-              }}
-              style={styles.itemIconBtn}
-              accessibilityRole="button"
-              accessibilityLabel={`Переименовать устройство ${displayName(item)}`}
-            >
-              <Ionicons name="pencil-outline" size={18} color={colors.textDim} />
-            </PressableScale>
+            {isSponsor ? (
+              <PressableScale
+                onPress={() => {
+                  setRenameTarget(item);
+                  setRenameValue(names[item.hwid_full] || "");
+                }}
+                style={styles.itemIconBtn}
+                accessibilityRole="button"
+                accessibilityLabel={`Переименовать устройство ${displayName(item)}`}
+              >
+                <Ionicons name="pencil-outline" size={18} color="#FF9800" />
+              </PressableScale>
+            ) : (
+              <PressableScale
+                onPress={() => setBenefitsOpen(true)}
+                style={styles.itemIconBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Подписи для устройств — преимущество спонсоров"
+              >
+                <Ionicons name="lock-closed" size={17} color={colors.textFaint} />
+              </PressableScale>
+            )}
             <View style={styles.itemIconBox}>
               <Ionicons
                 name={item.os.toLowerCase().includes("android") ? "phone-portrait-outline" : "laptop-outline"}
@@ -300,6 +316,9 @@ export default function DevicesScreen() {
           </PressableScale>
         </PressableScale>
       </Modal>
+
+      {/* Шторка преимуществ спонсора (тап по замку) */}
+      <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />
     </Screen>
   );
 }

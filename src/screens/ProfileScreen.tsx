@@ -1,8 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
   Alert,
-  Animated,
-  Easing,
   Image,
   Modal,
   Pressable,
@@ -24,6 +22,7 @@ import { PressableScale } from "../components/PressableScale";
 import { BalanceSheet } from "../components/BalanceSheet";
 import { QRScannerModal } from "../components/QRScannerModal";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
+import { CustomBadge, SponsorHeart, VerifiedBadge } from "../components/Badges";
 import { useApp } from "../context";
 import {
   BASE_URL,
@@ -43,47 +42,6 @@ import {
 } from "../api";
 import { colors, sheetSurfaceBg, useTheme } from "../theme";
 import { showToast } from "../components/Toast";
-
-/** Пульсирующее сердечко спонсора рядом с ником */
-function SponsorHeart({ size = 18 }: { size?: number }) {
-  useTheme();
-  const pulse = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const a = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ])
-    );
-    a.start();
-    return () => a.stop();
-  }, [pulse]);
-  return (
-    <View style={{ width: size * 1.9, height: size * 1.9, alignItems: "center", justifyContent: "center" }}>
-      <Animated.View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          width: size * 1.5,
-          height: size * 1.5,
-          borderRadius: size,
-          backgroundColor: "rgba(255,140,90,0.3)",
-          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.5] }) }],
-          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }),
-        }}
-      />
-      <Animated.Image
-        source={{ uri: "sponsor_heart" }}
-        style={{
-          width: size,
-          height: size,
-          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.15] }) }],
-        }}
-        resizeMode="contain"
-      />
-    </View>
-  );
-}
 
 export default function ProfileScreen() {
   useTheme();
@@ -115,6 +73,8 @@ export default function ProfileScreen() {
     ? `${BASE_URL}${me.avatar_url}?t=${String(Math.floor(Date.now() / 60000))}`
     : null;
   const isSponsor = me?.is_sponsor === true;
+  // Эффективный бейдж: явный из nick_style либо автоматический «спонсор»
+  const effectiveBadge = me?.nick_style?.badge_type ?? (isSponsor ? "sponsor" : null);
 
   const daysLeft = (() => {
     if (!me?.expire_at) return 0;
@@ -125,7 +85,10 @@ export default function ProfileScreen() {
 
   const openEditor = () => {
     setNick(me?.display_name || "");
-    setLoginStr(me?.login || "");
+    // Обычный пользователь редактирует суффикс (префикс «ghostcl_» добавляет сервер),
+    // спонсор — полный ник.
+    const full = me?.login || "";
+    setLoginStr(!isSponsor && full.startsWith("ghostcl_") ? full.slice(8) : full);
     setEditOpen(true);
   };
 
@@ -164,8 +127,11 @@ export default function ProfileScreen() {
         const r = await updateDisplayName(newNick);
         if (!r?.success) throw new Error(r?.error || "Ошибка сохранения ника");
       }
-      if (newLogin && newLogin !== (me?.login || "")) {
-        const r = await updateLogin(newLogin);
+      const oldLogin = me?.login || "";
+      if (newLogin && newLogin !== oldLogin) {
+        // Спонсор задаёт ник целиком (мин. 7 символов, без префикса),
+        // обычный пользователь — суффикс, префикс «ghostcl_» добавляет сервер.
+        const r = await updateLogin(newLogin, isSponsor);
         if (!r?.success) throw new Error(r?.error || "Ошибка сохранения логина");
       }
       await refreshMe();
@@ -375,11 +341,15 @@ export default function ProfileScreen() {
               )}
             </PressableScale>
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                 <Text style={styles.name} numberOfLines={1}>
                   {me?.display_name || me?.login || "Пользователь"}
                 </Text>
-                {isSponsor && <SponsorHeart size={18} />}
+                {!!effectiveBadge && <VerifiedBadge type={effectiveBadge} size={17} />}
+                {(me?.badges || []).map((b) => (
+                  <CustomBadge key={b.id} badge={b} size={18} />
+                ))}
+                {isSponsor && <SponsorHeart size={16} />}
               </View>
               {!!me?.email && (
                 <Text style={styles.email} numberOfLines={1}>
@@ -531,7 +501,17 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Ник (отображается в профиле)</Text>
             <TextInput style={styles.field} value={nick} onChangeText={setNick} maxLength={32} placeholder="Ник" placeholderTextColor={colors.textFaint} />
             <Text style={styles.fieldLabel}>Логин (для входа)</Text>
-            <TextInput style={styles.field} value={loginStr} onChangeText={setLoginStr} maxLength={32} autoCapitalize="none" placeholder="Логин" placeholderTextColor={colors.textFaint} />
+            {!isSponsor && (
+              <Text style={{ color: colors.textFaint, fontSize: 11, marginBottom: 6 }}>
+                К вашему нику будет добавлен префикс «ghostcl_»
+              </Text>
+            )}
+            {isSponsor && (
+              <Text style={{ color: colors.textFaint, fontSize: 11, marginBottom: 6 }}>
+                Спонсорам доступен произвольный ник от 7 символов
+              </Text>
+            )}
+            <TextInput style={styles.field} value={loginStr} onChangeText={setLoginStr} maxLength={32} autoCapitalize="none" placeholder={isSponsor ? "Ник" : "Суффикс ника"} placeholderTextColor={colors.textFaint} />
             <PressableScale onPress={sendPasswordReset}>
               <Text style={{ color: colors.accent, fontSize: 12, marginBottom: 14 }}>
                 🔑 Сменить пароль — отправим новый на почту

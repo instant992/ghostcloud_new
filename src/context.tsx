@@ -49,6 +49,19 @@ async function writeNodesCache(nodes: VpnNode[], unsupportedCount: number) {
   await writeCacheFile(NODES_CACHE_FILE, { ts: Date.now(), nodes, unsupportedCount });
 }
 
+export type UserBadge = {
+  id: number;
+  name: string;
+  description: string;
+  image_url: string;
+};
+
+export type NickStyle = {
+  badge_type?: string;
+  no_sponsor?: boolean;
+  [key: string]: any;
+};
+
 export type MeInfo = {
   login?: string;
   display_name?: string;
@@ -66,6 +79,8 @@ export type MeInfo = {
   is_sponsor?: boolean;
   sponsor_device_bonus_claimed?: boolean;
   is_donor_eligible?: boolean;
+  nick_style?: NickStyle | null;
+  badges?: UserBadge[];
 };
 
 type AppState = {
