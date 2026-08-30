@@ -72,6 +72,9 @@ export function ProviderPicker({
               key={p.id}
               style={[styles.item, on && styles.itemOn]}
               onPress={() => onChange(p.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+              accessibilityLabel={`Способ оплаты: ${p.name}`}
             >
               <View style={[styles.iconBox, on && { backgroundColor: colors.accentSoft }]}>
                 <Ionicons

@@ -145,6 +145,8 @@ export function BalanceSheet({
                 onClose();
                 nav.navigate("TopUp");
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Пополнить баланс"
             >
               <Ionicons name="add" size={16} color="#fff" />
               <Text style={styles.topupBtnText}>Пополнить</Text>
@@ -158,6 +160,8 @@ export function BalanceSheet({
               onClose();
               nav.navigate("Тарифы");
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`Продлить подписку. ${daysLeft > 0 ? `Осталось ${daysLeft} дн.` : "Подписка истекла"}`}
           >
             <View style={[styles.actionIcon, { backgroundColor: colors.green + "26" }]}>
               <Ionicons name="cart-outline" size={19} color={colors.green} />

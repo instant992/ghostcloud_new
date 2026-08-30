@@ -74,6 +74,9 @@ export default function TopUpScreen() {
             <PressableScale
               key={p}
               onPress={() => setAmount(String(p))}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: String(p) === amount }}
+              accessibilityLabel={`Сумма ${p} рублей`}
               style={[
                 styles.preset,
                 String(p) === amount && { borderColor: colors.accent, backgroundColor: colors.accentSoft },
@@ -84,6 +87,7 @@ export default function TopUpScreen() {
           ))}
         </View>
         <Input
+          label="Сумма, ₽"
           placeholder="Сумма, ₽"
           keyboardType="number-pad"
           value={amount}

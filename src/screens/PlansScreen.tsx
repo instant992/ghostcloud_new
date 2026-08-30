@@ -226,7 +226,14 @@ export default function PlansScreen() {
           const active = selectedPlan === key;
           const trial = key === "trial";
           return (
-            <PressableScale key={key} onPress={() => setSelectedPlan(key)} style={styles.planCard}>
+            <PressableScale
+              key={key}
+              onPress={() => setSelectedPlan(key)}
+              style={styles.planCard}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`Тариф ${names[key] || planLabel(key)}, ${prices[key] ?? planPrice(key)} рублей`}
+            >
               <View
                 style={[
                   styles.planIconWrap,
