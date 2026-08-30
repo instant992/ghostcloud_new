@@ -128,21 +128,24 @@ export default function StatsScreen() {
 
       <Text style={styles.chartTitle}>Последние 14 дней</Text>
       <View style={styles.chartCard}>
-        <View style={styles.bars}>
-          {chart.map((d) => {
-            const v = d.stat.rx + d.stat.tx;
-            const h = Math.max(3, Math.round((v / maxTotal) * 90));
-            return (
-              <View key={d.date} style={styles.barWrap}>
-                <Text style={styles.barValue}>
-                  {v > 0 ? formatBytes(v) : ""}
-                </Text>
-                <View style={[styles.bar, { height: h }, v === 0 && { backgroundColor: colors.bgSoft }]} />
-                <Text style={styles.barLabel}>{d.date.slice(8)}</Text>
-              </View>
-            );
-          })}
-        </View>
+        {chart.every((d) => d.stat.rx + d.stat.tx === 0) ? (
+          <Text style={styles.chartEmpty}>
+            Пока нет данных — график заполнится после первого подключения
+          </Text>
+        ) : (
+          <View style={styles.bars}>
+            {chart.map((d) => {
+              const v = d.stat.rx + d.stat.tx;
+              const h = Math.max(3, Math.round((v / maxTotal) * 90));
+              return (
+                <View key={d.date} style={styles.barWrap} accessibilityLabel={`${d.date.slice(8)}: ${v > 0 ? formatBytes(v) : "нет данных"}`}>
+                  <View style={[styles.bar, { height: h }, v === 0 && { backgroundColor: colors.bgSoft }]} />
+                  <Text style={styles.barLabel}>{d.date.slice(8)}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       <Text style={styles.chartTitle}>По серверам</Text>
@@ -167,7 +170,7 @@ export default function StatsScreen() {
                 <View style={styles.progressBg}>
                   <View style={[styles.progressBar, { width: `${Math.round(share * 100)}%` }]} />
                 </View>
-                <Text style={{ color: colors.textFaint, fontSize: 9, marginTop: 3 }}>
+                <Text style={{ color: colors.textFaint, fontSize: 11, marginTop: 3 }}>
                   ↓ {formatBytes(n.rx)} · ↑ {formatBytes(n.tx)}
                 </Text>
               </View>
@@ -203,7 +206,7 @@ export default function StatsScreen() {
                   <View style={styles.progressBg}>
                     <View style={[styles.progressBar, { width: `${Math.max(2, Math.round(share * 100))}%` }]} />
                   </View>
-                  <Text style={{ color: colors.textFaint, fontSize: 9, marginTop: 3 }}>
+                  <Text style={{ color: colors.textFaint, fontSize: 11, marginTop: 3 }}>
                     ↓ {formatBytes(a.rx)} · ↑ {formatBytes(a.tx)}
                   </Text>
                 </View>
@@ -265,7 +268,7 @@ const makeStyles = () => StyleSheet.create({
     marginBottom: 12,
   },
   bars: { flexDirection: "row", alignItems: "flex-end", gap: 5 },
-  barWrap: { flex: 1, alignItems: "center", justifyContent: "flex-end", height: 130 },
+  barWrap: { flex: 1, alignItems: "center", justifyContent: "flex-end", height: 110 },
   bar: {
     width: "100%",
     maxWidth: 22,
@@ -273,8 +276,9 @@ const makeStyles = () => StyleSheet.create({
     borderRadius: 6,
     marginBottom: 6,
   },
-  barLabel: { color: colors.textFaint, fontSize: 9 },
+  barLabel: { color: colors.textFaint, fontSize: 10 },
   barValue: { color: colors.textDim, fontSize: 8, marginBottom: 3, textAlign: "center" },
+  chartEmpty: { color: colors.textFaint, fontSize: 13, textAlign: "center", paddingVertical: 14 },
   progressBg: {
     height: 6,
     borderRadius: 3,

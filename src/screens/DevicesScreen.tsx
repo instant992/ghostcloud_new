@@ -1,8 +1,10 @@
 import React, { useCallback, useState } from "react";
 import { Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Screen, Subtitle } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { LoadingState } from "../components/Foundations";
 import { banDevice, buyDevices, deleteDevice, getDevices, unbanDevice } from "../api";
 import * as deviceNames from "../deviceNames";
 import { colors, useTheme } from "../theme";
@@ -29,6 +31,7 @@ export default function DevicesScreen() {
   const [showBanned, setShowBanned] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [firstLoad, setFirstLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   const [renameTarget, setRenameTarget] = useState<Device | null>(null);
@@ -45,6 +48,7 @@ export default function DevicesScreen() {
         setBannedCount(r.banned_count ?? 0);
       }
     } catch {}
+    setFirstLoad(false);
   }, []);
 
   const loadBanned = useCallback(async () => {
@@ -169,8 +173,12 @@ export default function DevicesScreen() {
 
   return (
     <Screen>
-      <Subtitle>{`Подключено ${count} из ${limit}${extra ? ` (+${extra} доп.)` : ""}`}</Subtitle>
-      <ErrorText>{error}</ErrorText>
+      {firstLoad ? (
+        <LoadingState label="Загружаем устройства…" />
+      ) : (
+        <>
+          <Subtitle>{`Подключено ${count} из ${limit}${extra ? ` (+${extra} доп.)` : ""}`}</Subtitle>
+          <ErrorText>{error}</ErrorText>
 
       <View style={{ flexDirection: "row", marginBottom: 12 }}>
         <PressableScale style={styles.actionBtn} onPress={onBuy}>
@@ -207,11 +215,19 @@ export default function DevicesScreen() {
                 setRenameTarget(item);
                 setRenameValue(names[item.hwid_full] || "");
               }}
-              style={{ marginRight: 12 }}
+              style={styles.itemIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Переименовать устройство ${displayName(item)}`}
             >
-              <Text style={{ fontSize: 18 }}>✏️</Text>
+              <Ionicons name="pencil-outline" size={18} color={colors.textDim} />
             </PressableScale>
-            <Text style={{ fontSize: 24 }}>💻</Text>
+            <View style={styles.itemIconBox}>
+              <Ionicons
+                name={item.os.toLowerCase().includes("android") ? "phone-portrait-outline" : "laptop-outline"}
+                size={20}
+                color={colors.accent}
+              />
+            </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.itemTitle} numberOfLines={1}>
                 {displayName(item)}
@@ -223,11 +239,21 @@ export default function DevicesScreen() {
                   : `HWID: ${item.hwid}`}
               </Text>
             </View>
-            <PressableScale onPress={() => onDelete(item)}>
-              <Text style={{ color: colors.textFaint, paddingHorizontal: 8 }}>🗑</Text>
+            <PressableScale
+              onPress={() => onDelete(item)}
+              style={styles.itemIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Удалить устройство ${displayName(item)}`}
+            >
+              <Ionicons name="trash-outline" size={19} color={colors.textFaint} />
             </PressableScale>
-            <PressableScale onPress={() => onBan(item)}>
-              <Text style={{ color: colors.red, paddingHorizontal: 8 }}>🚫</Text>
+            <PressableScale
+              onPress={() => onBan(item)}
+              style={styles.itemIconBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`Забанить устройство ${displayName(item)}`}
+            >
+              <Ionicons name="close-circle-outline" size={20} color={colors.red} />
             </PressableScale>
           </View>
         )}
@@ -237,6 +263,8 @@ export default function DevicesScreen() {
           </Text>
         }
       />
+        </>
+      )}
       <Modal visible={!!renameTarget} transparent animationType="fade" onRequestClose={() => setRenameTarget(null)}>
         <PressableScale style={styles.modalBackdrop} onPress={() => setRenameTarget(null)}>
           <PressableScale style={styles.modalCard} onPress={() => {}}>
@@ -295,6 +323,21 @@ const makeStyles = () => StyleSheet.create({
   },
   itemTitle: { color: colors.text, fontWeight: "700", fontSize: 14 },
   itemSub: { color: colors.textFaint, fontSize: 11, marginTop: 2 },
+  itemIconBtn: {
+    width: 40,
+    height: 40,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    marginHorizontal: 2,
+  },
+  itemIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.bgSoft,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+  },
   actionBtn: {
     flex: 1,
     backgroundColor: colors.cardLight,
