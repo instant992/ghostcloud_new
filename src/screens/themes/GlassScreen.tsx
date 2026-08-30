@@ -1,9 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Dimensions,
-  Easing,
   Image,
   Pressable,
   ScrollView,
@@ -13,7 +11,7 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
-import Svg, { Circle, Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -25,7 +23,8 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor as pingColorFor } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor } from "../../theme";
+import { PowerButton } from "../../components/PowerButton";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -213,18 +212,7 @@ export default function GlassScreen() {
     pingStore.pingAll(nodes).catch(() => {});
   }, [nodes]);
 
-  // Пульс свечения сферы
-  const pulse = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const a = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 2000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0, duration: 2000, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ])
-    );
-    a.start();
-    return () => a.stop();
-  }, [pulse]);
+  // Пульс и свечение — внутри общего компонента <PowerButton />
 
   const daysLeft = useMemo(() => {
     if (!me?.expire_at) return 0;
@@ -331,9 +319,6 @@ export default function GlassScreen() {
   const expireColor =
     daysLeft <= 0 ? colors.red : daysLeft <= 3 ? colors.orange : colors.textDim;
 
-  const light = isLightPalette();
-  const pc = powerButtonColors();
-
   return (
     <View style={styles.screen}>
       <GlassBackground />
@@ -392,69 +377,9 @@ export default function GlassScreen() {
           </GlassCard>
         </View>
 
-        {/* Стеклянная сфера питания */}
-        <View style={{ alignItems: "center", paddingVertical: 24 }}>
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.sphereGlow,
-              {
-                backgroundColor: vpnRunning ? "#22C55E" : "#7C3AED",
-                opacity: pulse.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: vpnRunning ? [0.15, 0.25] : [0.08, 0.12],
-                }),
-                transform: [
-                  { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] }) },
-                ],
-              },
-            ]}
-          />
-          <View style={[styles.sphereWrap, { shadowColor: vpnRunning ? pc.glow : "transparent" }]}>
-            <View style={styles.sphereRing} pointerEvents="none" />
-            <Svg width={180} height={180}>
-              <Defs>
-                <RadialGradient id="gcSphereOff" cx="0.35" cy="0.3" r="0.85">
-                  <Stop offset="0" stopColor={light ? "#FFFFFF" : "#3B2D5E"} stopOpacity="1" />
-                  <Stop offset="1" stopColor={light ? "#E0D9F0" : "#1A1030"} stopOpacity="1" />
-                </RadialGradient>
-                <RadialGradient id="gcSphereOn" cx="0.35" cy="0.3" r="0.85">
-                  <Stop offset="0" stopColor="#8B5CF6" stopOpacity="1" />
-                  <Stop offset="0.6" stopColor="#7C3AED" stopOpacity="1" />
-                  <Stop offset="1" stopColor="#5B21B6" stopOpacity="1" />
-                </RadialGradient>
-              </Defs>
-              <Circle cx={90} cy={90} r={90} fill={vpnRunning ? "url(#gcSphereOn)" : "url(#gcSphereOff)"} />
-              <Ellipse cx={90} cy={48} rx={56} ry={26} fill="#FFFFFF" opacity={light ? 0.35 : 0.07} />
-              <Circle
-                cx={90}
-                cy={90}
-                r={89}
-                stroke="#FFFFFF"
-                strokeOpacity={light ? 0.5 : 0.16}
-                strokeWidth={1.5}
-                fill="none"
-              />
-            </Svg>
-            <Pressable
-              onPress={toggle}
-              disabled={busy}
-              accessibilityRole="button"
-              accessibilityLabel={vpnRunning ? "Выключить VPN" : "Включить VPN"}
-              accessibilityState={{ busy }}
-              style={styles.spherePress}
-            >
-              {busy ? (
-                <ActivityIndicator size="large" color={vpnRunning ? "#fff" : colors.accent} />
-              ) : (
-                <Ionicons
-                  name="power"
-                  size={60}
-                  color={vpnRunning ? "#fff" : light ? colors.accent : "rgba(255,255,255,0.92)"}
-                />
-              )}
-            </Pressable>
-          </View>
+        {/* Кнопка питания — идентична основной теме */}
+        <View style={{ alignItems: "center", paddingVertical: 8 }}>
+          <PowerButton connected={vpnRunning} busy={busy} onToggle={toggle} />
         </View>
 
         {/* LTE OPEN */}
@@ -547,22 +472,6 @@ export default function GlassScreen() {
           </Pressable>
         </GlassCard>
 
-        {/* Поддержка */}
-        <GlassCard
-          radius={16}
-          style={{ flexDirection: "row", alignItems: "center", padding: 14, marginTop: 10 }}
-          onPress={() => nav.navigate("Support")}
-        >
-          <View style={[styles.flagBox, { backgroundColor: "rgba(52,211,153,0.12)" }]}>
-            <Ionicons name="bulb-outline" size={19} color={colors.green} />
-          </View>
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.serverName}>Поддержка</Text>
-            <Text style={styles.serverSub}>Напишите нам, если что-то не так</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
-        </GlassCard>
-
         {/* Два стеклянных блока */}
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <GlassCard
@@ -642,40 +551,6 @@ const makeStyles = () => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 2,
-  },
-  sphereGlow: {
-    position: "absolute",
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    top: 19,
-  },
-  sphereWrap: {
-    width: 210,
-    height: 210,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowOpacity: 0.4,
-    shadowRadius: 40,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 18,
-  },
-  sphereRing: {
-    position: "absolute",
-    width: 194,
-    height: 194,
-    borderRadius: 97,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.cardLight,
-  },
-  spherePress: {
-    position: "absolute",
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    alignItems: "center",
-    justifyContent: "center",
   },
   lteIconBox: {
     width: 32,

@@ -85,8 +85,8 @@ const Tabs = createBottomTabNavigator();
 
 const TAB_META: Record<string, { icon: string; outline: string; label: string }> = {
   Главная: { icon: "home", outline: "home-outline", label: "Главная" },
-  Статистика: { icon: "bar-chart", outline: "bar-chart-outline", label: "Статистика" },
-  Тарифы: { icon: "card", outline: "card-outline", label: "Тарифы" },
+  // «Статистика» и «Тарифы» остаются маршрутами (доступны с главной и из профиля),
+  // но скрыты из нижнего меню — туда они не нужны.
   Профиль: { icon: "person", outline: "person-outline", label: "Профиль" },
   Настройки: { icon: "settings", outline: "settings-outline", label: "Настройки" },
 };
