@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { PressableScale } from "../components/PressableScale";
 import { PowerButton } from "../components/PowerButton";
-import { AppFilterModal } from "../components/AppFilterModal";
+import { ConnectionFilterModal } from "../components/ConnectionFilterModal";
 import { BalanceSheet } from "../components/BalanceSheet";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +20,8 @@ import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
 import * as appFilterMod from "../vpn/appFilter";
+import { computeBypassForNetwork, loadFilterSettings } from "../vpn/connectionFilter";
+import { getNetworkType } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
 import { colors, splitNameFlag, formatBytes, useTheme, pingColor } from "../theme";
@@ -38,6 +40,8 @@ export default function HomeScreen() {
   const [appsOpen, setAppsOpen] = useState(false);
   const [allowedCount, setAllowedCount] = useState(0);
   const [blockedCount, setBlockedCount] = useState(0);
+  const [activeFilters, setActiveFilters] = useState(0);
+  const [bypassSummary, setBypassSummary] = useState("");
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
   const [refreshingNodes, setRefreshingNodes] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
@@ -65,6 +69,16 @@ export default function HomeScreen() {
         setAllowedCount(f.allowed.length);
         setBlockedCount(f.blocked.length);
       }).catch(() => {});
+      // Активные профили фильтра соединения
+      try {
+        const s = loadFilterSettings();
+        setActiveFilters(s.active.length);
+        const bypass = computeBypassForNetwork(s, getNetworkType());
+        const parts: string[] = [];
+        if (bypass.domains.length) parts.push(`${bypass.domains.length} сайтов мимо`);
+        if (bypass.packages.length) parts.push(`${bypass.packages.length} приложений мимо`);
+        setBypassSummary(parts.join(", "));
+      } catch {}
       if (!vpnRunning) return;
       const t = setInterval(loadStats, 15000);
       return () => clearInterval(t);
@@ -109,7 +123,7 @@ export default function HomeScreen() {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } else {
         if (!selectedNode) throw new Error("Нет доступных серверов");
-        await connect(selectedNode);
+        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
@@ -219,19 +233,21 @@ export default function HomeScreen() {
           style={styles.serverRow}
           onPress={() => setAppsOpen(true)}
           accessibilityRole="button"
-          accessibilityLabel="Фильтр приложений: какие приложения идут через VPN"
+          accessibilityLabel="Фильтр соединения: профили обхода и фильтр приложений"
         >
           <View style={styles.serverIcon}>
-            <Ionicons name="apps" size={20} color={colors.accent} />
+            <Ionicons name="filter" size={20} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.serverName}>Приложения</Text>
+            <Text style={styles.serverName}>Фильтр соединения</Text>
             <Text style={styles.serverSub} numberOfLines={1}>
-              {allowedCount > 0
-                ? `Через VPN: ${allowedCount} · белый список`
-                : blockedCount > 0
-                  ? `Мимо VPN: ${blockedCount}`
-                  : "Все приложения через VPN"}
+              {activeFilters > 0
+                ? `Активные профили: ${activeFilters}${bypassSummary ? ` · ${bypassSummary}` : ""}`
+                : allowedCount > 0
+                  ? `Приложения: через VPN ${allowedCount} (белый список)`
+                  : blockedCount > 0
+                    ? `Приложения: мимо VPN ${blockedCount}`
+                    : "Всё через VPN"}
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
@@ -279,12 +295,24 @@ export default function HomeScreen() {
         </PressableScale>
       </View>
 
-      <AppFilterModal
+      <ConnectionFilterModal
         visible={appsOpen}
-        onClose={() => setAppsOpen(false)}
-        onChange={(allowed, blocked) => {
-          setAllowedCount(allowed.length);
-          setBlockedCount(blocked.length);
+        onClose={() => {
+          setAppsOpen(false);
+          // обновляем сводку на карточке после закрытия
+          try {
+            const s = loadFilterSettings();
+            setActiveFilters(s.active.length);
+            const bypass = computeBypassForNetwork(s, getNetworkType());
+            const parts: string[] = [];
+            if (bypass.domains.length) parts.push(`${bypass.domains.length} сайтов мимо`);
+            if (bypass.packages.length) parts.push(`${bypass.packages.length} приложений мимо`);
+            setBypassSummary(parts.join(", "));
+          } catch {}
+          appFilterMod.loadFilter().then((f) => {
+            setAllowedCount(f.allowed.length);
+            setBlockedCount(f.blocked.length);
+          }).catch(() => {});
         }}
       />
 
@@ -313,7 +341,7 @@ export default function HomeScreen() {
               setError(null);
               try {
                 await disconnect();
-                await connect(node);
+                await connect(node, { isSponsor: me?.is_sponsor === true });
                 setVpnRunning(true);
                 setSeconds(0);
               } catch (e: any) {

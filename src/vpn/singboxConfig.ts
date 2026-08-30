@@ -1,4 +1,5 @@
 import { VpnNode } from "./parse";
+import { getDnsProvider, type DnsProvider } from "./dns";
 
 const TUN_ADDRESS_V4 = "26.26.26.1/30";
 const TUN_ADDRESS_V6 = "fdfe:dcba:9876::1/126";
@@ -119,12 +120,38 @@ function buildOutbound(node: VpnNode): Record<string, any> | null {
 }
 
 /** Конфиг sing-box для ноды. TUN-дескриптор подставляется нативным сервисом (поле tunFd). */
-export function buildSingBoxConfig(node: VpnNode): string {
+export function buildSingBoxConfig(
+  node: VpnNode,
+  dns?: DnsProvider,
+  bypassDomains: string[] = []
+): string {
   const outbound = buildOutbound(node);
   if (!outbound) throw new Error("Протокол не поддерживается ядром sing-box");
+  const provider = dns || getDnsProvider(null);
+
+  // DNS-серверы: берём первый из списка провайдера (остальные — запасные)
+  const dnsServers = provider.singbox.map((addr, i) => ({
+    tag: i === 0 ? "primary" : `backup${i}`,
+    address: addr,
+    address_resolver: undefined,
+  }));
+
+  // Правила «мимо VPN» для доменов активных профилей фильтра соединения
+  const domainBypassRules: Record<string, any>[] = [];
+  if (bypassDomains.length) {
+    domainBypassRules.push({
+      domain_suffix: bypassDomains,
+      outbound: "direct",
+    });
+  }
 
   const config: Record<string, any> = {
     log: { level: "info", timestamp: true },
+    dns: {
+      servers: dnsServers,
+      final: "primary",
+      strategy: "ipv4_only",
+    },
     inbounds: [
       {
         type: "tun",
@@ -140,6 +167,7 @@ export function buildSingBoxConfig(node: VpnNode): string {
     outbounds: [outbound, { type: "direct", tag: "direct" }],
     route: {
       rules: [
+        ...domainBypassRules,
         {
           ip_is_private: true,
           outbound: "direct",

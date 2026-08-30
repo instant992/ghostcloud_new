@@ -21,8 +21,9 @@ import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
 import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode } from "../../theme";
-import { AppFilterModal } from "../../components/AppFilterModal";
+import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
+import { SponsorHeart } from "../../components/Badges";
 import { showToast } from "../../components/Toast";
 
 function pluralDays(n: number): string {
@@ -131,7 +132,7 @@ export default function V2rayScreen() {
           showToast("Нет доступных серверов");
           return;
         }
-        await connect(selectedNode);
+        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -201,7 +202,7 @@ export default function V2rayScreen() {
       selectNode(best.id);
       if (vpnRunning) {
         await disconnect();
-        await connect(best);
+        await connect(best, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
       }
       const name = splitNameFlag(best.name).name;
@@ -359,7 +360,7 @@ export default function V2rayScreen() {
         )}
       </Pressable>
 
-      <AppFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
+      <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
 
       <BalanceSheet
         visible={balanceOpen}
@@ -465,7 +466,12 @@ export default function V2rayScreen() {
                     }}
                   >
                     <Ionicons name={icon} size={14} color={on ? "#fff" : autoLocked ? colors.textFaint : colors.textDim} />
-                    {autoLocked && <Ionicons name="lock-closed" size={9} color={colors.textFaint} />}
+                    {autoLocked && (
+                      <>
+                        <Ionicons name="lock-closed" size={9} color={colors.textFaint} />
+                        <SponsorHeart size={8} />
+                      </>
+                    )}
                     {on && !autoLocked && <Text style={styles.themeSegText}>{label}</Text>}
                   </Pressable>
                 );

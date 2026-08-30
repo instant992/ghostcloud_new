@@ -132,6 +132,25 @@ export function onVpnStateChanged(cb: (running: boolean) => void): () => void {
   return () => sub.remove();
 }
 
+/** Текущий тип сети: wifi / mobile / ethernet / other / none */
+export function getNetworkType(): string {
+  if (!XrayNative?.getNetworkType) return "none";
+  try {
+    return String(XrayNative.getNetworkType() || "none");
+  } catch {
+    return "none";
+  }
+}
+
+/** События смены типа сети (Wi-Fi ↔ LTE) — для фильтра соединения */
+export function onNetworkTypeChanged(cb: (type: string) => void): () => void {
+  if (!emitter) return () => {};
+  const sub: any = emitter.addListener("onNetworkTypeChanged", (e: { type: string }) =>
+    cb(String(e?.type || "none"))
+  );
+  return () => sub.remove();
+}
+
 export async function startVpn(
   configJson: string,
   allowedApps: string[] = [],

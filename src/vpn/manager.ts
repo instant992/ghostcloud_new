@@ -1,12 +1,15 @@
 import { deviceHeaders, loadSession } from "../storage";
-import { getSelectedCore, setSetting } from "../settings";
+import { getSelectedCore, getSetting, setSetting } from "../settings";
 import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "./parse";
 import type { VpnNode } from "./parse";
 import { buildXrayConfig } from "./xrayConfig";
 import { buildSingBoxConfig } from "./singboxConfig";
 import { buildMihomoConfig } from "./mihomoConfig";
 import { loadFilter } from "./appFilter";
+import { getDnsProvider } from "./dns";
+import { computeBypassForNetwork, loadFilterSettings } from "./connectionFilter";
 import {
+  getNetworkType,
   isVpnRunning,
   onVpnStateChanged,
   requestVpnPermission,
@@ -28,26 +31,33 @@ export function setFailoverPool(nodes: VpnNode[]): void {
   failoverPool = nodes;
 }
 
-function buildConfigFor(core: string, node: VpnNode): string | null {
+/** Выбранный DNS-провайдер (преимущество спонсоров; для остальных — «Автоматически») */
+function selectedDnsProvider(isSponsor: boolean) {
+  const id = isSponsor ? getSetting("dns_provider", "auto") : "auto";
+  return getDnsProvider(id);
+}
+
+function buildConfigFor(core: string, node: VpnNode, bypassDomains: string[], isSponsor: boolean): string | null {
   try {
-    if (core === "sing-box") return buildSingBoxConfig(node);
-    if (core === "mihomo") return buildMihomoConfig(node);
+    const dns = selectedDnsProvider(isSponsor);
+    if (core === "sing-box") return buildSingBoxConfig(node, dns, bypassDomains);
+    if (core === "mihomo") return buildMihomoConfig(node, dns, bypassDomains);
     if (!node.supportedByXray) return null;
-    return buildXrayConfig(node, null);
+    return buildXrayConfig(node, null, dns, bypassDomains);
   } catch {
     return null;
   }
 }
 
 /** Собирает инфо для авто-файловера: текущий сервер + запасные (не-LTE, поддерживаемые ядром). */
-function buildFailoverInfo(core: string, current: VpnNode): FailoverInfo | undefined {
+function buildFailoverInfo(core: string, current: VpnNode, bypassDomains: string[], isSponsor: boolean): FailoverInfo | undefined {
   const candidates = failoverPool
     .filter((n) => n.id !== current.id)
     .filter((n) => n.source !== "lte")
     .filter((n) => (core === "xray" ? n.supportedByXray : true))
     .slice(0, FAILOVER_MAX)
     .map((n) => {
-      const config = buildConfigFor(core, n);
+      const config = buildConfigFor(core, n, bypassDomains, isSponsor);
       if (!config) return null;
       return { config, host: n.address, port: n.port };
     })
@@ -154,7 +164,22 @@ export async function ensurePermission(): Promise<boolean> {
   return requestVpnPermission();
 }
 
-export async function connect(node: VpnNode): Promise<void> {
+/** Итоговый набор «мимо VPN» из активных профилей фильтра соединения
+ *  (пакеты — системный список, домены — правила ядра), под текущую сеть. */
+function currentBypass(): { packages: string[]; domains: string[] } {
+  try {
+    const s = loadFilterSettings();
+    return computeBypassForNetwork(s, getNetworkType());
+  } catch {
+    return { packages: [], domains: [] };
+  }
+}
+
+export type ConnectOptions = {
+  isSponsor?: boolean;
+};
+
+export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise<void> {
   const granted = await ensurePermission();
   if (!granted) throw new Error("Нет разрешения на создание VPN-подключения");
   const running = await isVpnRunning();
@@ -163,12 +188,23 @@ export async function connect(node: VpnNode): Promise<void> {
     await new Promise((r) => setTimeout(r, 800));
   }
   const filter = await loadFilter();
-  // Если заполнен белый список — блок-лист игнорируется (ограничение Android)
-  const allowed = filter.allowed;
-  const blocked = allowed.length ? [] : filter.blocked;
+  const bypass = currentBypass();
+  // Системный фильтр приложений: к выбранному вручную белому/чёрному списку
+  // добавляются пакеты активных профилей «мимо VPN» (Android фиксирует список
+  // приложений при establish(), поэтому пакеты — только на старте)
+  const bypassPkgs = new Set(bypass.packages);
+  let allowed = filter.allowed;
+  let blocked = filter.blocked;
+  if (allowed.length) {
+    // белый список: пакет профиля «мимо VPN» должен быть исключён из белого
+    allowed = allowed.filter((p) => !bypassPkgs.has(p));
+  } else {
+    blocked = [...new Set([...blocked, ...bypass.packages])];
+  }
 
   const core = getSelectedCore();
-  const failover = buildFailoverInfo(core, node);
+  const isSponsor = opts.isSponsor === true;
+  const failover = buildFailoverInfo(core, node, bypass.domains, isSponsor);
 
   // Сохраняем конфигурацию для плитки быстрых настроек (включение без приложения)
   const saveTileConfig = (config: string, coreKey: string) => {
@@ -186,13 +222,13 @@ export async function connect(node: VpnNode): Promise<void> {
     } catch {}
   };
   if (core === "sing-box") {
-    const config = buildSingBoxConfig(node);
+    const config = buildSingBoxConfig(node, selectedDnsProvider(isSponsor), bypass.domains);
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
     return;
   }
   if (core === "mihomo") {
-    const config = buildMihomoConfig(node);
+    const config = buildMihomoConfig(node, selectedDnsProvider(isSponsor), bypass.domains);
     saveTileConfig(config, "mihomo");
     await startLibCoreVpn("mihomo", config, allowed, blocked, failover);
     return;
@@ -200,7 +236,7 @@ export async function connect(node: VpnNode): Promise<void> {
   if (!node.supportedByXray) {
     throw new Error("Hysteria2 доступен только на ядрах sing-box и mihomo — выберите их в настройках");
   }
-  const config = buildXrayConfig(node, null);
+  const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains);
   saveTileConfig(config, "xray");
   await startVpn(config, allowed, blocked, failover);
 }

@@ -369,21 +369,23 @@ export default function ProfileScreen() {
           </View>
 
           <View style={styles.rowsBlock}>
-            <Row label="Тариф" value={me?.plan || "—"} />
+            <Row label="Тариф" value={me?.plan || "—"} compact />
             <Row
               label="Истекает через"
               value={subscriptionActive ? `${daysLeft} дн.` : "истекла"}
               valueColor={subscriptionActive ? (daysLeft <= 3 ? colors.orange : colors.text) : colors.red}
+              compact
             />
             <PressableScale onPress={() => setBalanceOpen(true)} accessibilityLabel="Баланс и история операций">
               <Row
                 label="Баланс"
                 value={`${((me?.balance || 0) / 100).toFixed(0)} ₽  ›`}
                 valueColor={colors.accent}
+                compact
               />
             </PressableScale>
             <PressableScale onPress={() => nav.navigate("Devices")} accessibilityLabel="Устройства">
-              <Row label="Устройства" value={`${me?.device_count ?? 0} / ${me?.device_limit ?? 6}  ›`} />
+              <Row label="Устройства" value={`${me?.device_count ?? 0} / ${me?.device_limit ?? 6}  ›`} compact />
             </PressableScale>
             {isSponsor && !me?.sponsor_device_bonus_claimed && (
               <View style={styles.bonusRow}>
@@ -699,15 +701,15 @@ const makeStyles = () =>
     name: { color: colors.text, fontSize: 16, fontWeight: "800", flexShrink: 1 },
     email: { color: colors.textDim, fontSize: 12, marginTop: 1 },
     editBtn: { padding: 8 },
-    rowsBlock: { marginTop: 8 },
+    rowsBlock: { marginTop: 4 },
     bonusRow: {
       flexDirection: "row",
       alignItems: "center",
       gap: 8,
-      paddingVertical: 9,
+      paddingVertical: 7,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      marginTop: 4,
+      marginTop: 2,
     },
     bonusTitle: { color: colors.text, fontSize: 14, fontWeight: "600" },
     bonusSub: { color: colors.textDim, fontSize: 11, marginTop: 1 },

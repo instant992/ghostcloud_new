@@ -1,4 +1,5 @@
 import { VpnNode } from "./parse";
+import { getDnsProvider, type DnsProvider } from "./dns";
 
 export function buildStreamSettings(node: VpnNode): Record<string, any> {
   const network = node.network || "tcp";
@@ -191,14 +192,28 @@ const TUN_GATEWAY_V4 = "26.26.26.1";
 const TUN_GATEWAY_V6 = "fdfe:dcba:9876::1";
 const TUN_DNS = "10.111.222.3";
 
-export function buildXrayConfig(node: VpnNode, tunFd: number | null): string {
+export function buildXrayConfig(
+  node: VpnNode,
+  tunFd: number | null,
+  dns?: DnsProvider,
+  bypassDomains: string[] = []
+): string {
   const outbound = buildOutbound(node);
   if (!outbound) throw new Error("Протокол не поддерживается ядром Xray");
+
+  const provider = dns || getDnsProvider(null);
+
+  // Правила «мимо VPN» для доменов из активных профилей фильтра соединения
+  const domainRules: Record<string, any>[] = bypassDomains.map((d) => ({
+    type: "field",
+    domain: [d],
+    outboundTag: "direct",
+  }));
 
   const config: Record<string, any> = {
     log: { loglevel: "warning" },
     dns: {
-      servers: ["https://8.8.8.8/dns-query", "https://1.1.1.1/dns-query", "8.8.8.8"],
+      servers: provider.xray,
       queryStrategy: "UseIPv4",
     },
     inbounds: [
@@ -223,6 +238,8 @@ export function buildXrayConfig(node: VpnNode, tunFd: number | null): string {
       rules: [
         // Весь DNS с TUN (10.111.222.3) отвечает встроенный DNS-сервер Xray
         { type: "field", ip: [TUN_DNS], outboundTag: "dns-out" },
+        // Домены активных профилей «мимо VPN» — напрямую
+        ...domainRules,
         { type: "field", ip: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16"], outboundTag: "direct" },
         { type: "field", ip: ["224.0.0.0/3", "ff00::/8"], outboundTag: "block" },
       ],

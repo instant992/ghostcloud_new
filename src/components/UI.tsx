@@ -183,11 +183,11 @@ export function PasswordInput({ label, ...props }: TextInputProps & { label?: st
   );
 }
 
-export function Row({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
+export function Row({ label, value, valueColor, compact }: { label: string; value: string; valueColor?: string; compact?: boolean }) {
   useTheme();
   const styles = makeStyles();
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, compact && styles.rowCompact]}>
       <Text style={styles.rowLabel}>{label}</Text>
       <Text style={[styles.rowValue, { color: valueColor || colors.text }]}>{value}</Text>
     </View>
@@ -272,6 +272,7 @@ const makeStyles = () => StyleSheet.create({
     alignItems: "center",
     paddingVertical: 9,
   },
+  rowCompact: { paddingVertical: 5 },
   rowLabel: { color: colors.textDim, fontSize: 14 },
   rowValue: { fontSize: 14, fontWeight: "700", maxWidth: "60%", textAlign: "right" },
   eyeBtn: {

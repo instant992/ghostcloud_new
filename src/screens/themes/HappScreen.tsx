@@ -27,7 +27,7 @@ import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
-import { AppFilterModal } from "../../components/AppFilterModal";
+import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { showToast } from "../../components/Toast";
 import * as stats from "../../stats";
@@ -179,7 +179,7 @@ export default function HappScreen() {
           showToast("Нет доступных серверов");
           return;
         }
-        await connect(selectedNode);
+        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -198,7 +198,7 @@ export default function HappScreen() {
       try {
         setBusy(true);
         await disconnect();
-        await connect(node);
+        await connect(node, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
         setSeconds(0);
       } catch (e: any) {
@@ -477,7 +477,7 @@ export default function HappScreen() {
         </View>
       </ScrollView>
 
-      <AppFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
+      <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
 
       <BalanceSheet
         visible={balanceOpen}

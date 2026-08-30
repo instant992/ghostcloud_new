@@ -14,10 +14,69 @@ class XrayCoreModule : Module() {
   private val context
     get() = requireNotNull(appContext.reactContext)
 
+  private var networkCallback: android.net.ConnectivityManager.NetworkCallback? = null
+  @Volatile
+  private var lastNetType: String = ""
+
+  /** Текущий тип сети: wifi / mobile / ethernet / other / none */
+  private fun netTypeNow(): String {
+    return try {
+      val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        ?: return "none"
+      val net = cm.activeNetwork ?: return "none"
+      val caps = cm.getNetworkCapabilities(net) ?: return "none"
+      when {
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
+        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+        else -> "other"
+      }
+    } catch (e: Throwable) {
+      "none"
+    }
+  }
+
+  /** Слушаем смены сети (Wi-Fi ↔ LTE) — события для авто-переподключения фильтра соединения */
+  private fun startNetworkWatcher() {
+    try {
+      val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        ?: return
+      val cb = object : android.net.ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: android.net.Network) {
+          emit()
+        }
+
+        override fun onLost(network: android.net.Network) {
+          emit()
+        }
+
+        override fun onCapabilitiesChanged(network: android.net.Network, networkCapabilities: android.net.NetworkCapabilities) {
+          emit()
+        }
+
+        private fun emit() {
+          val t = netTypeNow()
+          if (t != lastNetType) {
+            lastNetType = t
+            sendEvent("onNetworkTypeChanged", mapOf("type" to t))
+          }
+        }
+      }
+      val req = android.net.NetworkRequest.Builder()
+        .addCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        .build()
+      cm.registerNetworkCallback(req, cb)
+      networkCallback = cb
+      lastNetType = netTypeNow()
+    } catch (e: Throwable) {
+      android.util.Log.e("GhostCloud", "network watcher failed", e)
+    }
+  }
+
   override fun definition() = ModuleDefinition {
     Name("XrayCore")
 
-    Events("onVpnStateChanged", "onCoreDownloadProgress")
+    Events("onVpnStateChanged", "onCoreDownloadProgress", "onNetworkTypeChanged")
 
     OnCreate {
       XrayVpnService.stateListener = { running ->
@@ -32,12 +91,24 @@ class XrayCoreModule : Module() {
         sendEvent("onVpnStateChanged", mapOf("running" to running))
         GhostCloudTileService.notifyStateChange()
       }
+      startNetworkWatcher()
     }
 
     OnDestroy {
       XrayVpnService.stateListener = null
       CoreVpnService.stateListener = null
       LibCoreVpnService.stateListener = null
+      try {
+        val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        networkCallback?.let { cm?.unregisterNetworkCallback(it) }
+      } catch (e: Throwable) {
+        // контекст уже может быть недоступен при выходе
+      }
+      networkCallback = null
+    }
+
+    Function("getNetworkType") {
+      netTypeNow()
     }
 
     AsyncFunction("requestPermission") { promise: Promise ->

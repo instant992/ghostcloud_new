@@ -20,7 +20,7 @@ import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
-import { AppFilterModal } from "../../components/AppFilterModal";
+import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
 import * as stats from "../../stats";
@@ -125,7 +125,7 @@ export default function MinimalistScreen() {
           showToast("Нет доступных серверов");
           return;
         }
-        await connect(selectedNode);
+        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -144,7 +144,7 @@ export default function MinimalistScreen() {
       try {
         setBusy(true);
         await disconnect();
-        await connect(node);
+        await connect(node, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
         setSeconds(0);
       } catch (e: any) {
@@ -409,7 +409,7 @@ export default function MinimalistScreen() {
 
       {/* Док рендерится как таб-бар потока темы (см. App.tsx) */}
 
-      <AppFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
+      <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
       <ServerSheet
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}

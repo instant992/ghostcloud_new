@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  Modal,
   StyleSheet,
   Switch,
   Text,
@@ -53,15 +52,13 @@ function AppIcon({ packageName, name }: { packageName: string; name: string }) {
   );
 }
 
-/** Полноэкранная модалка «Фильтр соединения» — белые/чёрные списки приложений.
- *  Используется на главной и в боковых меню тем v2ray/happ. */
-export function AppFilterModal({
+/** Содержимое фильтров приложений (вкладки «Через VPN» / «Мимо VPN») —
+ *  используется внутри модального окна «Фильтр соединения». */
+export function AppFilterContent({
   visible,
-  onClose,
   onChange,
 }: {
   visible: boolean;
-  onClose: () => void;
   onChange?: (allowed: string[], blocked: string[]) => void;
 }) {
   useTheme();
@@ -125,17 +122,8 @@ export function AppFilterModal({
   const whitelistMode = allowed.length > 0;
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.appsScreen}>
-        <View style={styles.appsHeader}>
-          <PressableScale onPress={onClose} hitSlop={10}>
-            <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "700" }}>Готово</Text>
-          </PressableScale>
-          <Text style={styles.appsTitle}>Приложения</Text>
-          <View style={{ width: 50 }} />
-        </View>
-
-        <View style={styles.tabsRow}>
+    <View style={styles.appsContent}>
+      <View style={styles.tabsRow}>
           {(
             [
               ["allow", `Через VPN (${allowed.length})`],
@@ -236,12 +224,12 @@ export function AppFilterModal({
             }}
           />
         )}
-      </View>
-    </Modal>
+    </View>
   );
 }
 
 const makeStyles = () => StyleSheet.create({
+  appsContent: { flex: 1 },
   appsScreen: { flex: 1, backgroundColor: colors.bg, paddingTop: 54, paddingHorizontal: 16 },
   appsHeader: {
     flexDirection: "row",

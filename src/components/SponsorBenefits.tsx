@@ -1,6 +1,7 @@
 import React from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { SponsorHeart } from "./Badges";
 import { colors, sheetSurfaceBg, useTheme } from "../theme";
 import { IconButton } from "./Foundations";
 
@@ -39,6 +40,12 @@ const BENEFITS: Array<{ emoji: string; color: string; title: string; desc: strin
     desc: "Автоматическое переключение светлой/тёмной темы по времени рассвета и заката или по своему расписанию.",
   },
   {
+    emoji: "🌐",
+    color: "#5C6BC0",
+    title: "Выбор DNS-сервера",
+    desc: "Популярные публичные DNS (Google, Cloudflare, AdGuard, Quad9 и другие) — блокировка рекламы, защита от фишинга и приватность прямо на уровне DNS.",
+  },
+  {
     emoji: "✨",
     color: "#42A5F5",
     title: "Дополнительные темы оформления",
@@ -73,7 +80,7 @@ export function SponsorBenefitsSheet({
         {/* Шапка */}
         <View style={styles.header}>
           <View style={styles.headerIcon}>
-            <Ionicons name="heart" size={22} color="#fff" />
+            <SponsorHeart size={30} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Преимущества спонсора</Text>
@@ -149,14 +156,9 @@ const makeStyles = () =>
       width: 48,
       height: 48,
       borderRadius: 24,
-      backgroundColor: ORANGE,
+      backgroundColor: "#FF5F9326",
       alignItems: "center",
       justifyContent: "center",
-      shadowColor: ORANGE,
-      shadowOpacity: 0.35,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 6,
     },
     headerTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
     headerSub: { color: ORANGE, fontSize: 12, fontWeight: "600", marginTop: 1 },

@@ -1,4 +1,5 @@
 import { VpnNode } from "./parse";
+import { getDnsProvider, type DnsProvider } from "./dns";
 
 function yq(value: string | undefined): string {
   const s = String(value ?? "");
@@ -102,8 +103,17 @@ export function mihomoProxyBlock(node: VpnNode, name = "gc-proxy"): string {
 }
 
 /** Полный YAML-конфиг mihomo для ноды. TUN-дескриптор подставляется нативно (gcStart). */
-export function buildMihomoConfig(node: VpnNode): string {
+export function buildMihomoConfig(
+  node: VpnNode,
+  dns?: DnsProvider,
+  bypassDomains: string[] = []
+): string {
   const proxy = mihomoProxyBlock(node);
+  const provider = dns || getDnsProvider(null);
+
+  // Правила «мимо VPN» для доменов активных профилей фильтра соединения
+  const domainRules = bypassDomains.map((d) => `  - DOMAIN-SUFFIX,${d},DIRECT`);
+
   return [
     `mode: rule`,
     `log-level: warning`,
@@ -120,8 +130,7 @@ export function buildMihomoConfig(node: VpnNode): string {
     `  enable: true`,
     `  ipv6: true`,
     `  nameserver:`,
-    `    - 8.8.8.8`,
-    `    - 1.1.1.1`,
+    ...provider.mihomo.map((s) => `    - ${s}`),
     `proxies:`,
     proxy,
     `proxy-groups:`,
@@ -130,6 +139,7 @@ export function buildMihomoConfig(node: VpnNode): string {
     `    proxies:`,
     `      - ${yq("gc-proxy")}`,
     `rules:`,
+    ...domainRules,
     `  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve`,
     `  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve`,
     `  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve`,

@@ -6,10 +6,13 @@ import * as Haptics from "expo-haptics";
 import { Card, Row, Screen, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
+import { SponsorHeart } from "../components/Badges";
 import { showToast } from "../components/Toast";
 import { useApp } from "../context";
 import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, sheetSurfaceBg, type ThemeName } from "../theme";
 import { getSelectedCore, getSetting, getThemeName, getThemeMode, setSetting, type CoreName, type ThemeMode } from "../settings";
+import { DNS_PROVIDERS, getDnsProvider } from "../vpn/dns";
+import { disconnect, isVpnRunning } from "../vpn/manager";
 import {
   downloadCore,
   getCpuAbi,
@@ -96,7 +99,7 @@ export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
-  const { me } = useApp();
+  const { me, vpnRunning, setVpnRunning } = useApp();
   const [style, setStyle] = useState<ThemeName>(getThemeName());
   const [mode, setMode] = useState<ThemeMode>(getThemeMode());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
@@ -115,6 +118,34 @@ export default function SettingsScreen() {
   const [customSet, setCustomSet] = useState(() => getSetting("theme_custom_set", "21:00"));
   const [sunBusy, setSunBusy] = useState(false);
   const [benefitsOpen, setBenefitsOpen] = useState(false);
+  const [dnsOpen, setDnsOpen] = useState(false);
+  const [dnsId, setDnsId] = useState(() => getSetting("dns_provider", "auto"));
+  const [stopBusy, setStopBusy] = useState(false);
+
+  /** Мгновенная остановка VPN — без подтверждения, по одному нажатию */
+  const stopVpnNow = async () => {
+    if (stopBusy) return;
+    setStopBusy(true);
+    try {
+      await disconnect();
+      setVpnRunning(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      showToast("VPN остановлен", "top");
+    } catch (e: any) {
+      showToast(e?.message || "Не удалось остановить VPN");
+    } finally {
+      setStopBusy(false);
+    }
+  };
+
+  /** Смена DNS-провайдера (только спонсорам) */
+  const changeDns = (id: string) => {
+    setDnsId(id);
+    setSetting("dns_provider", id);
+    const p = getDnsProvider(id);
+    Haptics.selectionAsync().catch(() => {});
+    showToast(`DNS: ${p.name}. Применится при следующем подключении`, "top");
+  };
 
   // Секретная тема «Простой»
   const [simpleUnlocked, setSimpleUnlocked] = useState(() => getSetting(SIMPLE_UNLOCK_KEY, "0") === "1");
@@ -308,7 +339,12 @@ export default function SettingsScreen() {
               >
                 <Ionicons name={icon} size={14} color={mode === m ? "#fff" : autoLocked ? colors.textFaint : colors.textDim} />
                 <Text style={[styles.modeSegText, mode === m && { color: "#fff" }]}>{label}</Text>
-                {autoLocked && <Ionicons name="lock-closed" size={10} color={colors.textFaint} />}
+                {autoLocked && (
+                  <>
+                    <Ionicons name="lock-closed" size={10} color={colors.textFaint} />
+                    <SponsorHeart size={9} />
+                  </>
+                )}
               </PressableScale>
             );
           })}
@@ -343,8 +379,11 @@ export default function SettingsScreen() {
               <Text style={[styles.themeRowTitle, { color: colors.textDim }]}>Смена темы по времени</Text>
               <Text style={styles.themeRowSub}>Преимущество спонсоров</Text>
             </View>
-            <View style={styles.lockBadge}>
-              <Ionicons name="lock-closed" size={14} color="#FF9800" />
+            <View style={styles.lockWrap}>
+              <SponsorHeart size={13} />
+              <View style={styles.lockBadge}>
+                <Ionicons name="lock-closed" size={14} color="#FF9800" />
+              </View>
             </View>
           </Pressable>
         )}
@@ -484,7 +523,7 @@ export default function SettingsScreen() {
                     {THEME_LABELS[t]}
                   </Text>
                   {SPONSOR_STYLES.includes(t) && (
-                    <Ionicons name="heart" size={12} color="#FF5F93" />
+                    <SponsorHeart size={12} />
                   )}
                   <View style={{ flex: 1 }} />
                   {style === t && <Ionicons name="checkmark" size={16} color={colors.accent} />}
@@ -492,7 +531,7 @@ export default function SettingsScreen() {
               ))}
               {!isSponsor && (
                 <Text style={styles.hint}>
-                  Темы со значком ♥ доступны спонсорам (пополнение от 444 ₽ за 24 ч)
+                  Темы с переливающимся сердечком доступны спонсорам (пополнение от 444 ₽ за 24 ч)
                 </Text>
               )}
             </PressableScale>
@@ -595,6 +634,68 @@ export default function SettingsScreen() {
         </Text>
       </Card>
 
+      {/* ─── Подключение ─── */}
+      <Card>
+        <Text style={styles.sectionTitle}>Подключение</Text>
+        <PressableScale
+          style={[styles.stopVpnBtn, !vpnRunning && { opacity: 0.45 }]}
+          onPress={stopVpnNow}
+          disabled={!vpnRunning || stopBusy}
+          accessibilityRole="button"
+          accessibilityLabel="Мгновенно остановить VPN"
+        >
+          {stopBusy ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="stop-circle-outline" size={20} color="#fff" />
+          )}
+          <Text style={styles.stopVpnText}>
+            {stopBusy ? "Остановка…" : vpnRunning ? "Мгновенно остановить VPN" : "VPN не подключён"}
+          </Text>
+        </PressableScale>
+        <Text style={styles.hint}>
+          Выключает туннель сразу, без ожидания и подтверждения.
+        </Text>
+      </Card>
+
+      {/* ─── DNS-серверы (преимущество спонсоров) ─── */}
+      <Card>
+        <View style={styles.themeRowLine}>
+          <Ionicons name="globe-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>DNS-сервер</Text>
+            <Text style={styles.themeRowSub} numberOfLines={1}>
+              {getDnsProvider(dnsId).name}
+            </Text>
+          </View>
+          {isSponsor ? (
+            <PressableScale
+              style={styles.styleDropdownBtn}
+              onPress={() => setDnsOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`DNS-сервер: ${getDnsProvider(dnsId).name}. Нажмите, чтобы выбрать`}
+            >
+              <Text style={styles.styleDropdownText}>Выбрать</Text>
+              <Ionicons name="chevron-down" size={14} color={colors.accent} />
+            </PressableScale>
+          ) : (
+            <PressableScale
+              style={styles.lockBadge}
+              onPress={() => setBenefitsOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Выбор DNS-сервера — преимущество спонсоров. Нажмите, чтобы узнать подробнее"
+            >
+              <Ionicons name="lock-closed" size={14} color="#FF9800" />
+            </PressableScale>
+          )}
+        </View>
+        {!isSponsor && (
+          <Text style={styles.hint}>
+            Выбор популярных DNS-серверов — преимущество спонсоров
+          </Text>
+        )}
+      </Card>
+
       <Card>
         <Row label="Версия приложения" value={`${Application.nativeApplicationVersion || "?"} (${Application.nativeBuildVersion || "?"})`} />
         {!!xrayVersion && <Row label="Ядро Xray" value={xrayVersion} />}
@@ -628,6 +729,47 @@ export default function SettingsScreen() {
                 </PressableScale>
               </View>
             </View>
+          </PressableScale>
+        </PressableScale>
+      </Modal>
+
+      {/* Выбор DNS-сервера (спонсорам) */}
+      <Modal visible={dnsOpen} transparent animationType="fade" onRequestClose={() => setDnsOpen(false)}>
+        <PressableScale style={styles.modalBackdrop} onPress={() => setDnsOpen(false)}>
+          <PressableScale style={styles.stylePanel} onPress={() => {}}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <SponsorHeart size={16} />
+              <Text style={styles.themeSheetTitle}>DNS-сервер</Text>
+            </View>
+            {DNS_PROVIDERS.map((p) => (
+              <PressableScale
+                key={p.id}
+                style={[styles.styleItem, dnsId === p.id && styles.styleItemOn]}
+                onPress={() => {
+                  changeDns(p.id);
+                  setDnsOpen(false);
+                }}
+              >
+                <View style={[styles.stylePreviewBox, dnsId === p.id && styles.stylePreviewBoxOn]}>
+                  <Ionicons name="globe-outline" size={16} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.styleItemText,
+                      dnsId === p.id && { color: colors.accent, fontWeight: "700" },
+                    ]}
+                  >
+                    {p.name}
+                  </Text>
+                  <Text style={styles.dnsBenefit}>{p.benefit}</Text>
+                </View>
+                {dnsId === p.id && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+              </PressableScale>
+            ))}
+            <Text style={styles.hint}>
+              DNS-запросы шифруются (DoH), когда это поддерживает сервер. Применяется при подключении.
+            </Text>
           </PressableScale>
         </PressableScale>
       </Modal>
@@ -734,6 +876,11 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: colors.border,
     opacity: 0.5,
     marginVertical: 14,
+  },
+  lockWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   lockBadge: {
     width: 30,
@@ -847,6 +994,22 @@ const makeStyles = () => StyleSheet.create({
     fontSize: 11,
     marginTop: 10,
   },
+  dnsBenefit: {
+    color: colors.textDim,
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.85,
+  },
+  stopVpnBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: colors.red,
+  },
+  stopVpnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
   coreItem: {
     flexDirection: "row",
     alignItems: "center",

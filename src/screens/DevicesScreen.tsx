@@ -6,6 +6,7 @@ import { Button, Card, ErrorText, Screen, Subtitle } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { LoadingState } from "../components/Foundations";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
+import { SponsorHeart } from "../components/Badges";
 import { banDevice, buyDevices, deleteDevice, getDevices, unbanDevice } from "../api";
 import * as deviceNames from "../deviceNames";
 import { colors, useTheme } from "../theme";
@@ -234,7 +235,10 @@ export default function DevicesScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Подписи для устройств — преимущество спонсоров"
               >
-                <Ionicons name="lock-closed" size={17} color={colors.textFaint} />
+                <View style={styles.lockHeartWrap}>
+                  <SponsorHeart size={11} />
+                  <Ionicons name="lock-closed" size={17} color={colors.textFaint} />
+                </View>
               </PressableScale>
             )}
             <View style={styles.itemIconBox}>
@@ -348,6 +352,11 @@ const makeStyles = () => StyleSheet.create({
     alignItems: "center" as const,
     justifyContent: "center" as const,
     marginHorizontal: 2,
+  },
+  lockHeartWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   itemIconBox: {
     width: 40,

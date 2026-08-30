@@ -136,6 +136,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return off;
   }, []);
 
+  // Фильтр соединения: при смене сети (Wi-Fi ↔ LTE) перезапускаем туннель,
+  // если активны профили с сетевым режимом — как в эталонном приложении.
+  const nodesRef = useRef<VpnNode[]>([]);
+  const meRef = useRef<MeInfo | null>(null);
+  useEffect(() => {
+    nodesRef.current = nodes;
+    meRef.current = me;
+  }, [nodes, me]);
+  useEffect(() => {
+    let off: () => void = () => {};
+    let cancelled = false;
+    import("./vpn/native")
+      .then((native) => {
+        if (cancelled || !native.onNetworkTypeChanged) return;
+        off = native.onNetworkTypeChanged(async () => {
+          try {
+            const mgr = await import("./vpn/manager");
+            if (!(await mgr.isVpnRunning())) return;
+            const { loadFilterSettings, hasNetworkDependentProfiles } = await import("./vpn/connectionFilter");
+            const s = loadFilterSettings();
+            if (!hasNetworkDependentProfiles(s)) return;
+            const all = nodesRef.current;
+            const node = all.find((n) => n.id === selectedNodeIdRef.current) || all[0];
+            if (!node) return;
+            await mgr.disconnect();
+            await mgr.connect(node, { isSponsor: meRef.current?.is_sponsor === true });
+          } catch {}
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      off();
+    };
+  }, []);
+
   // Пул серверов-кандидатов для авто-файловера (нативный монитор переключает
   // на запасной сервер при обрыве, даже при выключенном экране)
   useEffect(() => {

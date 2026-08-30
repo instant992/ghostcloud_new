@@ -27,7 +27,7 @@ export default function SimpleScreen() {
   const styles = makeStyles();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
-  const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, subscriptionActive } = useApp();
+  const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, subscriptionActive, me } = useApp();
 
   const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -95,7 +95,7 @@ export default function SimpleScreen() {
     }
     selectNode(best.id);
     setServerName(splitNameFlag(best.name).name);
-    await connect(best);
+    await connect(best, { isSponsor: me?.is_sponsor === true });
     setVpnRunning(true);
   };
 
@@ -134,7 +134,7 @@ export default function SimpleScreen() {
       selectNode(best.id);
       setServerName(splitNameFlag(best.name).name);
       await disconnect();
-      await connect(best);
+      await connect(best, { isSponsor: me?.is_sponsor === true });
       setVpnRunning(true);
       setSeconds(0);
       showToast(`Подключено: ${splitNameFlag(best.name).name}`);

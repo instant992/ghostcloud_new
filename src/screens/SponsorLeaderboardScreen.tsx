@@ -8,6 +8,7 @@ import { colors, useTheme } from "../theme";
 import { PressableScale } from "../components/PressableScale";
 import { IconButton, LoadingState } from "../components/Foundations";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
+import { SponsorHeart } from "../components/Badges";
 
 const ORANGE = "#FF9800";
 
@@ -134,7 +135,7 @@ export default function SponsorLeaderboardScreen() {
                     >
                       {e.masked_name || "—"}
                     </Text>
-                    <Ionicons name="heart" size={12} color="#FF5F93" />
+                    <SponsorHeart size={12} />
                     {e.is_me && (
                       <View style={styles.youBadge}>
                         <Text style={styles.youBadgeText}>ВЫ</Text>
