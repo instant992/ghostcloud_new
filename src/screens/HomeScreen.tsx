@@ -198,7 +198,14 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.powerArea}>
-        <PressableScale onPress={toggle} disabled={busy} style={styles.pressable}>
+        <PressableScale
+          onPress={toggle}
+          disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={connected ? "Выключить VPN" : "Включить VPN"}
+          accessibilityState={{ busy, checked: connected }}
+          style={styles.pressable}
+        >
           <Animated.View
             pointerEvents="none"
             style={[
@@ -279,7 +286,16 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.serverCard}>
-        <PressableScale style={styles.serverRow} onPress={() => setPickerOpen(true)}>
+        <PressableScale
+          style={styles.serverRow}
+          onPress={() => setPickerOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            selectedNode && selectedInfo
+              ? `Выбранный сервер: ${selectedInfo.name}. ${transportLabel(selectedNode)}. Нажмите, чтобы изменить`
+              : "Сервер не выбран. Нажмите, чтобы выбрать локацию"
+          }
+        >
           <View style={styles.serverIcon}>
             <Ionicons name="flash" size={20} color={colors.accent} />
           </View>
@@ -301,7 +317,14 @@ export default function HomeScreen() {
             )}
           </View>
           {selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
-          <PressableScale style={styles.infoBtn} onPress={refreshNodes} disabled={refreshingNodes}>
+          <PressableScale
+            style={styles.infoBtn}
+            onPress={refreshNodes}
+            disabled={refreshingNodes}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Обновить список серверов"
+          >
             {refreshingNodes ? (
               <ActivityIndicator size="small" color={colors.accent} />
             ) : (
@@ -312,7 +335,12 @@ export default function HomeScreen() {
 
         <View style={styles.cardDivider} />
 
-        <PressableScale style={styles.serverRow} onPress={() => setAppsOpen(true)}>
+        <PressableScale
+          style={styles.serverRow}
+          onPress={() => setAppsOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Фильтр приложений: какие приложения идут через VPN"
+        >
           <View style={styles.serverIcon}>
             <Ionicons name="apps" size={20} color={colors.accent} />
           </View>
@@ -341,7 +369,12 @@ export default function HomeScreen() {
       </PressableScale>
 
       <View style={styles.statsRow}>
-        <PressableScale style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+        <PressableScale
+          style={styles.statCard}
+          onPress={() => nav.navigate("Статистика")}
+          accessibilityRole="button"
+          accessibilityLabel={`Отправлено сегодня: ${formatBytes(todayStat.tx)}. Открыть статистику`}
+        >
           <View style={[styles.statIcon, { backgroundColor: "rgba(52,211,153,0.12)" }]}>
             <Ionicons name="arrow-up" size={15} color={colors.green} />
           </View>
@@ -350,7 +383,12 @@ export default function HomeScreen() {
             <Text style={styles.statValue}>{formatBytes(todayStat.tx)}</Text>
           </View>
         </PressableScale>
-        <PressableScale style={styles.statCard} onPress={() => nav.navigate("Статистика")}>
+        <PressableScale
+          style={styles.statCard}
+          onPress={() => nav.navigate("Статистика")}
+          accessibilityRole="button"
+          accessibilityLabel={`Получено сегодня: ${formatBytes(todayStat.rx)}. Открыть статистику`}
+        >
           <View style={[styles.statIcon, { backgroundColor: colors.accentSoft }]}>
             <Ionicons name="arrow-down" size={15} color={colors.accent} />
           </View>
@@ -764,9 +802,9 @@ const makeStyles = () => StyleSheet.create({
     opacity: 0.7,
   },
   infoBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.bgSoft,
     borderWidth: 1,
     borderColor: colors.border,
