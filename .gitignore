@@ -23,3 +23,6 @@ android/build_out.txt
 android/tidy_out.txt
 tsc_out.txt
 build_log.txt
+
+# Kotlin compiler sessions (build artifacts)
+android/.kotlin/
