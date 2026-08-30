@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
-import { Button, Card, Row } from "../components/UI";
+import { Button, Card, Row, useInTabArea } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { BalanceSheet } from "../components/BalanceSheet";
 import { QRScannerModal } from "../components/QRScannerModal";
@@ -92,6 +92,7 @@ export default function ProfileScreen() {
   useTheme();
   const styles = makeStyles();
   const insets = useSafeAreaInsets();
+  const inTabs = useInTabArea();
 
   const nav = useNavigation<any>();
   const { me, signOut, refreshMe, subscriptionActive } = useApp();
@@ -362,7 +363,13 @@ export default function ProfileScreen() {
       {/* Закреплённая шапка: назад + «Профиль» + шестерёнка */}
       <View style={[styles.stickyHeader, { paddingTop: insets.top + 6 }]}>
         {nav.canGoBack() ? (
-          <Pressable onPress={() => nav.goBack()} hitSlop={10} style={styles.headerBtn}>
+          <Pressable
+            onPress={() => nav.goBack()}
+            hitSlop={10}
+            style={styles.headerBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Назад"
+          >
             <Ionicons name="arrow-back" size={22} color={colors.text} />
           </Pressable>
         ) : (
@@ -370,14 +377,25 @@ export default function ProfileScreen() {
         )}
         <Text style={styles.headerTitle}>Профиль</Text>
         <View style={{ flex: 1 }} />
-        <Pressable onPress={() => nav.navigate("Настройки")} hitSlop={10} style={styles.headerBtn}>
+        <Pressable
+          onPress={() => nav.navigate("Настройки")}
+          hitSlop={10}
+          style={styles.headerBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Открыть настройки"
+        >
           <Ionicons name="settings-outline" size={22} color={colors.text} />
         </Pressable>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingTop: insets.top + 68, paddingBottom: 40 }}
+        contentContainerStyle={{
+          padding: 20,
+          paddingTop: insets.top + 68,
+          // Во вкладках внизу плавающий таб-бар — контент не должен за него залезать
+          paddingBottom: inTabs ? insets.bottom + 116 : insets.bottom + 40,
+        }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -387,11 +405,17 @@ export default function ProfileScreen() {
               <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatar}>
-                <Text style={{ fontSize: 34 }}>👤</Text>
+                <Ionicons name="person" size={36} color={colors.accent} />
               </View>
             )}
-            <PressableScale style={styles.editBadge} onPress={openEditor}>
-              <Text style={{ fontSize: 13 }}>✏️</Text>
+            <PressableScale
+              style={styles.editBadge}
+              onPress={openEditor}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Редактировать профиль"
+            >
+              <Ionicons name="pencil" size={13} color="#fff" />
             </PressableScale>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -544,18 +568,18 @@ export default function ProfileScreen() {
           </View>
         </Card>
 
-        <MenuItem icon="🏆" label="Топ спонсоров" onPress={openLeaderboard} />
-        <MenuItem icon="🎖️" label="Топ рефералов" onPress={openRefLeaderboard} />
-        <MenuItem icon="🎁" label="Реферальная программа" onPress={() => nav.navigate("Referral")} />
-        <MenuItem icon="📱" label="Устройства и HWID" onPress={() => nav.navigate("Devices")} />
-        <MenuItem icon="💰" label="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
-        <MenuItem icon="📷" label="QR-авторизация" sub="Отсканировать код с другого устройства" onPress={() => setScanOpen(true)} />
+        <MenuItem icon="trophy-outline" iconColor="#FF9C6B" label="Топ спонсоров" onPress={openLeaderboard} />
+        <MenuItem icon="medal-outline" iconColor="#FF9C6B" label="Топ рефералов" onPress={openRefLeaderboard} />
+        <MenuItem icon="gift-outline" label="Реферальная программа" onPress={() => nav.navigate("Referral")} />
+        <MenuItem icon="phone-portrait-outline" label="Устройства и HWID" onPress={() => nav.navigate("Devices")} />
+        <MenuItem icon="wallet-outline" label="Пополнить баланс" onPress={() => nav.navigate("TopUp")} />
+        <MenuItem icon="qr-code-outline" label="QR-авторизация" sub="Отсканировать код с другого устройства" onPress={() => setScanOpen(true)} />
         <PressableScale onPress={() => setQrOpen(true)} style={{ marginHorizontal: 4, marginBottom: 10, paddingVertical: 4 }}>
           <Text style={{ color: colors.textDim, fontSize: 12, textDecorationLine: "underline" }}>
             Или ввести код вручную
           </Text>
         </PressableScale>
-        <MenuItem icon="💬" label="Поддержка" onPress={() => nav.navigate("Support")} />
+        <MenuItem icon="chatbubbles-outline" label="Поддержка" onPress={() => nav.navigate("Support")} />
 
         <Card>
           <Row label="Telegram" value={me?.telegram_linked ? "привязан" : "не привязан"} />
@@ -737,7 +761,7 @@ export default function ProfileScreen() {
                 <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
               ) : (
                 <View style={[styles.avatar, { marginBottom: 0 }]}>
-                  <Text style={{ fontSize: 34 }}>📷</Text>
+                  <Ionicons name="camera" size={32} color={colors.accent} />
                 </View>
               )}
               <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700", marginTop: 6 }}>
@@ -774,11 +798,13 @@ export default function ProfileScreen() {
 
 function MenuItem({
   icon,
+  iconColor,
   label,
   sub,
   onPress,
 }: {
-  icon: string;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  iconColor?: string;
   label: string;
   sub?: string;
   onPress: () => void;
@@ -786,6 +812,8 @@ function MenuItem({
   return (
     <PressableScale
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -797,12 +825,24 @@ function MenuItem({
         marginBottom: 10,
       }}
     >
-      <Text style={{ fontSize: 20, marginRight: 12 }}>{icon}</Text>
+      <View
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 12,
+          backgroundColor: colors.bgSoft,
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: 12,
+        }}
+      >
+        <Ionicons name={icon} size={19} color={iconColor || colors.accent} />
+      </View>
       <View style={{ flex: 1 }}>
         <Text style={{ color: colors.text, fontWeight: "600" }}>{label}</Text>
         {!!sub && <Text style={{ color: colors.textDim, fontSize: 11, marginTop: 1 }}>{sub}</Text>}
       </View>
-      <Text style={{ color: colors.textFaint }}>›</Text>
+      <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
     </PressableScale>
   );
 }
