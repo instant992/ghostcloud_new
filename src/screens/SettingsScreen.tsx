@@ -292,6 +292,9 @@ export default function SettingsScreen() {
               key={m}
               style={[styles.modeSeg, mode === m && styles.modeSegOn]}
               onPress={() => changeMode(m)}
+              accessibilityRole="radio"
+              accessibilityLabel={`Режим темы: ${label}`}
+              accessibilityState={{ selected: mode === m }}
             >
               <Ionicons name={icon} size={14} color={mode === m ? "#fff" : colors.textDim} />
               <Text style={[styles.modeSegText, mode === m && { color: "#fff" }]}>{label}</Text>
@@ -400,11 +403,21 @@ export default function SettingsScreen() {
         {/* Стиль темы: дропдаун с превью */}
         <View style={styles.themeRowLine}>
           <Ionicons name="color-palette-outline" size={20} color={colors.accent} />
-          <Pressable onPress={handleStyleTitleTap} hitSlop={8} style={{ flexShrink: 1 }}>
+          <Pressable
+            onPress={handleStyleTitleTap}
+            hitSlop={8}
+            style={{ flexShrink: 1 }}
+            accessibilityLabel="Стиль темы. Секретная подсказка: пять нажатий открывают скрытую тему"
+          >
             <Text style={styles.themeRowTitle}>Стиль темы</Text>
           </Pressable>
           <View style={{ flex: 1 }} />
-          <PressableScale style={styles.styleDropdownBtn} onPress={() => setThemeOpen(true)}>
+          <PressableScale
+            style={styles.styleDropdownBtn}
+            onPress={() => setThemeOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Стиль темы: ${THEME_LABELS[style]}. Нажмите, чтобы выбрать`}
+          >
             <Ionicons name="sparkles" size={13} color={colors.accent} />
             <Text style={styles.styleDropdownText}>{THEME_LABELS[style]}</Text>
             <Ionicons name="chevron-down" size={14} color={colors.accent} />
@@ -504,6 +517,9 @@ export default function SettingsScreen() {
               disabled={needDownload || busy}
               style={[styles.coreItem, active && styles.coreItemOn, needDownload && { opacity: 0.85 }]}
               onPress={() => changeCore(c.key)}
+              accessibilityRole="radio"
+              accessibilityLabel={`Ядро ${c.label}${needDownload ? ", не установлено" : ""}`}
+              accessibilityState={{ selected: active }}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.coreName}>
@@ -533,8 +549,10 @@ export default function SettingsScreen() {
                   style={styles.downloadBtn}
                   hitSlop={6}
                   onPress={() => setConfirmCore(c)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Скачать ядро ${c.label}`}
                 >
-                  <Text style={styles.downloadBtnText}>↓</Text>
+                  <Ionicons name="download" size={18} color="#fff" />
                 </PressableScale>
               )}
               {busy && <Text style={styles.progressPct}>{pct}%</Text>}
@@ -557,7 +575,7 @@ export default function SettingsScreen() {
         <PressableScale style={styles.modalBackdrop} onPress={() => setConfirmCore(null)}>
           <PressableScale style={styles.modalCard} onPress={() => {}}>
             <View style={styles.modalIcon}>
-              <Text style={{ fontSize: 30 }}>⬇️</Text>
+              <Ionicons name="download-outline" size={28} color={colors.accent} />
             </View>
             <Text style={styles.modalTitle}>
               Скачать ядро {confirmCore?.label}

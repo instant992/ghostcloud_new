@@ -47,11 +47,13 @@ export function Screen({
   // Во вкладках контент начинается сразу под статус-баром — добавляем
   // безопасный отступ вместо магических чисел (вне вкладок отступ задаёт экран).
   const safeTop = inTabs ? { paddingTop: insets.top + 12 } : null;
+  // Во вкладках внизу плавающий таб-бар (~96) — контент не должен под него залезать.
+  const safeBottom = inTabs ? { paddingBottom: insets.bottom + 116 } : null;
   if (scroll) {
     return (
       <ScrollView
         style={styles.screen}
-        contentContainerStyle={[styles.content, safeTop, style]}
+        contentContainerStyle={[styles.content, safeTop, safeBottom, style]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -59,7 +61,7 @@ export function Screen({
       </ScrollView>
     );
   }
-  return <View style={[styles.screen, styles.content, safeTop, style]}>{children}</View>;
+  return <View style={[styles.screen, styles.content, safeTop, safeBottom, style]}>{children}</View>;
 }
 
 export function Title({ children }: { children: React.ReactNode }) {
