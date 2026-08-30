@@ -27,7 +27,6 @@ export function TabIcon({
 
   const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
   const labelOpacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
-  const labelHeight = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 16] });
 
   return (
     <View style={styles.wrap}>
@@ -46,7 +45,7 @@ export function TabIcon({
       </Animated.View>
       {!!label && (
         <Animated.Text
-          style={[styles.label, { opacity: labelOpacity, height: labelHeight }]}
+          style={[styles.label, { opacity: labelOpacity }]}
           numberOfLines={1}
         >
           {label}
@@ -80,5 +79,6 @@ const makeStyles = () => StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     marginTop: 3,
+    height: 16,
   },
 });
