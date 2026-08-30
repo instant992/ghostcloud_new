@@ -449,18 +449,24 @@ export default function V2rayScreen() {
                 ] as Array<[ThemeMode, any, string]>
               ).map(([key, icon, label]) => {
                 const on = theme.mode === key;
+                const autoLocked = key === "auto" && me?.is_sponsor !== true;
                 return (
                   <Pressable
                     key={key}
-                    style={[styles.themeSeg, on && styles.themeSegOn]}
+                    style={[styles.themeSeg, on && styles.themeSegOn, autoLocked && { opacity: 0.55 }]}
                     onPress={() => {
+                      if (autoLocked) {
+                        showToast("Смена темы по времени — преимущество спонсоров");
+                        return;
+                      }
                       setSetting("theme_mode", key);
                       setSetting("theme_schedule_enabled", key === "auto" ? "1" : "0");
                       switchTheme({ mode: key });
                     }}
                   >
-                    <Ionicons name={icon} size={14} color={on ? "#fff" : colors.textDim} />
-                    {on && <Text style={styles.themeSegText}>{label}</Text>}
+                    <Ionicons name={icon} size={14} color={on ? "#fff" : autoLocked ? colors.textFaint : colors.textDim} />
+                    {autoLocked && <Ionicons name="lock-closed" size={9} color={colors.textFaint} />}
+                    {on && !autoLocked && <Text style={styles.themeSegText}>{label}</Text>}
                   </Pressable>
                 );
               })}

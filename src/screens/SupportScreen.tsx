@@ -18,7 +18,7 @@ import { PressableScale } from "../components/PressableScale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { BASE_URL, supportAvatar, supportClose, supportHistory, supportMessages, supportSend } from "../api";
-import { colors, useTheme } from "../theme";
+import { colors, useTheme, sheetSurfaceBg } from "../theme";
 import { showToast } from "../components/Toast";
 
 export type Msg = {
@@ -562,7 +562,7 @@ const modalStyles = StyleSheet.create({
   },
   card: {
     width: "100%",
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.border,

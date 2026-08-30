@@ -155,28 +155,30 @@ export function PasswordInput({ label, ...props }: TextInputProps & { label?: st
   return (
     <View>
       {!!label && <Text style={styles.inputLabel}>{label}</Text>}
-      <TextInput
-        placeholderTextColor={colors.textFaint}
-        style={styles.input}
-        secureTextEntry={!show}
-        autoCapitalize="none"
-        autoCorrect={false}
-        accessibilityLabel={label || (props.placeholder as string | undefined)}
-        {...props}
-      />
-      <Pressable
-        onPress={() => setShow((s) => !s)}
-        hitSlop={12}
-        style={styles.eyeBtn}
-        accessibilityRole="button"
-        accessibilityLabel={show ? "Скрыть пароль" : "Показать пароль"}
-      >
-        <Ionicons
-          name={show ? "eye-off-outline" : "eye-outline"}
-          size={22}
-          color={colors.textDim}
+      <View style={styles.passwordWrap}>
+        <TextInput
+          placeholderTextColor={colors.textFaint}
+          style={[styles.input, { marginBottom: 0, paddingRight: 48 }]}
+          secureTextEntry={!show}
+          autoCapitalize="none"
+          autoCorrect={false}
+          accessibilityLabel={label || (props.placeholder as string | undefined)}
+          {...props}
         />
-      </Pressable>
+        <Pressable
+          onPress={() => setShow((s) => !s)}
+          hitSlop={6}
+          style={styles.eyeBtn}
+          accessibilityRole="button"
+          accessibilityLabel={show ? "Скрыть пароль" : "Показать пароль"}
+        >
+          <Ionicons
+            name={show ? "eye-off-outline" : "eye-outline"}
+            size={22}
+            color={colors.textDim}
+          />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -261,6 +263,9 @@ const makeStyles = () => StyleSheet.create({
     fontWeight: "700",
     marginBottom: 6,
   },
+  passwordWrap: {
+    marginBottom: 10,
+  },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -271,9 +276,11 @@ const makeStyles = () => StyleSheet.create({
   rowValue: { fontSize: 14, fontWeight: "700", maxWidth: "60%", textAlign: "right" },
   eyeBtn: {
     position: "absolute",
-    right: 14,
+    right: 2,
     top: 0,
-    bottom: 10,
+    bottom: 0,
+    width: 44,
+    alignItems: "center",
     justifyContent: "center",
   },
   errorBox: {

@@ -10,7 +10,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, hit, typo, useTheme } from "../theme";
+import { colors, hit, typo, useTheme, sheetSurfaceBg } from "../theme";
 import { PressableScale } from "./PressableScale";
 
 /** Иконка-кнопка с гарантированным тач-таргетом ≥44 и доступностью.
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderWidth: 1,

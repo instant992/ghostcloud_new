@@ -5,9 +5,10 @@ import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
 import { Card, Row, Screen, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
 import { showToast } from "../components/Toast";
 import { useApp } from "../context";
-import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, type ThemeName } from "../theme";
+import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, sheetSurfaceBg, type ThemeName } from "../theme";
 import { getSelectedCore, getSetting, getThemeName, getThemeMode, setSetting, type CoreName, type ThemeMode } from "../settings";
 import {
   downloadCore,
@@ -113,6 +114,7 @@ export default function SettingsScreen() {
   const [customRise, setCustomRise] = useState(() => getSetting("theme_custom_rise", "07:00"));
   const [customSet, setCustomSet] = useState(() => getSetting("theme_custom_set", "21:00"));
   const [sunBusy, setSunBusy] = useState(false);
+  const [benefitsOpen, setBenefitsOpen] = useState(false);
 
   // Секретная тема «Простой»
   const [simpleUnlocked, setSimpleUnlocked] = useState(() => getSetting(SIMPLE_UNLOCK_KEY, "0") === "1");
@@ -287,37 +289,65 @@ export default function SettingsScreen() {
               ["auto", "contrast", "Авто"],
               ["light", "sunny-outline", "Светлая"],
             ] as Array<[ThemeMode, any, string]>
-          ).map(([m, icon, label]) => (
-            <PressableScale
-              key={m}
-              style={[styles.modeSeg, mode === m && styles.modeSegOn]}
-              onPress={() => changeMode(m)}
-              accessibilityRole="radio"
-              accessibilityLabel={`Режим темы: ${label}`}
-              accessibilityState={{ selected: mode === m }}
-            >
-              <Ionicons name={icon} size={14} color={mode === m ? "#fff" : colors.textDim} />
-              <Text style={[styles.modeSegText, mode === m && { color: "#fff" }]}>{label}</Text>
-            </PressableScale>
-          ))}
+          ).map(([m, icon, label]) => {
+            const autoLocked = m === "auto" && !isSponsor;
+            return (
+              <PressableScale
+                key={m}
+                style={[styles.modeSeg, mode === m && styles.modeSegOn, autoLocked && { opacity: 0.6 }]}
+                onPress={() => {
+                  if (autoLocked) {
+                    setBenefitsOpen(true);
+                    return;
+                  }
+                  changeMode(m);
+                }}
+                accessibilityRole="radio"
+                accessibilityLabel={`Режим темы: ${label}${autoLocked ? " — преимущество спонсоров" : ""}`}
+                accessibilityState={{ selected: mode === m }}
+              >
+                <Ionicons name={icon} size={14} color={mode === m ? "#fff" : autoLocked ? colors.textFaint : colors.textDim} />
+                <Text style={[styles.modeSegText, mode === m && { color: "#fff" }]}>{label}</Text>
+                {autoLocked && <Ionicons name="lock-closed" size={10} color={colors.textFaint} />}
+              </PressableScale>
+            );
+          })}
         </View>
 
         <View style={styles.themeDivider} />
 
-        {/* Смена темы по времени */}
-        <View style={styles.themeRowLine}>
-          <Ionicons name="time-outline" size={20} color={colors.accent} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.themeRowTitle}>Смена темы по времени</Text>
-            <Text style={styles.themeRowSub}>Светлая днём, тёмная ночью</Text>
+        {/* Смена темы по времени — преимущество спонсоров */}
+        {isSponsor ? (
+          <View style={styles.themeRowLine}>
+            <Ionicons name="time-outline" size={20} color={colors.accent} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.themeRowTitle}>Смена темы по времени</Text>
+              <Text style={styles.themeRowSub}>Светлая днём, тёмная ночью</Text>
+            </View>
+            <Switch
+              value={mode === "auto"}
+              onValueChange={(v) => changeMode(v ? "auto" : "dark")}
+              trackColor={{ false: colors.border, true: colors.accent }}
+              thumbColor="#fff"
+            />
           </View>
-          <Switch
-            value={mode === "auto"}
-            onValueChange={(v) => changeMode(v ? "auto" : "dark")}
-            trackColor={{ false: colors.border, true: colors.accent }}
-            thumbColor="#fff"
-          />
-        </View>
+        ) : (
+          <Pressable
+            style={styles.themeRowLine}
+            onPress={() => setBenefitsOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Смена темы по времени — преимущество спонсоров. Нажмите, чтобы узнать подробнее"
+          >
+            <Ionicons name="time-outline" size={20} color={colors.textFaint} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.themeRowTitle, { color: colors.textDim }]}>Смена темы по времени</Text>
+              <Text style={styles.themeRowSub}>Преимущество спонсоров</Text>
+            </View>
+            <View style={styles.lockBadge}>
+              <Ionicons name="lock-closed" size={14} color="#FF9800" />
+            </View>
+          </Pressable>
+        )}
         {mode === "auto" && (
           <View style={{ marginTop: 10 }}>
             <View style={styles.segRow}>
@@ -601,6 +631,9 @@ export default function SettingsScreen() {
           </PressableScale>
         </PressableScale>
       </Modal>
+
+      {/* Шторка преимуществ спонсора */}
+      <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />
     </Screen>
   );
 }
@@ -702,6 +735,16 @@ const makeStyles = () => StyleSheet.create({
     opacity: 0.5,
     marginVertical: 14,
   },
+  lockBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#FF980026",
+    borderWidth: 1,
+    borderColor: "#FF980059",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   segRow: { flexDirection: "row", gap: 8 },
   segBtn: {
     flex: 1,
@@ -763,7 +806,7 @@ const makeStyles = () => StyleSheet.create({
   styleDropdownText: { color: colors.accent, fontSize: 13, fontWeight: "600" },
   stylePanel: {
     width: "100%",
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 16,
@@ -888,7 +931,7 @@ const makeStyles = () => StyleSheet.create({
   },
   modalCard: {
     width: "100%",
-    backgroundColor: colors.card,
+    backgroundColor: sheetSurfaceBg(),
     borderRadius: 22,
     borderWidth: 1,
     borderColor: colors.border,
