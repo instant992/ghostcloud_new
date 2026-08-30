@@ -7,6 +7,7 @@ import * as Clipboard from "expo-clipboard";
 import { Button, Card, ErrorText, Row, Screen, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { ProviderPicker } from "../components/ProviderPicker";
+import { SpinnerRing } from "../components/Foundations";
 import { checkPromo, createPayment, extendFromBalance, getPrices, paymentStatus } from "../api";
 import { useApp } from "../context";
 import { colors, useTheme } from "../theme";
@@ -285,7 +286,7 @@ export default function PlansScreen() {
   if (step === "paying") {
     return (
       <Screen style={{ paddingTop: 120, alignItems: "center" }}>
-        <ActivityIndicatorBig />
+        <SpinnerRing />
         <Text style={styles.waitTitle}>Создаём платёж…</Text>
         <Button title="Отмена" variant="ghost" size="sm" onPress={() => setStep("email")} />
       </Screen>
@@ -296,7 +297,7 @@ export default function PlansScreen() {
   if (step === "waiting") {
     return (
       <Screen style={{ paddingTop: 120, alignItems: "center" }}>
-        <ActivityIndicatorBig />
+        <SpinnerRing />
         <Text style={styles.waitTitle}>Проверяем оплату…</Text>
         <Text style={styles.waitHint}>
           Если вы уже оплатили — подождите,{"\n"}подтверждение придёт автоматически.
@@ -431,19 +432,7 @@ export default function PlansScreen() {
 }
 
 function ActivityIndicatorBig() {
-  return (
-    <View
-      style={{
-        width: 76,
-        height: 76,
-        borderRadius: 38,
-        borderWidth: 3,
-        borderColor: colors.accentSoft,
-        borderTopColor: colors.accent,
-        marginBottom: 24,
-      }}
-    />
-  );
+  return <SpinnerRing />;
 }
 
 function planLabel(key: string): string {

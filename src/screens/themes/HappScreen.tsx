@@ -25,7 +25,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -634,8 +634,6 @@ function HappServerTile({
   const styles = makeStyles();
   const info = splitNameFlag(node.name);
   const delay = ping?.status === "done" && ping.delay > 0 ? ping.delay : null;
-  const pingColor =
-    delay == null ? colors.textFaint : delay < 90 ? "#22C55E" : delay < 200 ? "#F59E0B" : "#EF4444";
 
   return (
     <View>
@@ -669,7 +667,7 @@ function HappServerTile({
             <ActivityIndicator size="small" color={colors.accent} style={{ marginRight: 6 }} />
           )}
           {delay != null && (
-            <Text style={{ color: pingColor, fontSize: 10, fontWeight: "700", marginRight: 2 }}>
+            <Text style={{ color: pingColor(delay), fontSize: 10, fontWeight: "700", marginRight: 2 }}>
               {delay} мс
             </Text>
           )}

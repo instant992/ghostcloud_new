@@ -588,8 +588,8 @@ export default function SettingsScreen() {
 }
 
 function AlertFallback(msg: string) {
-  // простая заглушка ошибки через консоль — ошибки загрузки показываются в UI прогресса
-  console.warn("core download:", msg);
+  // Ошибки загрузки ядра показываем пользователю через тост
+  showToast(msg);
 }
 
 function themeIcon(t: ThemeName): any {

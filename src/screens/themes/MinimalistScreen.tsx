@@ -18,7 +18,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { showToast } from "../../components/Toast";
@@ -190,9 +190,6 @@ export default function MinimalistScreen() {
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
   const totalToday = todayStat.rx + todayStat.tx;
   const rxShare = totalToday > 0 ? todayStat.rx / totalToday : 0;
-
-  const pingColor = (delay: number) =>
-    delay < 80 ? "#22C55E" : delay < 200 ? "#F59E0B" : "#EF4444";
 
   return (
     <View style={styles.screen}>

@@ -5,6 +5,7 @@ import * as Sharing from "expo-sharing";
 import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen, Subtitle, Title } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { LoadingState } from "../components/Foundations";
 import { referralApply, referralInfo } from "../api";
 import { colors, useTheme } from "../theme";
 import { formatDateTime } from "../utils/formatDate";
@@ -54,7 +55,7 @@ export default function ReferralScreen() {
     }
   };
 
-  if (!info) return <Screen />;
+  if (!info) return <LoadingState label="Загружаем реферальную программу…" />;
 
   const nextTier = info.next_tier;
 

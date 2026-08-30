@@ -23,7 +23,7 @@ import * as pingStore from "../vpn/pingStore";
 import * as appFilterMod from "../vpn/appFilter";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor } from "../theme";
 
 export default function HomeScreen() {
   useTheme();
@@ -523,7 +523,7 @@ function ServerPicker({
                   {ping?.status === "done" && !ping.error && (
                     <Text
                       style={{
-                        color: ping.delay < 300 ? colors.green : colors.orange,
+                        color: pingColor(ping.delay),
                         fontWeight: "700",
                         fontSize: 12,
                       }}

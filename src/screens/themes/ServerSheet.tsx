@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
-import { colors, splitNameFlag, sheetSurfaceBg, useTheme } from "../../theme";
+import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColorFor } from "../../theme";
 
 /** Шторка выбора сервера для тем minimalist / liquid glass.
  *  pingRight=true — кнопка «Пинг» прижата вправо к кнопке закрытия (как в остальных темах). */
@@ -96,7 +96,7 @@ export function ServerSheet({
                   {ping?.status === "done" && ping.delay > 0 && (
                     <Text
                       style={{
-                        color: ping.delay < 120 ? colors.green : ping.delay < 260 ? colors.orange : colors.red,
+                        color: pingColorFor(ping.delay),
                         fontWeight: "700",
                         fontSize: 12,
                       }}

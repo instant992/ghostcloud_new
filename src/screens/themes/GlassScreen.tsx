@@ -25,7 +25,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor as pingColorFor } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { AppFilterModal } from "../../components/AppFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -320,11 +320,7 @@ export default function GlassScreen() {
     selPing?.status === "done" && selPing.delay > 0 ? `${selPing.delay} мс` : null;
   const pingColor =
     selPing?.status === "done" && selPing.delay > 0
-      ? selPing.delay < 80
-        ? "#22C55E"
-        : selPing.delay < 200
-          ? "#F59E0B"
-          : "#EF4444"
+      ? pingColorFor(selPing.delay)
       : colors.textDim;
 
   const totalToday = todayStat.rx + todayStat.tx;

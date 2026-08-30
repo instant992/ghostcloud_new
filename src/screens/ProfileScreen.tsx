@@ -105,7 +105,9 @@ export default function ProfileScreen() {
   const [qrBusy, setQrBusy] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
 
-  const avatarUri = me?.avatar_url ? `${BASE_URL}${me.avatar_url}?t=${Date.now()}` : null;
+  const avatarUri = me?.avatar_url
+    ? `${BASE_URL}${me.avatar_url}?t=${String(Math.floor(Date.now() / 60000))}`
+    : null;
 
   const daysLeft = (() => {
     if (!me?.expire_at) return 0;

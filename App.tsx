@@ -39,9 +39,9 @@ import { ToastHost } from "./src/components/Toast";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { error: any }
+  { error: any; resetKey: number }
 > {
-  state = { error: null as any };
+  state = { error: null as any, resetKey: 0 };
   static getDerivedStateFromError(error: any) {
     return { error };
   }
@@ -59,10 +59,23 @@ class ErrorBoundary extends React.Component<
           <Text style={{ color: colors.textDim, fontSize: 10, marginTop: 12 }}>
             {String(e?.stack || "").slice(0, 1200)}
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => this.setState((s) => ({ error: null, resetKey: s.resetKey + 1 }))}
+            style={{
+              marginTop: 18,
+              backgroundColor: colors.accentDeep,
+              borderRadius: 14,
+              paddingVertical: 13,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>Перезапустить</Text>
+          </Pressable>
         </View>
       );
     }
-    return this.props.children;
+    return <React.Fragment key={this.state.resetKey}>{this.props.children}</React.Fragment>;
   }
 }
 

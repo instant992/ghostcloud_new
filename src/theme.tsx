@@ -511,6 +511,33 @@ export const radius = {
   lg: 26,
 };
 
+/** Единая типографическая шкала. Использовать вместо произвольных
+ *  fontSize по всему коду; иерархия: display → title → heading → body → sub → caption. */
+export const typo: Record<
+  "display" | "title" | "heading" | "body" | "bodyStrong" | "sub" | "caption",
+  { fontSize: number; fontWeight: "500" | "600" | "700" | "800"; lineHeight: number }
+> = {
+  display: { fontSize: 30, fontWeight: "800", lineHeight: 36 },
+  title: { fontSize: 26, fontWeight: "800", lineHeight: 32 },
+  heading: { fontSize: 16, fontWeight: "800", lineHeight: 21 },
+  body: { fontSize: 14, fontWeight: "500", lineHeight: 20 },
+  bodyStrong: { fontSize: 14, fontWeight: "700", lineHeight: 20 },
+  sub: { fontSize: 13, fontWeight: "500", lineHeight: 18 },
+  caption: { fontSize: 11, fontWeight: "600", lineHeight: 15 },
+};
+
+/** Минимальный размер тач-таргета (44 — гайдлайн; 40 допустимо в плотных списках). */
+export const hit = { min: 44, dense: 40 };
+
+/** Единые пороги и цвета пинга для всех экранов. */
+export const PING_GOOD = 80;
+export const PING_WARN = 200;
+export function pingColor(delay: number): string {
+  if (delay < PING_GOOD) return colors.green;
+  if (delay < PING_WARN) return colors.orange;
+  return colors.red;
+}
+
 export function formatBytes(bytes: number): string {
   if (!bytes || bytes <= 0) return "0 Б";
   const units = ["Б", "КБ", "МБ", "ГБ", "ТБ"];
