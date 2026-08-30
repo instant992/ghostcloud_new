@@ -310,7 +310,14 @@ export default function HappScreen() {
             ]}
           >
             <View style={[styles.circleInner, { backgroundColor: vpnRunning ? powerButtonColors().on : powerButtonColors().off }]}>
-              <Pressable onPress={toggle} disabled={busy} style={{ alignItems: "center", justifyContent: "center" }}>
+              <Pressable
+                onPress={toggle}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel={vpnRunning ? "Выключить VPN" : "Включить VPN"}
+                accessibilityState={{ busy }}
+                style={{ alignItems: "center", justifyContent: "center" }}
+              >
                 {busy ? (
                   <ActivityIndicator size="large" color={vpnRunning ? "#fff" : colors.accent} />
                 ) : vpnRunning ? (

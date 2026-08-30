@@ -204,7 +204,13 @@ export default function MinimalistScreen() {
           </View>
           <Text style={styles.headerTitle}>GhostCloud</Text>
         </View>
-        <Pressable onPress={() => nav.navigate("Support")} hitSlop={8} style={styles.headerIcon}>
+        <Pressable
+          onPress={() => nav.navigate("Support")}
+          hitSlop={8}
+          style={styles.headerIcon}
+          accessibilityRole="button"
+          accessibilityLabel="Поддержка"
+        >
           <Ionicons name="headset-outline" size={21} color={colors.textDim} />
         </Pressable>
       </View>
@@ -263,6 +269,9 @@ export default function MinimalistScreen() {
             <Pressable
               onPress={toggle}
               disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={vpnRunning ? "Выключить VPN" : "Включить VPN"}
+              accessibilityState={{ busy }}
               style={[
                 styles.powerBtn,
                 {
@@ -443,7 +452,7 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { color: colors.text, fontSize: 19, fontWeight: "800", letterSpacing: -0.6 },
-  headerIcon: { padding: 6 },
+  headerIcon: { padding: 10, margin: -4 },
   lteRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -504,9 +513,9 @@ const makeStyles = () => StyleSheet.create({
     justifyContent: "center",
   },
   roundRefresh: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.cardLight,

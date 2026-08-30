@@ -332,6 +332,9 @@ export default function V2rayScreen() {
           style={[styles.fab, { backgroundColor: vpnRunning ? "#22C55E" : "#B0B0B0", opacity: busy ? 0.7 : 1 }]}
           onPress={toggle}
           disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={vpnRunning ? "Остановить соединение" : "Запустить соединение"}
+          accessibilityState={{ busy }}
         >
           {busy ? (
             <ActivityIndicator color="#fff" />

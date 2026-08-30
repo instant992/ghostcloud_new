@@ -242,7 +242,13 @@ export default function SimpleScreen() {
           <Text style={styles.appName}>GhostCloud</Text>
           <Text style={styles.modeLabel}>Простой режим</Text>
         </View>
-        <Pressable onPress={() => setLocked(true)} hitSlop={10} style={styles.gearBtn}>
+        <Pressable
+          onPress={() => setLocked(true)}
+          hitSlop={10}
+          style={styles.gearBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Настройки (требуется код)"
+        >
           <Ionicons name="settings-outline" size={22} color={colors.textDim} />
         </Pressable>
       </View>
@@ -252,6 +258,9 @@ export default function SimpleScreen() {
         <Pressable
           onPress={toggle}
           disabled={busy}
+          accessibilityRole="button"
+          accessibilityLabel={busy ? "Подождите" : vpnRunning ? "Выключить защиту" : "Включить защиту"}
+          accessibilityState={{ busy }}
           style={[
             styles.bigButton,
             { backgroundColor: vpnRunning ? "#7C3AED" : "#251A42" },

@@ -439,6 +439,9 @@ export default function GlassScreen() {
             <Pressable
               onPress={toggle}
               disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel={vpnRunning ? "Выключить VPN" : "Включить VPN"}
+              accessibilityState={{ busy }}
               style={styles.spherePress}
             >
               {busy ? (
