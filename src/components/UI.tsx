@@ -52,6 +52,8 @@ export function Screen({
   if (scroll) {
     return (
       <ScrollView
+          bounces={false}
+          overScrollMode="never"
         style={styles.screen}
         contentContainerStyle={[styles.content, safeTop, safeBottom, style]}
         keyboardShouldPersistTaps="handled"

@@ -9,6 +9,7 @@ import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
 import { computeBypassForNetwork, loadFilterSettings } from "./connectionFilter";
 import {
+  getInstalledPackageNames,
   getNetworkType,
   isVpnRunning,
   onVpnStateChanged,
@@ -25,6 +26,14 @@ const V2RAY_UA = "v2rayNG/1.10.24";
 const FAILOVER_MAX = 5;
 
 let failoverPool: VpnNode[] = [];
+/** Узел, на котором реально поднят туннель (для статистики «по серверам»).
+ *  Выбранный узел может быть null (подключение на первый доступный),
+ *  поэтому учитываем фактический. */
+let lastConnectedNodeId: string | null = null;
+
+export function getLastConnectedNodeId(): string | null {
+  return lastConnectedNodeId;
+}
 
 /** Задаёт пул серверов-кандидатов для авто-файловера (вызывается из контекста при загрузке узлов). */
 export function setFailoverPool(nodes: VpnNode[]): void {
@@ -165,11 +174,20 @@ export async function ensurePermission(): Promise<boolean> {
 }
 
 /** Итоговый набор «мимо VPN» из активных профилей фильтра соединения
- *  (пакеты — системный список, домены — правила ядра), под текущую сеть. */
+ *  (пакеты — системный список, домены — правила ядра), под текущую сеть.
+ *  Пакеты проверяются по списку реально установленных приложений — как в эталоне. */
 function currentBypass(): { packages: string[]; domains: string[] } {
   try {
     const s = loadFilterSettings();
-    return computeBypassForNetwork(s, getNetworkType());
+    const net = getNetworkType();
+    const bypass = computeBypassForNetwork(s, net);
+    // Android не может исключить из туннеля неустановленный пакет — такие
+    // пакеты в список не попадают (иначе VPN-сервис бросал бы их молча)
+    const installed = getInstalledPackageNames();
+    const packages = installed.size
+      ? bypass.packages.filter((p) => installed.has(p))
+      : bypass.packages;
+    return { packages, domains: bypass.domains };
   } catch {
     return { packages: [], domains: [] };
   }
@@ -225,12 +243,14 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     const config = buildSingBoxConfig(node, selectedDnsProvider(isSponsor), bypass.domains);
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
+    lastConnectedNodeId = node.id;
     return;
   }
   if (core === "mihomo") {
     const config = buildMihomoConfig(node, selectedDnsProvider(isSponsor), bypass.domains);
     saveTileConfig(config, "mihomo");
     await startLibCoreVpn("mihomo", config, allowed, blocked, failover);
+    lastConnectedNodeId = node.id;
     return;
   }
   if (!node.supportedByXray) {
@@ -239,6 +259,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains);
   saveTileConfig(config, "xray");
   await startVpn(config, allowed, blocked, failover);
+  lastConnectedNodeId = node.id;
 }
 
 export async function disconnect(): Promise<void> {

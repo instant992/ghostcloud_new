@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { Screen, Subtitle, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
-import { getAppIcon } from "../vpn/native";
+import { getAppIcon, isUsageStatsAvailable, openUsageAccessSettings } from "../vpn/native";
 import * as stats from "../stats";
 
 type Period = 1 | 7 | 30;
@@ -59,9 +60,13 @@ export default function StatsScreen() {
   const [chart, setChart] = useState<Array<{ date: string; stat: stats.DayStat }>>([]);
   const [byNode, setByNode] = useState<Array<{ nodeId: string; rx: number; tx: number }>>([]);
   const [byApp, setByApp] = useState<Array<{ pkg: string; name: string; rx: number; tx: number }>>([]);
+  const [usageGranted, setUsageGranted] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
+      // На Android 10+ трафик по приложениям доступен только с разрешением
+      // «Доступ к данным об использовании»
+      setUsageGranted(isUsageStatsAvailable());
       (async () => {
         setTotal(await stats.sumDays(period));
         const raw14 = await stats.lastNDays(14);
@@ -181,7 +186,24 @@ export default function StatsScreen() {
 
       <Text style={styles.chartTitle}>По приложениям</Text>
       <View style={styles.chartCard}>
-        {byApp.length === 0 ? (
+        {byApp.length === 0 && !usageGranted ? (
+          <View style={{ gap: 8 }}>
+            <Text style={{ color: colors.textFaint, fontSize: 13, lineHeight: 19 }}>
+              Чтобы видеть, какие приложения расходуют трафик, нужно системное
+              разрешение «Доступ к данным об использовании» (без него система не
+              отдаёт счётчики трафика других приложений).
+            </Text>
+            <PressableScale
+              style={styles.usageBtn}
+              onPress={openUsageAccessSettings}
+              accessibilityRole="button"
+              accessibilityLabel="Выдать доступ к данным об использовании"
+            >
+              <Ionicons name="key-outline" size={16} color="#fff" />
+              <Text style={styles.usageBtnText}>Выдать доступ</Text>
+            </PressableScale>
+          </View>
+        ) : byApp.length === 0 ? (
           <Text style={{ color: colors.textFaint, fontSize: 13, textAlign: "center", paddingVertical: 10 }}>
             Пока нет данных — трафик приложений считается во время подключения
           </Text>
@@ -286,5 +308,15 @@ const makeStyles = () => StyleSheet.create({
     overflow: "hidden",
   },
   progressBar: { height: "100%", backgroundColor: colors.accent, borderRadius: 3 },
+  usageBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: colors.accentDeep,
+  },
+  usageBtnText: { color: "#fff", fontSize: 13, fontWeight: "700" },
   note: { color: colors.textFaint, fontSize: 11, textAlign: "center" },
 });

@@ -433,6 +433,8 @@ export default function SupportScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <FlatList
+          bounces={false}
+          overScrollMode="never"
           data={recentTickets}
           keyExtractor={(t) => String(t.id)}
           contentContainerStyle={{ padding: 16 }}
@@ -499,6 +501,8 @@ export default function SupportScreen() {
       </View>
 
       <FlatList
+          bounces={false}
+          overScrollMode="never"
         data={[...messages].reverse()}
         keyExtractor={(m) => String(m.id)}
         inverted

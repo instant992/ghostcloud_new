@@ -180,6 +180,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Учёт трафика: опрашиваем TrafficStats раз в 3 сек, дельту пишем в локальную статистику.
   // Параллельно считаем дельты по UID приложений — «куда идёт трафик».
+  // Базовый замер приложений берётся ДО первого тика, чтобы статистика
+  // по приложениям появилась уже в первую сессию подключения.
   useEffect(() => {
     if (!vpnRunning) return;
     let stopped = false;
@@ -189,18 +191,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const native = await import("./vpn/native");
       const snap = await native.getTrafficSnapshot();
       last = snap;
+      // Базовый замер по приложениям — сразу, не дожидаясь первого тика
+      try {
+        const apps = await native.getUidTraffic();
+        if (apps.length > 0) {
+          lastApps = new Map(apps.map((a) => [a.uid, { rx: a.rx, tx: a.tx }]));
+        }
+      } catch {}
+      if (stopped) return;
+      let ticking = false;
       const timer = setInterval(async () => {
-        if (stopped) return;
+        if (stopped || !mounted.current || ticking) return;
+        ticking = true;
         try {
-          const cur = await native.getTrafficSnapshot();
-          const dTx = cur.tx - last.tx;
-          const dRx = cur.rx - last.rx;
-          if (dTx > 0 || dRx > 0) {
-            last = cur;
-            const stats = await import("./stats");
-            await stats.addDelta(dRx, dTx, selectedNodeIdRef.current);
-          }
-        } catch {}
+          // Общий трафик + разбивка по серверу
+          try {
+            const cur = await native.getTrafficSnapshot();
+            const dTx = cur.tx - last.tx;
+            const dRx = cur.rx - last.rx;
+            // Пишем, если вырос хотя бы один счётчик (второй может отстать на
+            // один цикл опроса) — отрицательные дельты обнуляются в addDelta
+            if (dTx > 0 || dRx > 0) {
+              last = cur;
+              const stats = await import("./stats");
+              // Фактически подключённый узел (выбранный может быть не задан)
+              const nodeId = selectedNodeIdRef.current || (await import("./vpn/manager")).getLastConnectedNodeId();
+              await stats.addDelta(dRx, dTx, nodeId);
+            }
+          } catch {}
+        // Трафик по приложениям
         try {
           const apps = await native.getUidTraffic();
           const deltas: Array<{ pkg: string; name: string; rx: number; tx: number }> = [];
@@ -225,8 +244,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               await stats.addAppDeltas(deltas);
             }
           }
-          lastApps = new Map(apps.map((a) => [a.uid, { rx: a.rx, tx: a.tx }]));
+          // Пустой/ошибочный ответ не сбрасывает базовый замер — иначе
+          // все приложения снова считались бы «новыми» и дельты терялись бы
+          if (apps.length > 0) {
+            lastApps = new Map(apps.map((a) => [a.uid, { rx: a.rx, tx: a.tx }]));
+          }
         } catch {}
+        } finally {
+          ticking = false;
+        }
       }, 3000);
       cleanupRef.current = () => clearInterval(timer);
     })();

@@ -142,6 +142,40 @@ export function getNetworkType(): string {
   }
 }
 
+/** Пакеты всех установленных приложений (через запятую) — для проверки
+ *  профилей фильтра соединения: в список «мимо VPN» попадают только
+ *  реально установленные приложения. */
+export function getInstalledPackageNames(): Set<string> {
+  if (!XrayNative?.getInstalledPackageNames) return new Set();
+  try {
+    const raw = String(XrayNative.getInstalledPackageNames() || "");
+    if (!raw) return new Set();
+    return new Set(raw.split(",").filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Выдан ли доступ к данным использования (нужен для статистики трафика
+ *  по приложениям на Android 10+). Если нативный модуль недоступен
+ *  (не-сборка), считаем доступным, чтобы не показывать ложную подсказку. */
+export function isUsageStatsAvailable(): boolean {
+  if (!XrayNative) return true;
+  if (!XrayNative.isUsageStatsAvailable) return true;
+  try {
+    return Boolean(XrayNative.isUsageStatsAvailable());
+  } catch {
+    return true;
+  }
+}
+
+/** Открывает системные настройки выдачи доступа к данным использования */
+export function openUsageAccessSettings(): void {
+  try {
+    XrayNative?.openUsageAccessSettings?.();
+  } catch {}
+}
+
 /** События смены типа сети (Wi-Fi ↔ LTE) — для фильтра соединения */
 export function onNetworkTypeChanged(cb: (type: string) => void): () => void {
   if (!emitter) return () => {};

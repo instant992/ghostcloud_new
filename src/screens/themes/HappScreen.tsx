@@ -272,7 +272,7 @@ export default function HappScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
         <View style={styles.headerSide}>
           <HeaderIcon icon="settings-outline" size={24} onPress={() => nav.navigate("Настройки")} />
-          <HeaderIcon icon="grid-outline" size={21} onPress={() => setAppsOpen(true)} />
+          <HeaderIcon icon="shield-half-outline" size={21} onPress={() => setAppsOpen(true)} />
         </View>
         <Text style={styles.appTitle}>GhostCloud</Text>
         <View style={styles.headerSide}>
@@ -282,6 +282,8 @@ export default function HappScreen() {
       </View>
 
       <ScrollView
+          bounces={false}
+          overScrollMode="never"
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: 10, paddingBottom: insets.bottom + 28 }}
         showsVerticalScrollIndicator={false}

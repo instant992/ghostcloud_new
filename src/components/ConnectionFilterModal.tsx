@@ -52,9 +52,17 @@ export function ConnectionFilterModal({
   const [settings, setSettings] = useState<FilterSettings>(() => loadFilterSettings());
   const [editing, setEditing] = useState<BypassProfile | null>(null);
   const [restartBusy, setRestartBusy] = useState(false);
+  /** Пакеты, реально установленные на устройстве — для подсчёта в карточках профилей */
+  const [installedPkgs, setInstalledPkgs] = useState<Set<string> | null>(null);
 
   useEffect(() => {
-    if (visible) setSettings(loadFilterSettings());
+    if (!visible) return;
+    setSettings(loadFilterSettings());
+    // Определяем установленные приложения, чтобы показывать, сколько из
+    // списка профиля реально стоит на устройстве (как в эталоне)
+    import("../vpn/native")
+      .then((n) => setInstalledPkgs(n.getInstalledPackageNames()))
+      .catch(() => setInstalledPkgs(null));
   }, [visible]);
 
   /** Переподключить VPN с новыми правилами фильтра (как в эталоне) */
@@ -216,6 +224,8 @@ export function ConnectionFilterModal({
             </View>
 
             <ScrollView
+          bounces={false}
+          overScrollMode="never"
               style={{ flex: 1 }}
               contentContainerStyle={{ paddingBottom: 30 }}
               showsVerticalScrollIndicator={false}
@@ -246,7 +256,14 @@ export function ConnectionFilterModal({
                         <Text style={styles.cardSub}>
                           {p.domains.length > 0 && `${p.domains.length} сайтов`}
                           {p.domains.length > 0 && p.packages.length > 0 && " · "}
-                          {p.packages.length > 0 && `${p.packages.length} приложений`}
+                          {p.packages.length > 0 &&
+                            (() => {
+                              const installed = installedPkgs
+                                ? p.packages.filter((x) => installedPkgs.has(x)).length
+                                : p.packages.length;
+                              const suffix = installedPkgs && installed < p.packages.length ? " установлено" : " приложений";
+                              return `${installed}${suffix}`;
+                            })()}
                           {p.domains.length === 0 && p.packages.length === 0 && "пусто"}
                           {" — мимо VPN"}
                         </Text>

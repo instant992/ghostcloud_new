@@ -18,21 +18,159 @@ class XrayCoreModule : Module() {
   @Volatile
   private var lastNetType: String = ""
 
-  /** Текущий тип сети: wifi / mobile / ethernet / other / none */
+  /** Текущий тип сети: wifi / mobile / ethernet / other / none.
+   *  VPN-туннели пропускаем — нужен тип реальной сети под ними. */
   private fun netTypeNow(): String {
     return try {
       val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
         ?: return "none"
-      val net = cm.activeNetwork ?: return "none"
-      val caps = cm.getNetworkCapabilities(net) ?: return "none"
-      when {
-        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
-        caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-        else -> "other"
+      val nets = cm.allNetworks
+      for (net in nets) {
+        val caps = cm.getNetworkCapabilities(net) ?: continue
+        // VPN-сеть не отражает реальное подключение (Wi-Fi/LTE)
+        if (caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN)) continue
+        if (!caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue
+        return when {
+          caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+          caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "mobile"
+          caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+          else -> "other"
+        }
       }
+      "none"
     } catch (e: Throwable) {
       "none"
+    }
+  }
+
+  /** Все установленные пакеты через запятую (для проверки профилей фильтра соединения) */
+  private fun installedPackageNames(): String {
+    return try {
+      val pm = context.packageManager
+      pm.getInstalledPackages(0).joinToString(",") { it.packageName }
+    } catch (e: Throwable) {
+      ""
+    }
+  }
+
+  /** Выдан ли appop GET_USAGE_STATS («Доступ к данным об использовании»).
+   *  Без него на Android 10+ нельзя читать сетевые счётчики других приложений. */
+  private fun usageStatsGranted(): Boolean {
+    return try {
+      val appOps = context.getSystemService(android.content.Context.APP_OPS_SERVICE)
+        as? android.app.AppOpsManager ?: return false
+      // OPSTR_GET_USAGE_STATS — константа системного класса; читаем рефлексионно
+      val opStr = try {
+        Class.forName("android.app.AppOpsManager").getField("OPSTR_GET_USAGE_STATS").get(null) as String
+      } catch (_: Throwable) {
+        "android:get_usage_stats"
+      }
+      val mode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        appOps.unsafeCheckOpNoThrow(opStr, android.os.Process.myUid(), context.packageName)
+      } else {
+        @Suppress("DEPRECATION")
+        appOps.checkOpNoThrow(opStr, android.os.Process.myUid(), context.packageName)
+      }
+      mode == android.app.AppOpsManager.MODE_ALLOWED
+    } catch (e: Throwable) {
+      false
+    }
+  }
+
+  /** Трафик по UID через NetworkStatsManager (суммарно с загрузки).
+   *  Классы в разных версиях SDK лежат в разных пакетах
+   *  (старые — в android.net, SDK 36+ — в android.app.usage),
+   *  поэтому всё делается рефлексионно. */
+  private fun uidTrafficViaStatsManager(): List<Map<String, Any>>? {
+    return try {
+      if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.M) return null
+      val modern = try { Class.forName("android.app.usage.NetworkStatsManager") } catch (_: Throwable) { null }
+      val legacy = try { Class.forName("android.net.NetworkStatsManager") } catch (_: Throwable) { null }
+      val nsmClass = modern ?: legacy ?: return null
+      // Имя системного сервиса «netstats» стабильно во всех версиях Android
+      val nsm = context.getSystemService("netstats") ?: return null
+      val querySummary = nsmClass.getMethod("querySummary", Int::class.java, String::class.java, Long::class.java, Long::class.java)
+      val pm = context.packageManager
+      val self = context.packageName
+      val rxByUid = mutableMapOf<Int, Long>()
+      val txByUid = mutableMapOf<Int, Long>()
+      val endMs = System.currentTimeMillis()
+      // Типы сетей: TYPE_WIFI = 1, TYPE_MOBILE = 0 (константы стабильны)
+      for (type in intArrayOf(1, 0)) {
+        val source: Any = try {
+          querySummary.invoke(nsm, type, null, 0L, endMs) ?: continue
+        } catch (_: Throwable) {
+          continue
+        }
+        val hasNext = source.javaClass.getMethod("hasNextBucket")
+        // API различается: старые SDK — nextBucket(); android.net — nextBucket(Bucket);
+        // android.app.usage (SDK 36+) — getNextBucket(Bucket). Ищем по порядку.
+        var nextNoArg: java.lang.reflect.Method? = null
+        var nextFill: java.lang.reflect.Method? = null
+        var bucketProto: Any? = null
+        try {
+          nextNoArg = source.javaClass.getMethod("nextBucket")
+        } catch (_: Throwable) {
+        }
+        if (nextNoArg == null) {
+          val bucketClass = try { Class.forName("android.app.usage.NetworkStats\$Bucket") } catch (_: Throwable) { null }
+            ?: try { Class.forName("android.net.NetworkStats\$Bucket") } catch (_: Throwable) { null }
+          if (bucketClass == null) continue
+          bucketProto = bucketClass.getDeclaredConstructor().newInstance()
+          nextFill = try {
+            source.javaClass.getMethod("getNextBucket", bucketClass)
+          } catch (_: Throwable) {
+            try {
+              source.javaClass.getMethod("nextBucket", bucketClass)
+            } catch (_: Throwable) {
+              null
+            }
+          }
+          if (nextFill == null) continue
+        }
+        while (hasNext.invoke(source) == true) {
+          val b: Any
+          if (nextNoArg != null) {
+            b = nextNoArg.invoke(source) ?: continue
+          } else {
+            // метод возвращает boolean и заполняет переданный Bucket
+            if (nextFill?.invoke(source, bucketProto) != true) continue
+            b = bucketProto ?: continue
+          }
+          val uid = b.javaClass.getMethod("getUid").invoke(b) as Int
+          if (uid >= android.os.Process.FIRST_APPLICATION_UID) {
+            val rx = b.javaClass.getMethod("getRxBytes").invoke(b) as Long
+            val tx = b.javaClass.getMethod("getTxBytes").invoke(b) as Long
+            if (rx > 0) rxByUid[uid] = (rxByUid[uid] ?: 0L) + rx
+            if (tx > 0) txByUid[uid] = (txByUid[uid] ?: 0L) + tx
+          }
+        }
+      }
+      val result = mutableListOf<Map<String, Any>>()
+      val seen = mutableSetOf<Int>()
+      for (info in pm.getInstalledPackages(0)) {
+        val ai = info.applicationInfo ?: continue
+        val uid = ai.uid
+        if (uid < android.os.Process.FIRST_APPLICATION_UID) continue
+        if (!seen.add(uid)) continue
+        if (info.packageName == self) continue
+        val rx = rxByUid[uid] ?: 0L
+        val tx = txByUid[uid] ?: 0L
+        if (rx <= 0 && tx <= 0) continue
+        result.add(
+          mapOf(
+            "uid" to uid,
+            "packageName" to info.packageName,
+            "appName" to (ai.loadLabel(pm)?.toString() ?: info.packageName),
+            "rx" to rx,
+            "tx" to tx
+          )
+        )
+      }
+      result
+    } catch (e: Throwable) {
+      android.util.Log.w("GhostCloud", "uidTrafficViaStatsManager failed: ${e.message}")
+      null
     }
   }
 
@@ -109,6 +247,10 @@ class XrayCoreModule : Module() {
 
     Function("getNetworkType") {
       netTypeNow()
+    }
+
+    Function("getInstalledPackageNames") {
+      installedPackageNames()
     }
 
     AsyncFunction("requestPermission") { promise: Promise ->
@@ -495,10 +637,18 @@ class XrayCoreModule : Module() {
       )
     }
 
-    // Счётчики трафика по UID установленных приложений (для статистики «куда идёт трафик»)
+    // Счётчики трафика по UID установленных приложений (для статистики «куда идёт трафик»).
+    // Современный путь — NetworkStatsManager (нужен appop GET_USAGE_STATS),
+    // запасной — TrafficStats (Android 9 и ниже; на 10+ чужие UID недоступны).
     AsyncFunction("getUidTraffic") { promise: Promise ->
       kotlin.concurrent.thread(name = "gc-uid-traffic") {
         try {
+          val viaStats = if (usageStatsGranted()) uidTrafficViaStatsManager() else null
+          if (viaStats != null && viaStats.isNotEmpty()) {
+            promise.resolve(viaStats)
+            return@thread
+          }
+          // Фолбэк: TrafficStats (работает только для старых Android)
           val pm = context.packageManager
           val self = context.packageName
           val result = mutableListOf<Map<String, Any>>()
@@ -527,6 +677,22 @@ class XrayCoreModule : Module() {
         } catch (e: Throwable) {
           promise.reject("ERR_UID_TRAFFIC", e.message ?: "Не удалось получить трафик приложений", e)
         }
+      }
+    }
+
+    /** Выдан ли appop «Доступ к данным об использовании» (PACKAGE_USAGE_STATS) */
+    Function("isUsageStatsAvailable") {
+      usageStatsGranted()
+    }
+
+    /** Открывает системные настройки «Доступ к использованию» для выдачи appop */
+    Function("openUsageAccessSettings") {
+      try {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_USAGE_ACCESS_SETTINGS)
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+      } catch (e: Throwable) {
+        android.util.Log.e("GhostCloud", "openUsageAccessSettings failed", e)
       }
     }
 

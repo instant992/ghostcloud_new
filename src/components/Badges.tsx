@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Image, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Defs, LinearGradient, Path, Stop } from "react-native-svg";
 import { BASE_URL } from "../api";
 import type { UserBadge } from "../context";
 import { showToast } from "./Toast";
@@ -37,11 +38,40 @@ function useShimmer(): Animated.Value {
   return anim;
 }
 
-/** Сердечко спонсора. Тап — уведомление сверху о том, за что оно выдано. */
+/** Форма сердца (viewBox 24×24) */
+const HEART_PATH =
+  "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z";
+
+let heartIdSeq = 0;
+
+/** Сердечко спонсора: переливание цветов внутри самого сердца
+ *  (два голографических градиента плавно перетекают друг в друга).
+ *  Тап — уведомление сверху о том, за что оно выдано. */
 export function SponsorHeart({ size = 20 }: { size?: number }) {
-  const anim = useShimmer();
-  const glowOpacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.55] });
-  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
+  const ids = useRef(`hgrad${++heartIdSeq}`).current;
+  const fade = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.parallel([
+        // переливание: второй градиент проявляется и гаснет
+        Animated.sequence([
+          Animated.timing(fade, { toValue: 1, duration: 2100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(fade, { toValue: 0, duration: 2100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
+        // лёгкая пульсация сердца
+        Animated.sequence([
+          Animated.timing(scale, { toValue: 1.09, duration: 2100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(scale, { toValue: 1, duration: 2100, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [fade, scale]);
+
+  const box = Math.round(size * 1.4);
 
   return (
     <Pressable
@@ -50,24 +80,33 @@ export function SponsorHeart({ size = 20 }: { size?: number }) {
       accessibilityLabel="Спонсор — пополнение от 444 рублей за 24 часа"
       hitSlop={6}
     >
-      <View style={{ width: size * 1.7, height: size * 1.7, alignItems: "center", justifyContent: "center" }}>
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            width: size * 1.5,
-            height: size * 1.5,
-            borderRadius: size,
-            backgroundColor: "#FF5F93",
-            opacity: glowOpacity,
-            transform: [{ scale }],
-          }}
-        />
-        <Animated.Image
-          source={{ uri: "sponsor_heart" }}
-          style={{ width: size, height: size, transform: [{ scale }] }}
-          resizeMode="contain"
-        />
+      <View style={{ width: box, height: box, alignItems: "center", justifyContent: "center" }}>
+        <Animated.View style={{ width: size, height: size, transform: [{ scale }] }}>
+          {/* Базовый градиент: фиолетовый → розовый → оранжевый */}
+          <Svg viewBox="0 0 24 24" width={size} height={size}>
+            <Defs>
+              <LinearGradient id={`${ids}a`} x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#7C3AED" />
+                <Stop offset="0.5" stopColor="#FF5F93" />
+                <Stop offset="1" stopColor="#FF9800" />
+              </LinearGradient>
+            </Defs>
+            <Path d={HEART_PATH} fill={`url(#${ids}a)`} />
+          </Svg>
+          {/* Второй градиент (голубой → малиновый → янтарный) — переливание внутри сердца */}
+          <Animated.View style={{ position: "absolute", top: 0, left: 0, width: size, height: size, opacity: fade }}>
+            <Svg viewBox="0 0 24 24" width={size} height={size}>
+              <Defs>
+                <LinearGradient id={`${ids}b`} x1="1" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor="#38BDF8" />
+                  <Stop offset="0.5" stopColor="#E879F9" />
+                  <Stop offset="1" stopColor="#FBBF24" />
+                </LinearGradient>
+              </Defs>
+              <Path d={HEART_PATH} fill={`url(#${ids}b)`} />
+            </Svg>
+          </Animated.View>
+        </Animated.View>
       </View>
     </Pressable>
   );

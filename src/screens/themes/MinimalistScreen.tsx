@@ -216,6 +216,8 @@ export default function MinimalistScreen() {
       </View>
 
       <ScrollView
+          bounces={false}
+          overScrollMode="never"
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
@@ -301,7 +303,7 @@ export default function MinimalistScreen() {
         {/* Ряд действий */}
         <View style={styles.actionsRow}>
           <Pressable style={styles.squareIcon} onPress={() => setAppsOpen(true)}>
-            <Ionicons name="grid-outline" size={22} color={colors.text} />
+            <Ionicons name="shield-half-outline" size={22} color={colors.text} />
           </Pressable>
           <Pressable
             style={styles.squareIcon}

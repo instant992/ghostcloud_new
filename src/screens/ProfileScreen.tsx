@@ -319,6 +319,8 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView
+          bounces={false}
+          overScrollMode="never"
         style={{ flex: 1 }}
         contentContainerStyle={{
           padding: 16,

@@ -104,6 +104,8 @@ export default function SupportTicketScreen() {
         </View>
       ) : (
         <FlatList
+          bounces={false}
+          overScrollMode="never"
           data={[...messages].reverse()}
           keyExtractor={(m) => String(m.id)}
           inverted

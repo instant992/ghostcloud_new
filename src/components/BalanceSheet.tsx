@@ -180,7 +180,9 @@ export function BalanceSheet({
               <ActivityIndicator color={colors.accent} />
             </View>
           ) : (
-            <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+            <ScrollView
+          bounces={false}
+          overScrollMode="never" style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
               {/* Итого */}
               <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
                 <View style={[styles.summaryCard, { flex: 1 }]}>

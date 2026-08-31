@@ -40,6 +40,8 @@ export default function SubscriptionScreen() {
 
   return (
     <ScrollView
+          bounces={false}
+          overScrollMode="never"
       style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{ padding: 20, paddingTop: 84, paddingBottom: 40 }}
       showsVerticalScrollIndicator={false}

@@ -236,7 +236,7 @@ export default function HomeScreen() {
           accessibilityLabel="Фильтр соединения: профили обхода и фильтр приложений"
         >
           <View style={styles.serverIcon}>
-            <Ionicons name="filter" size={20} color={colors.accent} />
+            <Ionicons name="shield-half-outline" size={20} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.serverName}>Фильтр соединения</Text>
@@ -439,6 +439,8 @@ function ServerPicker({
           )}
 
           <FlatList
+          bounces={false}
+          overScrollMode="never"
             data={filtered}
             keyExtractor={(n: any) => n.id}
             style={{ maxHeight: 420 }}

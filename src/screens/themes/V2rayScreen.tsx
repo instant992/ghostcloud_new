@@ -282,7 +282,9 @@ export default function V2rayScreen() {
           <IconBtn icon="cart-outline" size={18} color={colors.green} onPress={() => setBalanceOpen(true)} />
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 8 }}>
+        <ScrollView
+          bounces={false}
+          overScrollMode="never" horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 8 }}>
           {tabs.map((t) => (
             <Pressable
               key={t.key}
@@ -305,6 +307,8 @@ export default function V2rayScreen() {
 
       <View style={{ flex: 1 }}>
         <FlatList
+          bounces={false}
+          overScrollMode="never"
           data={currentNodes}
           keyExtractor={(n) => n.id}
           contentContainerStyle={{ paddingBottom: 96 }}

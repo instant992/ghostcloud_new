@@ -89,7 +89,9 @@ export function SponsorBenefitsSheet({
           <IconButton icon="close" label="Закрыть" size={20} color={colors.textFaint} onPress={onClose} />
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
+        <ScrollView
+          bounces={false}
+          overScrollMode="never" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 24 }}>
           {/* Как стать спонсором */}
           <View style={styles.howTo}>
             <Ionicons name="flash" size={18} color={ORANGE} style={{ marginTop: 1 }} />

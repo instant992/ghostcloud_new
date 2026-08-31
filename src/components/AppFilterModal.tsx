@@ -186,6 +186,8 @@ export function AppFilterContent({
           </View>
         ) : (
           <FlatList
+          bounces={false}
+          overScrollMode="never"
             data={shown}
             keyExtractor={(item) => item.packageName}
             contentContainerStyle={{ paddingBottom: 30 }}

@@ -211,6 +211,8 @@ export default function DevicesScreen() {
         ))}
 
       <FlatList
+          bounces={false}
+          overScrollMode="never"
         data={devices}
         keyExtractor={(d) => d.hwid_full}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor={colors.accent} />}

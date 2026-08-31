@@ -324,6 +324,8 @@ export default function GlassScreen() {
       <GlassBackground />
 
       <ScrollView
+          bounces={false}
+          overScrollMode="never"
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingHorizontal: 20,

@@ -62,6 +62,8 @@ export function ServerSheet({
             )}
           </View>
           <FlatList
+          bounces={false}
+          overScrollMode="never"
             data={nodes}
             keyExtractor={(n) => n.id}
             style={{ maxHeight: 440 }}
