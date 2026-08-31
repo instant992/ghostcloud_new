@@ -51,17 +51,33 @@ export function ConnectionFilterModal({
   const [tab, setTab] = useState<Tab>("profiles");
   const [settings, setSettings] = useState<FilterSettings>(() => loadFilterSettings());
   const [editing, setEditing] = useState<BypassProfile | null>(null);
+  const [viewing, setViewing] = useState<BypassProfile | null>(null);
   const [restartBusy, setRestartBusy] = useState(false);
   /** Пакеты, реально установленные на устройстве — для подсчёта в карточках профилей */
   const [installedPkgs, setInstalledPkgs] = useState<Set<string> | null>(null);
+  /** Имена приложений по пакетам — для просмотра списка профиля */
+  const [appNames, setAppNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible) {
+      // при закрытии фильтра сбрасываем открытые модалки, чтобы они не
+      // всплывали сразу при повторном открытии
+      setEditing(null);
+      setViewing(null);
+      return;
+    }
     setSettings(loadFilterSettings());
     // Определяем установленные приложения, чтобы показывать, сколько из
     // списка профиля реально стоит на устройстве (как в эталоне)
     import("../vpn/native")
-      .then((n) => setInstalledPkgs(n.getInstalledPackageNames()))
+      .then((n) => {
+        setInstalledPkgs(n.getInstalledPackageNames());
+        n.getInstalledApps(true).then((apps) => {
+          const map: Record<string, string> = {};
+          for (const a of apps) map[a.packageName] = a.appName;
+          setAppNames(map);
+        });
+      })
       .catch(() => setInstalledPkgs(null));
   }, [visible]);
 
@@ -316,19 +332,25 @@ export function ConnectionFilterModal({
                       })}
                     </View>
 
-                    {/* Действия для своих профилей */}
-                    {!builtin && (
-                      <View style={styles.cardActions}>
-                        <PressableScale style={styles.actionBtn} onPress={() => setEditing(p)}>
-                          <Ionicons name="pencil-outline" size={14} color={colors.textDim} />
-                          <Text style={styles.actionBtnText}>Изменить</Text>
-                        </PressableScale>
-                        <PressableScale style={styles.actionBtn} onPress={() => deleteProfile(p.id)}>
-                          <Ionicons name="trash-outline" size={14} color={colors.red} />
-                          <Text style={[styles.actionBtnText, { color: colors.red }]}>Удалить</Text>
-                        </PressableScale>
-                      </View>
-                    )}
+                    {/* Действия: просмотр списка — для всех, редактирование/удаление — для своих */}
+                    <View style={styles.cardActions}>
+                      <PressableScale style={styles.actionBtn} onPress={() => setViewing(p)}>
+                        <Ionicons name="list-outline" size={14} color={colors.textDim} />
+                        <Text style={styles.actionBtnText}>Список</Text>
+                      </PressableScale>
+                      {!builtin && (
+                        <>
+                          <PressableScale style={styles.actionBtn} onPress={() => setEditing(p)}>
+                            <Ionicons name="pencil-outline" size={14} color={colors.textDim} />
+                            <Text style={styles.actionBtnText}>Изменить</Text>
+                          </PressableScale>
+                          <PressableScale style={styles.actionBtn} onPress={() => deleteProfile(p.id)}>
+                            <Ionicons name="trash-outline" size={14} color={colors.red} />
+                            <Text style={[styles.actionBtnText, { color: colors.red }]}>Удалить</Text>
+                          </PressableScale>
+                        </>
+                      )}
+                    </View>
                   </View>
                 );
               })}
@@ -349,6 +371,14 @@ export function ConnectionFilterModal({
         profile={editing}
         onClose={() => setEditing(null)}
         onSave={saveProfile}
+      />
+
+      {/* Просмотр списков профиля (сайты и приложения) */}
+      <ProfileViewer
+        profile={viewing}
+        onClose={() => setViewing(null)}
+        installedPkgs={installedPkgs}
+        appNames={appNames}
       />
     </Modal>
   );
@@ -441,6 +471,120 @@ function ProfileEditor({
             Приложения для профиля добавляются на вкладке «Приложения» — они попадают в
             системный список «мимо VPN» при подключении.
           </Text>
+        </PressableScale>
+      </PressableScale>
+    </Modal>
+  );
+}
+
+/** Просмотр списков профиля: сайты и приложения, которые идут «мимо VPN» */
+function ProfileViewer({
+  profile,
+  onClose,
+  installedPkgs,
+  appNames,
+}: {
+  profile: BypassProfile | null;
+  onClose: () => void;
+  installedPkgs: Set<string> | null;
+  appNames: Record<string, string>;
+}) {
+  useTheme();
+  const styles = makeStyles();
+  const [viewTab, setViewTab] = useState<"domains" | "apps">("domains");
+
+  useEffect(() => {
+    if (profile) {
+      setViewTab(profile.packages.length > 0 && profile.domains.length === 0 ? "apps" : "domains");
+    }
+  }, [profile]);
+
+  if (!profile) return null;
+
+  const domains = [...profile.domains].sort();
+  const packages = [...profile.packages].sort((a, b) => {
+    const na = (appNames[a] || a).toLowerCase();
+    const nb = (appNames[b] || b).toLowerCase();
+    return na.localeCompare(nb);
+  });
+
+  return (
+    <Modal visible={!!profile} transparent animationType="fade" onRequestClose={onClose}>
+      <PressableScale style={styles.edBackdrop} onPress={onClose}>
+        <PressableScale style={styles.vwCard} onPress={() => {}}>
+          <Text style={styles.edTitle} numberOfLines={1}>
+            {profile.name}
+          </Text>
+          <Text style={styles.vwSub}>Что идёт «мимо VPN» в этом профиле</Text>
+
+          {/* Вкладки: сайты / приложения */}
+          <View style={styles.vwTabs}>
+            <PressableScale
+              style={[styles.vwTab, viewTab === "domains" && styles.vwTabOn]}
+              onPress={() => setViewTab("domains")}
+            >
+              <Text style={[styles.vwTabText, viewTab === "domains" && { color: "#fff" }]}>
+                Сайты ({domains.length})
+              </Text>
+            </PressableScale>
+            <PressableScale
+              style={[styles.vwTab, viewTab === "apps" && styles.vwTabOn]}
+              onPress={() => setViewTab("apps")}
+            >
+              <Text style={[styles.vwTabText, viewTab === "apps" && { color: "#fff" }]}>
+                Приложения ({packages.length})
+              </Text>
+            </PressableScale>
+          </View>
+
+          <ScrollView
+            style={{ maxHeight: 380 }}
+            contentContainerStyle={{ paddingBottom: 10 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {viewTab === "domains" ? (
+              domains.length === 0 ? (
+                <Text style={styles.vwEmpty}>В профиле нет сайтов</Text>
+              ) : (
+                domains.map((d, i) => (
+                  <View key={`${d}-${i}`} style={styles.vwItem}>
+                    <Ionicons name="globe-outline" size={14} color={colors.textFaint} />
+                    <Text style={styles.vwItemText} numberOfLines={1}>
+                      {d}
+                    </Text>
+                  </View>
+                ))
+              )
+            ) : packages.length === 0 ? (
+              <Text style={styles.vwEmpty}>В профиле нет приложений</Text>
+            ) : (
+              packages.map((pkg) => {
+                const installed = installedPkgs ? installedPkgs.has(pkg) : true;
+                return (
+                  <View key={pkg} style={styles.vwItem}>
+                    <Ionicons
+                      name={installed ? "phone-portrait-outline" : "cloud-offline-outline"}
+                      size={14}
+                      color={installed ? colors.green : colors.textFaint}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.vwItemText} numberOfLines={1}>
+                        {appNames[pkg] || pkg}
+                      </Text>
+                      <Text style={styles.vwItemSub} numberOfLines={1}>
+                        {pkg}
+                        {installed ? "" : " · не установлено"}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+
+          <PressableScale style={styles.edBtnGhost} onPress={onClose}>
+            <Text style={styles.edBtnGhostText}>Закрыть</Text>
+          </PressableScale>
         </PressableScale>
       </PressableScale>
     </Modal>
@@ -604,4 +748,48 @@ const makeStyles = () =>
     },
     edBtnPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
     edNote: { color: colors.textFaint, fontSize: 10.5, marginTop: 12, lineHeight: 15 },
+    // Просмотр списков профиля
+    vwCard: {
+      width: "100%",
+      maxHeight: "85%",
+      backgroundColor: sheetSurfaceBg(),
+      borderRadius: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 18,
+    },
+    vwSub: { color: colors.textFaint, fontSize: 12, marginBottom: 12, marginTop: -8 },
+    vwTabs: {
+      flexDirection: "row",
+      backgroundColor: colors.bgSoft,
+      borderRadius: 10,
+      padding: 3,
+      gap: 4,
+      marginBottom: 10,
+    },
+    vwTab: {
+      flex: 1,
+      alignItems: "center",
+      paddingVertical: 8,
+      borderRadius: 8,
+    },
+    vwTabOn: { backgroundColor: colors.accent },
+    vwTabText: { color: colors.textDim, fontSize: 12.5, fontWeight: "700" },
+    vwItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      paddingVertical: 7,
+      paddingHorizontal: 4,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: colors.border,
+    },
+    vwItemText: { color: colors.text, fontSize: 13, fontWeight: "500", flexShrink: 1 },
+    vwItemSub: { color: colors.textFaint, fontSize: 10.5, marginTop: 1 },
+    vwEmpty: {
+      color: colors.textFaint,
+      fontSize: 13,
+      textAlign: "center",
+      paddingVertical: 24,
+    },
   });
