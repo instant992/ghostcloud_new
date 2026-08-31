@@ -516,7 +516,6 @@ export default function GlassScreen() {
         onClose={() => setPickerOpen(false)}
         nodes={allVisible}
         selectedId={selectedNode?.id || null}
-        pingRight
         onSelect={(id) => {
           setPickerOpen(false);
           const node = allVisible.find((n) => n.id === id);

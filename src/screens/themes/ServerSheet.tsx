@@ -7,7 +7,7 @@ import { transportLabel } from "../../utils/transportLabel";
 import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColorFor } from "../../theme";
 
 /** Шторка выбора сервера для тем minimalist / liquid glass.
- *  pingRight=true — кнопка «Пинг» прижата вправо к кнопке закрытия (как в остальных темах).
+ *  Кнопка «Пинг» всегда прижата вправо к кнопке закрытия (как в основной теме).
  *  Разделение «Обычные» / «LTE Open» — как в основной теме. */
 export function ServerSheet({
   visible,
@@ -15,14 +15,12 @@ export function ServerSheet({
   nodes,
   selectedId,
   onSelect,
-  pingRight = false,
 }: {
   visible: boolean;
   onClose: () => void;
   nodes: VpnNode[];
   selectedId: string | null;
   onSelect: (id: string) => void;
-  pingRight?: boolean;
 }) {
   useTheme();
   const styles = makeStyles();
@@ -55,17 +53,11 @@ export function ServerSheet({
           <View style={styles.handle} />
           <View style={styles.header}>
             <Text style={styles.title}>Выбор сервера</Text>
-            {pingRight ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-                {pingBtn}
-                {closeBtn}
-              </View>
-            ) : (
-              <>
-                {pingBtn}
-                {closeBtn}
-              </>
-            )}
+            {/* Пинг и закрытие — единой группой у правого края */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+              {pingBtn}
+              {closeBtn}
+            </View>
           </View>
 
           {/* Вкладки Обычные / LTE Open — как в основной теме */}

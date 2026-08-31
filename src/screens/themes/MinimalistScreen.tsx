@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,7 +23,6 @@ import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButt
 import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { showToast } from "../../components/Toast";
-import { ServerSheet } from "./ServerSheet";
 import * as stats from "../../stats";
 
 function formatTimer(total: number): string {
@@ -57,10 +57,12 @@ export default function MinimalistScreen() {
   const [lteBusy, setLteBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [pickerOpen, setPickerOpen] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
+  /** Выпадающий список типа серверов: обычные / LTE OPEN */
+  const [serverTab, setServerTab] = useState<"regular" | "lte">("regular");
+  const [serverMenuOpen, setServerMenuOpen] = useState(false);
 
   const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
   const lteNodes = useMemo(
@@ -73,10 +75,20 @@ export default function MinimalistScreen() {
     () => allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
     [allVisible, selectedNodeId, mainNodes]
   );
-  const otherNodes = useMemo(
-    () => allVisible.filter((n) => n.id !== selectedNode?.id),
-    [allVisible, selectedNode]
+  /** Список серверов выбранного типа (обычные / LTE OPEN) */
+  const tabNodes = useMemo(
+    () => (serverTab === "lte" ? lteNodes : mainNodes),
+    [serverTab, lteNodes, mainNodes]
   );
+  const otherNodes = useMemo(
+    () => tabNodes.filter((n) => n.id !== selectedNode?.id),
+    [tabNodes, selectedNode]
+  );
+
+  // Выпадающий список следует за типом выбранного сервера
+  useEffect(() => {
+    if (selectedNode?.source === "lte") setServerTab("lte");
+  }, [selectedNode?.source]);
 
   useEffect(() => {
     if (!vpnRunning) {
@@ -199,9 +211,7 @@ export default function MinimalistScreen() {
           <Text style={styles.versionText}>v{Application.nativeApplicationVersion || "1.0"}</Text>
         </View>
         <View style={styles.headerCenter}>
-          <View style={styles.headerLogo}>
-            <Ionicons name="cloud-outline" size={16} color={colors.accent} />
-          </View>
+          <Image source={{ uri: "app_icon" }} style={styles.headerLogo} resizeMode="cover" />
           <Text style={styles.headerTitle}>GhostCloud</Text>
         </View>
         <Pressable
@@ -215,6 +225,59 @@ export default function MinimalistScreen() {
         </Pressable>
       </View>
 
+      {/* Тип серверов: раскрывающийся список «Обычные» / «LTE OPEN».
+          Меню раскрывается в потоке (без перекрытия со скроллом),
+          поэтому тапы по пунктам всегда срабатывают. */}
+      <View style={styles.serverTypeRow}>
+        <Pressable
+          style={styles.serverTypeBtn}
+          onPress={() => setServerMenuOpen((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={`Тип серверов: ${serverTab === "lte" ? "LTE OPEN" : "обычные"}. Нажмите, чтобы изменить`}
+        >
+          <Ionicons
+            name={serverTab === "lte" ? "cellular-outline" : "server-outline"}
+            size={16}
+            color={colors.accent}
+          />
+          <Text style={styles.serverTypeText} numberOfLines={1}>
+            {serverTab === "lte" ? `LTE OPEN (${lteNodes.length})` : `Обычные серверы (${mainNodes.length})`}
+          </Text>
+          <Ionicons name={serverMenuOpen ? "chevron-up" : "chevron-down"} size={15} color={colors.textDim} />
+        </Pressable>
+        {serverMenuOpen && (
+          <View style={styles.serverTypeMenu}>
+            <Pressable
+              style={[styles.serverTypeMenuItem, serverTab === "regular" && styles.serverTypeMenuItemOn]}
+              onPress={() => {
+                setServerTab("regular");
+                setServerMenuOpen(false);
+              }}
+            >
+              <Ionicons name="server-outline" size={15} color={serverTab === "regular" ? "#fff" : colors.textDim} />
+              <Text style={[styles.serverTypeMenuText, serverTab === "regular" && { color: "#fff" }]}>
+                Обычные серверы
+              </Text>
+              {serverTab === "regular" && <Ionicons name="checkmark" size={15} color="#fff" />}
+            </Pressable>
+            <Pressable
+              style={[styles.serverTypeMenuItem, serverTab === "lte" && styles.serverTypeMenuItemOn]}
+              onPress={() => {
+                setServerTab("lte");
+                setServerMenuOpen(false);
+                if (!lteEnabled) toggleLte(true); // включаем загрузку профилей при выборе
+              }}
+            >
+              <Ionicons name="cellular-outline" size={15} color={serverTab === "lte" ? "#fff" : colors.textDim} />
+              <Text style={[styles.serverTypeMenuText, serverTab === "lte" && { color: "#fff" }]}>
+                LTE OPEN
+              </Text>
+              {serverTab === "lte" && <Ionicons name="checkmark" size={15} color="#fff" />}
+            </Pressable>
+          </View>
+        )}
+      </View>
+
       <ScrollView
           bounces={false}
           overScrollMode="never"
@@ -222,40 +285,6 @@ export default function MinimalistScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* LTE OPEN */}
-        <View
-          style={[
-            styles.lteRow,
-            lteEnabled
-              ? { backgroundColor: colors.accentDeep + "1F", borderColor: colors.accentDeep + "73" }
-              : { backgroundColor: colors.bgSoft, borderColor: colors.border },
-          ]}
-        >
-          <View style={[styles.lteIconBox, lteEnabled && { backgroundColor: colors.accentDeep + "2E" }]}>
-            {lteBusy ? (
-              <ActivityIndicator size="small" color={colors.accentDeep} />
-            ) : (
-              <Ionicons name="cellular-outline" size={16} color={lteEnabled ? colors.accentDeep : colors.textDim} />
-            )}
-          </View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={styles.lteTitle}>LTE OPEN</Text>
-              <View style={styles.lteBeta}>
-                <Text style={styles.lteBetaText}>beta</Text>
-              </View>
-            </View>
-            <Text style={styles.lteSub}>
-              {lteBusy ? "Загружаем профили..." : lteEnabled ? `${lteNodes.length} серверов` : "Нажмите для включения"}
-            </Text>
-          </View>
-          <Switch
-            value={lteEnabled}
-            onValueChange={toggleLte}
-            trackColor={{ false: colors.border, true: colors.accentDeep + "73" }}
-            thumbColor={lteEnabled ? colors.accentDeep : "#fff"}
-          />
-        </View>
 
         {/* Кнопка питания — цвета как в основной теме */}
         <View style={styles.powerArea}>
@@ -350,10 +379,9 @@ export default function MinimalistScreen() {
           </View>
         </View>
 
-        {/* Выбранный сервер — сплошная заливка */}
-        <Pressable
+        {/* Выбранный сервер — сплошная заливка (без стрелки выбора — сервер меняется из списка ниже) */}
+        <View
           style={[styles.selectedCard, lteEnabled && selectedNode?.source === "lte" && { backgroundColor: colors.accentDeep }]}
-          onPress={() => setPickerOpen(true)}
         >
           <View style={styles.selectedFlagBox}>
             <Text style={{ fontSize: 18 }}>{selectedInfo?.flag || "🌍"}</Text>
@@ -371,13 +399,49 @@ export default function MinimalistScreen() {
           ) : selPing?.status === "done" && selPing.delay > 0 ? (
             <Text style={styles.selectedPing}>{selPing.delay} мс</Text>
           ) : null}
-          <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
-        </Pressable>
+        </View>
 
-        {/* Другие локации */}
+        {/* LTE OPEN — переключатель в нижнем блоке серверов */}
+        <View
+          style={[
+            styles.lteRow,
+            lteEnabled
+              ? { backgroundColor: colors.accentDeep + "1F", borderColor: colors.accentDeep + "73" }
+              : { backgroundColor: colors.bgSoft, borderColor: colors.border },
+          ]}
+        >
+          <View style={[styles.lteIconBox, lteEnabled && { backgroundColor: colors.accentDeep + "2E" }]}>
+            {lteBusy ? (
+              <ActivityIndicator size="small" color={colors.accentDeep} />
+            ) : (
+              <Ionicons name="cellular-outline" size={16} color={lteEnabled ? colors.accentDeep : colors.textDim} />
+            )}
+          </View>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Text style={styles.lteTitle}>LTE OPEN</Text>
+              <View style={styles.lteBeta}>
+                <Text style={styles.lteBetaText}>beta</Text>
+              </View>
+            </View>
+            <Text style={styles.lteSub}>
+              {lteBusy ? "Загружаем профили..." : lteEnabled ? `${lteNodes.length} серверов` : "Нажмите для включения"}
+            </Text>
+          </View>
+          <Switch
+            value={lteEnabled}
+            onValueChange={toggleLte}
+            trackColor={{ false: colors.border, true: colors.accentDeep + "73" }}
+            thumbColor={lteEnabled ? colors.accentDeep : "#fff"}
+          />
+        </View>
+
+        {/* Другие локации — серверы выбранного типа (обычные / LTE) */}
         <View style={styles.otherHeader}>
           <View style={styles.otherLine} />
-          <Text style={styles.otherText}>Другие локации</Text>
+          <Text style={styles.otherText}>
+            {serverTab === "lte" ? "LTE OPEN серверы" : "Другие локации"}
+          </Text>
           <View style={styles.otherLine} />
           <Pressable onPress={refreshServers} hitSlop={8} disabled={refreshing} style={styles.roundRefresh}>
             {refreshing ? (
@@ -417,17 +481,6 @@ export default function MinimalistScreen() {
       {/* Док рендерится как таб-бар потока темы (см. App.tsx) */}
 
       <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
-      <ServerSheet
-        visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
-        nodes={allVisible}
-        selectedId={selectedNode?.id || null}
-        onSelect={(id) => {
-          setPickerOpen(false);
-          const node = allVisible.find((n) => n.id === id);
-          if (node) chooseNode(node);
-        }}
-      />
     </View>
   );
 }
@@ -454,12 +507,50 @@ const makeStyles = () => StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: colors.accentSoft,
-    alignItems: "center",
-    justifyContent: "center",
   },
   headerTitle: { color: colors.text, fontSize: 19, fontWeight: "800", letterSpacing: -0.6 },
   headerIcon: { padding: 10, margin: -4 },
+  serverTypeRow: { marginTop: 8, marginHorizontal: 20 },
+  serverTypeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.bgSoft,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  serverTypeText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
+  serverTypeMenu: {
+    backgroundColor: colors.cardLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 14,
+    padding: 6,
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  serverTypeMenuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  serverTypeMenuItemOn: { backgroundColor: colors.accentDeep },
+  serverTypeMenuText: { flex: 1, color: colors.textDim, fontSize: 13.5, fontWeight: "600" },
   lteRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -467,7 +558,7 @@ const makeStyles = () => StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 14,
     borderWidth: 1,
-    marginTop: 2,
+    marginTop: 12,
   },
   lteIconBox: {
     width: 30,
