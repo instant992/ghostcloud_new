@@ -317,8 +317,13 @@ export default function MinimalistScreen() {
         </View>
 
         {/* Трафик и дни */}
-        <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
-          <View style={[styles.miniCard, { flex: 1 }]}>
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+          <Pressable
+            style={[styles.miniCard, { flex: 1 }]}
+            onPress={() => nav.navigate("Статистика")}
+            accessibilityRole="button"
+            accessibilityLabel="Трафик за сегодня. Открыть статистику"
+          >
             <Text style={styles.miniCardTitle}>Трафик</Text>
             <Text style={styles.miniCardValue}>{formatBytes(totalToday)}</Text>
             <View style={styles.miniBarTrack}>
@@ -327,7 +332,7 @@ export default function MinimalistScreen() {
             <Text style={styles.miniCardSub}>
               ↓ {formatBytes(todayStat.rx)} · ↑ {formatBytes(todayStat.tx)}
             </Text>
-          </View>
+          </Pressable>
           <View style={[styles.miniCard, { flex: 1 }]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={styles.miniCardTitle}>Дней</Text>
@@ -459,15 +464,15 @@ const makeStyles = () => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1,
-    marginTop: 4,
+    marginTop: 2,
   },
   lteIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
+    width: 30,
+    height: 30,
+    borderRadius: 8,
     backgroundColor: colors.cardLight,
     alignItems: "center",
     justifyContent: "center",
@@ -481,7 +486,7 @@ const makeStyles = () => StyleSheet.create({
   },
   lteBetaText: { color: colors.accentDeep, fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
   lteSub: { color: colors.textDim, fontSize: 11, marginTop: 1 },
-  powerArea: { alignItems: "center", paddingVertical: 26 },
+  powerArea: { alignItems: "center", paddingVertical: 16 },
   powerGlow: {
     borderRadius: 100,
     shadowRadius: 24,
@@ -489,25 +494,25 @@ const makeStyles = () => StyleSheet.create({
     elevation: 14,
   },
   powerBtn: {
-    width: 164,
-    height: 164,
-    borderRadius: 82,
+    width: 152,
+    height: 152,
+    borderRadius: 76,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
   },
-  statusText: { fontSize: 15, fontWeight: "600", marginTop: 18 },
-  timerText: { color: "#22C55E", fontSize: 13, fontWeight: "600", marginTop: 4 },
+  statusText: { fontSize: 14, fontWeight: "600", marginTop: 12 },
+  timerText: { color: "#22C55E", fontSize: 13, fontWeight: "600", marginTop: 2 },
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: 10,
   },
   squareIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 13,
     backgroundColor: colors.cardLight,
     borderWidth: 1,
     borderColor: colors.border,
@@ -528,48 +533,48 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: colors.cardLight,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 20,
-    padding: 14,
-    paddingBottom: 12,
+    borderRadius: 16,
+    padding: 12,
+    paddingBottom: 10,
   },
-  miniCardTitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
-  miniCardLabel: { color: colors.textDim, fontSize: 12, fontWeight: "500" },
-  miniCardValue: { color: colors.text, fontSize: 19, fontWeight: "800", marginTop: 6 },
+  miniCardTitle: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  miniCardLabel: { color: colors.textDim, fontSize: 11, fontWeight: "500" },
+  miniCardValue: { color: colors.text, fontSize: 17, fontWeight: "800", marginTop: 4 },
   miniBarTrack: {
-    height: 8,
+    height: 7,
     borderRadius: 4,
     backgroundColor: "rgba(240,242,255,0.08)",
-    marginTop: 10,
+    marginTop: 8,
     overflow: "hidden",
   },
   miniBarFill: { height: "100%", borderRadius: 4, backgroundColor: colors.accent },
-  miniCardSub: { color: colors.textDim, fontSize: 10, marginTop: 8 },
+  miniCardSub: { color: colors.textDim, fontSize: 10, marginTop: 6 },
   selectedCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.accent,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 18,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 12,
   },
   selectedFlagBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     backgroundColor: "rgba(255,255,255,0.18)",
     alignItems: "center",
     justifyContent: "center",
   },
-  selectedName: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  selectedName: { color: "#fff", fontSize: 14, fontWeight: "700" },
   selectedSub: { color: "rgba(255,255,255,0.7)", fontSize: 11, marginTop: 2 },
   selectedPing: { color: "#fff", fontSize: 13, fontWeight: "600", marginRight: 6 },
   otherHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginTop: 20,
-    marginBottom: 12,
+    marginTop: 14,
+    marginBottom: 8,
   },
   otherLine: { flex: 1, height: 1, backgroundColor: colors.border, opacity: 0.6 },
   otherText: {
@@ -586,9 +591,9 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: colors.cardLight,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
+    borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     marginBottom: 8,
   },
   otherName: { color: colors.text, fontSize: 14, fontWeight: "500", flex: 1 },

@@ -254,16 +254,6 @@ export default function HomeScreen() {
         </PressableScale>
       </View>
 
-      <PressableScale
-        style={[styles.connectPill, busy && { opacity: 0.7 }]}
-        onPress={toggle}
-        disabled={busy}
-      >
-        <Text style={styles.connectPillText}>
-          {busy ? "Подключение…" : connected ? "Отключить" : "Подключить"}
-        </Text>
-      </PressableScale>
-
       <View style={styles.statsRow}>
         <PressableScale
           style={styles.statCard}
@@ -559,15 +549,6 @@ const makeStyles = () => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  connectPill: {
-    marginHorizontal: 20,
-    marginBottom: 14,
-    backgroundColor: colors.accentDeep,
-    borderRadius: 28,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  connectPillText: { color: "#fff", fontSize: 15, fontWeight: "800" },
   statsRow: {
     flexDirection: "row",
     gap: 12,

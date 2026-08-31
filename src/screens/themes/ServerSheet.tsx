@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from "react";
+import React, { useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as pingStore from "../../vpn/pingStore";
@@ -7,7 +7,8 @@ import { transportLabel } from "../../utils/transportLabel";
 import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColorFor } from "../../theme";
 
 /** Шторка выбора сервера для тем minimalist / liquid glass.
- *  pingRight=true — кнопка «Пинг» прижата вправо к кнопке закрытия (как в остальных темах). */
+ *  pingRight=true — кнопка «Пинг» прижата вправо к кнопке закрытия (как в остальных темах).
+ *  Разделение «Обычные» / «LTE Open» — как в основной теме. */
 export function ServerSheet({
   visible,
   onClose,
@@ -26,9 +27,14 @@ export function ServerSheet({
   useTheme();
   const styles = makeStyles();
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
+  const [tab, setTab] = useState<"regular" | "lte">("regular");
+
+  const regularNodes = nodes.filter((n) => n.source !== "lte");
+  const lteNodes = nodes.filter((n) => n.source === "lte");
+  const shown = tab === "lte" ? lteNodes : regularNodes;
 
   const pingBtn = (
-    <Pressable onPress={() => pingStore.pingAll(nodes)} hitSlop={8} style={{ padding: 6 }}>
+    <Pressable onPress={() => pingStore.pingAll(shown)} hitSlop={8} style={{ padding: 6 }}>
       {pingStore.isRunning() ? (
         <ActivityIndicator size="small" color={colors.accent} />
       ) : (
@@ -61,12 +67,35 @@ export function ServerSheet({
               </>
             )}
           </View>
+
+          {/* Вкладки Обычные / LTE Open — как в основной теме */}
+          {lteNodes.length > 0 && (
+            <View style={styles.tabRow}>
+              {(
+                [
+                  { key: "regular", label: `Обычные (${regularNodes.length})` },
+                  { key: "lte", label: `LTE OPEN (${lteNodes.length})` },
+                ] as const
+              ).map((t) => (
+                <Pressable
+                  key={t.key}
+                  style={[styles.tabBtn, tab === t.key && styles.tabBtnOn]}
+                  onPress={() => setTab(t.key)}
+                >
+                  <Text style={[styles.tabBtnText, tab === t.key && { color: "#fff" }]}>
+                    {t.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           <FlatList
-          bounces={false}
-          overScrollMode="never"
-            data={nodes}
+            bounces={false}
+            overScrollMode="never"
+            data={shown}
             keyExtractor={(n) => n.id}
-            style={{ maxHeight: 440 }}
+            style={{ maxHeight: 400 }}
             contentContainerStyle={{ paddingBottom: 16 }}
             renderItem={({ item }) => {
               const info = splitNameFlag(item.name);
@@ -82,15 +111,9 @@ export function ServerSheet({
                     <Text style={[styles.itemName, selected && { color: colors.accent }]} numberOfLines={1}>
                       {info.name}
                     </Text>
-                    {item.source === "lte" ? (
-                      <Text style={styles.itemSub}>
-                        {transportLabel(item)} · LTE OPEN
-                      </Text>
-                    ) : (
-                      <Text style={styles.itemSub} numberOfLines={1}>
-                        {transportLabel(item)}
-                      </Text>
-                    )}
+                    <Text style={styles.itemSub} numberOfLines={1}>
+                      {transportLabel(item)}
+                    </Text>
                   </View>
                   {ping?.status === "pending" && (
                     <ActivityIndicator size="small" color={colors.accent} />
@@ -153,6 +176,22 @@ const makeStyles = () => StyleSheet.create({
     marginBottom: 12,
   },
   title: { color: colors.text, fontSize: 17, fontWeight: "800" },
+  tabRow: {
+    flexDirection: "row",
+    backgroundColor: colors.bgSoft,
+    borderRadius: 12,
+    padding: 4,
+    gap: 4,
+    marginBottom: 12,
+  },
+  tabBtn: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  tabBtnOn: { backgroundColor: colors.accent },
+  tabBtnText: { color: colors.textDim, fontSize: 13, fontWeight: "700" },
   item: {
     flexDirection: "row",
     alignItems: "center",

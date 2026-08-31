@@ -118,6 +118,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const mounted = useRef(true);
   const cleanupRef = useRef<(() => void) | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
+  /** Счётчик автоповторов загрузки серверов после входа */
+  const nodesRetryRef = useRef(0);
+  /** Актуальная длина списка узлов (для фоновых повторов без доступа к state) */
+  const nodesLenRef = useRef(0);
 
   useEffect(() => {
     selectedNodeIdRef.current = selectedNodeId;
@@ -176,6 +180,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // на запасной сервер при обрыве, даже при выключенном экране)
   useEffect(() => {
     import("./vpn/manager").then((m) => m.setFailoverPool(nodes)).catch(() => {});
+    nodesLenRef.current = nodes.length;
   }, [nodes]);
 
   // Учёт трафика: опрашиваем TrafficStats раз в 3 сек, дельту пишем в локальную статистику.
@@ -352,6 +357,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [refreshMe, reloadNodes]);
 
+  /** После авторизации подписка на бэкенде может активироваться с задержкой,
+   *  поэтому первая загрузка серверов часто приходит пустой. Повторяем в фоне
+   *  несколько раз, пока список не заполнится. */
+  const scheduleNodesRetry = useCallback(() => {
+    nodesRetryRef.current = 0;
+    const delays = [2500, 6000, 12000];
+    delays.forEach((delay, i) => {
+      setTimeout(() => {
+        if (!mounted.current) return;
+        if (nodesLenRef.current > 0) return; // уже загрузились
+        nodesRetryRef.current = i + 1;
+        reloadNodes().catch(() => {});
+      }, delay);
+    });
+  }, [reloadNodes]);
+
   const signIn = useCallback(async (loginStr: string, password: string) => {
     const data = await api.login(loginStr, password);
     if (!data?.success) throw new Error(data?.error || "Неверный логин или пароль");
@@ -367,6 +388,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await refreshMe();
       await reloadNodes();
     } catch {}
+    scheduleNodesRetry();
   }, [refreshMe, reloadNodes]);
 
   const signInViaToken = useCallback(async (subscriptionUrl: string, user?: any) => {
@@ -382,6 +404,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await refreshMe();
       await reloadNodes();
     } catch {}
+    scheduleNodesRetry();
   }, [refreshMe, reloadNodes]);
 
   const signOut = useCallback(async () => {

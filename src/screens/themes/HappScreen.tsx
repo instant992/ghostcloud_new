@@ -424,7 +424,7 @@ export default function HappScreen() {
             <HeaderIcon icon="pencil" size={19} onPress={() => setProfileOpen(true)} />
           </View>
 
-          <Pressable style={styles.trafficStrip} onPress={() => setProfileOpen(true)}>
+          <Pressable style={styles.trafficStrip} onPress={() => nav.navigate("Статистика")}>
             <Ionicons name="information-circle-outline" size={18} color={colors.accent} />
             <Text style={styles.trafficText}>
               Сегодня: {formatBytes(todayStat.rx + todayStat.tx)}

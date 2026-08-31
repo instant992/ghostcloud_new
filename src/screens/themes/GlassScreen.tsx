@@ -347,7 +347,12 @@ export default function GlassScreen() {
 
         {/* Статус + баланс */}
         <View style={{ flexDirection: "row", alignItems: "flex-start", marginTop: 6 }}>
-          <View style={{ flex: 1 }}>
+          <Pressable
+            style={{ flex: 1 }}
+            onPress={() => nav.navigate("Статистика")}
+            accessibilityRole="button"
+            accessibilityLabel="Трафик за сегодня. Открыть статистику"
+          >
             <Text style={[styles.status, { color: vpnRunning ? "#22C55E" : colors.textDim }]}>
               {vpnRunning ? "Подключено" : "Не подключено"}
               {!!vpnRunning && ` · ${formatTimer(seconds)}`}
@@ -359,7 +364,7 @@ export default function GlassScreen() {
             <View style={styles.trafficTrack}>
               <View style={[styles.trafficFill, { width: `${Math.round(rxShare * 100)}%` }]} />
             </View>
-          </View>
+          </Pressable>
           <GlassCard radius={14} style={{ padding: 10, marginLeft: 12 }} onPress={() => setBalanceOpen(true)}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
               <Ionicons name="wallet-outline" size={13} color={colors.textFaint} />
