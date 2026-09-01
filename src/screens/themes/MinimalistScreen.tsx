@@ -200,8 +200,6 @@ export default function MinimalistScreen() {
 
   const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
-  const totalToday = todayStat.rx + todayStat.tx;
-  const rxShare = totalToday > 0 ? todayStat.rx / totalToday : 0;
 
   return (
     <View style={styles.screen}>
@@ -345,24 +343,35 @@ export default function MinimalistScreen() {
           </Pressable>
         </View>
 
-        {/* Трафик и дни */}
+        {/* Трафик за сегодня — как в основной теме: Отправлено/Получено. И дни. */}
         <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
           <Pressable
             style={[styles.miniCard, { flex: 1 }]}
             onPress={() => nav.navigate("Статистика")}
             accessibilityRole="button"
-            accessibilityLabel="Трафик за сегодня. Открыть статистику"
+            accessibilityLabel={`Отправлено сегодня: ${formatBytes(todayStat.tx)}. Открыть статистику`}
           >
-            <Text style={styles.miniCardTitle}>Трафик</Text>
-            <Text style={styles.miniCardValue}>{formatBytes(totalToday)}</Text>
-            <View style={styles.miniBarTrack}>
-              <View style={[styles.miniBarFill, { width: `${Math.round(rxShare * 100)}%` }]} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="arrow-up" size={13} color={colors.green} />
+              <Text style={styles.miniCardTitle}>Отправлено</Text>
             </View>
-            <Text style={styles.miniCardSub}>
-              ↓ {formatBytes(todayStat.rx)} · ↑ {formatBytes(todayStat.tx)}
-            </Text>
+            <Text style={styles.miniCardValue}>{formatBytes(todayStat.tx)}</Text>
           </Pressable>
-          <View style={[styles.miniCard, { flex: 1 }]}>
+          <Pressable
+            style={[styles.miniCard, { flex: 1 }]}
+            onPress={() => nav.navigate("Статистика")}
+            accessibilityRole="button"
+            accessibilityLabel={`Получено сегодня: ${formatBytes(todayStat.rx)}. Открыть статистику`}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="arrow-down" size={13} color={colors.accent} />
+              <Text style={styles.miniCardTitle}>Получено</Text>
+            </View>
+            <Text style={styles.miniCardValue}>{formatBytes(todayStat.rx)}</Text>
+          </Pressable>
+        </View>
+        <View style={{ marginTop: 10 }}>
+          <View style={[styles.miniCard]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text style={styles.miniCardTitle}>Дней</Text>
               <Text style={styles.miniCardLabel}>До конца</Text>

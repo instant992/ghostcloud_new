@@ -311,8 +311,6 @@ export default function GlassScreen() {
       ? pingColorFor(selPing.delay)
       : colors.textDim;
 
-  const totalToday = todayStat.rx + todayStat.tx;
-  const rxShare = totalToday > 0 ? todayStat.rx / totalToday : 0;
   const expireStr = me?.expire_at
     ? new Date(String(me.expire_at)).toLocaleDateString("ru-RU")
     : "—";
@@ -357,13 +355,6 @@ export default function GlassScreen() {
               {vpnRunning ? "Подключено" : "Не подключено"}
               {!!vpnRunning && ` · ${formatTimer(seconds)}`}
             </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
-              <Ionicons name="swap-vertical" size={13} color={colors.textDim} />
-              <Text style={styles.trafficHint}>Трафик: {formatBytes(totalToday)} сегодня</Text>
-            </View>
-            <View style={styles.trafficTrack}>
-              <View style={[styles.trafficFill, { width: `${Math.round(rxShare * 100)}%` }]} />
-            </View>
           </Pressable>
           <GlassCard radius={14} style={{ padding: 10, marginLeft: 12 }} onPress={() => setBalanceOpen(true)}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
@@ -479,27 +470,33 @@ export default function GlassScreen() {
           </Pressable>
         </GlassCard>
 
-        {/* Два стеклянных блока */}
+        {/* Трафик за сегодня — как в основной теме: две плитки Отправлено/Получено */}
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <GlassCard
             radius={16}
-            style={{ flex: 1, alignItems: "center", paddingVertical: 14 }}
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 }}
             onPress={() => nav.navigate("Статистика")}
           >
-            <View style={[styles.tileIconBox, { backgroundColor: "rgba(59,130,246,0.14)" }]}>
-              <Ionicons name="bar-chart-outline" size={19} color="#60A5FA" />
+            <View style={[styles.statIconBox, { backgroundColor: "rgba(52,211,153,0.14)" }]}>
+              <Ionicons name="arrow-up" size={15} color={colors.green} />
             </View>
-            <Text style={styles.tileLabel}>Статистика</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statTileLabel}>Отправлено</Text>
+              <Text style={styles.statTileValue}>{formatBytes(todayStat.tx)}</Text>
+            </View>
           </GlassCard>
           <GlassCard
             radius={16}
-            style={{ flex: 1, alignItems: "center", paddingVertical: 14 }}
-            onPress={() => nav.navigate("Тарифы")}
+            style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 }}
+            onPress={() => nav.navigate("Статистика")}
           >
-            <View style={[styles.tileIconBox, { backgroundColor: "rgba(42,171,238,0.14)" }]}>
-              <Ionicons name="card-outline" size={19} color="#2AABEE" />
+            <View style={[styles.statIconBox, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="arrow-down" size={15} color={colors.accent} />
             </View>
-            <Text style={styles.tileLabel}>Тарифы</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.statTileLabel}>Получено</Text>
+              <Text style={styles.statTileValue}>{formatBytes(todayStat.rx)}</Text>
+            </View>
           </GlassCard>
         </View>
       </ScrollView>
@@ -539,16 +536,15 @@ const makeStyles = () => StyleSheet.create({
   headerVersion: { color: colors.green, fontSize: 12, fontWeight: "500", marginLeft: 8, marginTop: 8 },
   headerIconBox: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   status: { fontSize: 14, fontWeight: "600" },
-  trafficHint: { color: colors.textDim, fontSize: 12, fontWeight: "500" },
-  trafficTrack: {
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: colors.cardLight,
-    marginTop: 6,
-    maxWidth: 180,
-    overflow: "hidden",
+  statIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  trafficFill: { height: "100%", borderRadius: 2, backgroundColor: colors.accent },
+  statTileLabel: { color: colors.textFaint, fontSize: 10 },
+  statTileValue: { color: colors.text, fontSize: 14, fontWeight: "800", marginTop: 1 },
   plusBtn: {
     width: 20,
     height: 18,
@@ -604,15 +600,6 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: colors.border,
     marginHorizontal: 16,
   },
-  tileIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  tileLabel: { color: colors.text, fontSize: 12, fontWeight: "600" },
   dock: {
     position: "absolute",
     left: 24,
