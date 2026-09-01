@@ -34,7 +34,7 @@ import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
-import { TabIcon } from "./src/components/TabIcon";
+import { TabChain } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 import { ToastHost } from "./src/components/Toast";
 import { TabAreaContext } from "./src/components/UI";
@@ -94,55 +94,37 @@ const TAB_META: Record<string, { icon: string; outline: string; label: string }>
 
 function CustomTabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
+  const items = state.routes
+    .map((route: any) => ({ route, meta: TAB_META[route.name] }))
+    .filter((e: any) => e.meta)
+    .map((e: any) => ({
+      key: e.route.key,
+      name: e.route.name,
+      icon: e.meta.icon,
+      outline: e.meta.outline,
+      label: e.meta.label,
+    }));
+  const focusedRoute = state.routes[state.index];
+  const focusedIndex = items.findIndex((it: any) => it.name === focusedRoute.name);
   return (
-    <View style={[tabStyles.bar, { paddingBottom: 10 + insets.bottom }]}>
-      {state.routes.map((route: any, index: number) => {
-        const meta = TAB_META[route.name];
-        if (!meta) return null;
-        const focused = state.index === index;
-        return (
-          <Pressable
-            key={route.key}
-            hitSlop={8}
-            style={[tabStyles.tabSlot, focused && tabStyles.tabSlotFocused]}
-            accessibilityRole="tab"
-            accessibilityLabel={meta.label}
-            accessibilityState={{ selected: focused }}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              navigation.navigate(route.name);
-            }}
-          >
-            <TabIcon name={focused ? meta.icon : meta.outline} focused={focused} />
-          </Pressable>
-        );
-      })}
+    <View style={[tabStyles.bar, { paddingBottom: 8 + insets.bottom }]}>
+      <TabChain
+        items={items}
+        focusedIndex={focusedIndex}
+        onPress={(i: number) => {
+          Haptics.selectionAsync().catch(() => {});
+          navigation.navigate(items[i].name);
+        }}
+      />
     </View>
   );
 }
 
 const tabStyles = StyleSheet.create({
   bar: {
-    flexDirection: "row",
-    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: "transparent",
-    alignItems: "center",
     paddingTop: 10,
-  },
-  // Ширина слота заметно меньше диаметра круга — соседние круги сильно
-  // заходят друг на друга (перекрытие 8пкс) и читаются как единая цепочка,
-  // как на референсе
-  tabSlot: {
-    width: 38,
-    height: 56,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  // Активный круг крупнее и лежит поверх соседних
-  tabSlotFocused: {
-    zIndex: 10,
-    elevation: 10,
   },
 });
 
