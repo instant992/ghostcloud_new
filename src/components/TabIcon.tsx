@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle as SvgCircle, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Circle as SvgCircle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { colors, useTheme } from "../theme";
 
 export type TabChainItem = {
@@ -12,15 +12,15 @@ export type TabChainItem = {
   label: string;
 };
 
-const R = 23; // радиус круга вкладки
-const D = 56; // расстояние между центрами (зазор между кругами ~10 пкс)
-const RING = 54; // диаметр активного круга
+const R = 30; // радиус круга вкладки (увеличен)
+const D = 74; // расстояние между центрами (зазор между кругами ~14 пкс)
+const RING = 76; // диаметр активного круга
 const PAD = 12;
 
-/** Таб-бар основной темы в стиле референса: круги стоят ОТДЕЛЬНО с небольшим
- *  зазором, а соединены дорожками с фоном внутри (заполненные перемычки по
- *  центрам кругов — «бусины на дорожке», не просто линия). Активная вкладка —
- *  крупный яркий круг, скользящий вдоль цепочки. Никакой общей плашки позади нет. */
+/** Таб-бар основной темы: увеличенные круги с серой обводкой, соединённые
+ *  прямыми серыми перемычками с фоном внутри («бусины на дорожке»).
+ *  Позади меню нет никакой плашки — только сами круги и перемычки.
+ *  Активная вкладка — крупный яркий круг, скользящий вдоль цепочки. */
 export function TabChain({
   items,
   focusedIndex,
@@ -66,8 +66,26 @@ export function TabChain({
             <Stop offset="1" stopColor={colors.accentDeep} />
           </LinearGradient>
         </Defs>
-        {/* Круги: заливка цветом экрана + серая обводка.
-            Позади меню ничего нет — ни плашки, ни перемычек */}
+        {/* Перемычки между кругами: прямые, серые — серый фон внутри и серая
+            рамка; круги «нанизаны» сверху */}
+        {items.slice(0, -1).map((it, i) => {
+          const x1 = centers[i] + R - 8; // небольшой заход под края кругов
+          const x2 = centers[i + 1] - R + 8;
+          const h = 40;
+          return (
+            <Rect
+              key={`b-${it.key}`}
+              x={x1}
+              y={cy - h / 2}
+              width={x2 - x1}
+              height={h}
+              fill="#2E2E36"
+              stroke="rgba(165,165,175,0.55)"
+              strokeWidth={1.2}
+            />
+          );
+        })}
+        {/* Круги: заливка цветом экрана + серая обводка */}
         {items.map((it, i) => (
           <SvgCircle
             key={`c-${it.key}`}
@@ -124,18 +142,18 @@ export function TabChain({
           style={[styles.iconBox, { left: centers[i] - R, top: cy - R }]}
           pointerEvents="none"
         >
-          <Ionicons name={it.outline as any} size={22} color={colors.textDim} />
+          <Ionicons name={it.outline as any} size={27} color={colors.textDim} />
         </View>
       ))}
 
       {/* Иконка активной вкладки */}
       <View
-        style={[styles.iconBox, styles.activeIconBox, { left: PAD + R - RING / 2 + (RING / 2 - 12.5), top: cy - 12.5 }]}
+        style={[styles.iconBox, styles.activeIconBox, { left: PAD + R - RING / 2 + (RING / 2 - 15), top: cy - 15 }]}
         pointerEvents="none"
       >
         <Animated.View style={{ opacity: animO, transform: [{ translateX: animX }] }}>
           {focusedIndex >= 0 && (
-            <Ionicons name={items[focusedIndex].icon as any} size={25} color="#fff" />
+            <Ionicons name={items[focusedIndex].icon as any} size={31} color="#fff" />
           )}
         </Animated.View>
       </View>
@@ -167,8 +185,8 @@ const makeStyles = () =>
       justifyContent: "center",
     },
     activeIconBox: {
-      width: 25,
-      height: 25,
+      width: 31,
+      height: 31,
     },
     activeWrap: {
       position: "absolute",

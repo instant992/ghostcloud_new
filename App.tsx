@@ -133,6 +133,9 @@ function MainTabs() {
       <Tabs.Navigator
         screenOptions={{
           headerShown: false,
+          // Таб-бар без фона: позади кругов должен быть только фон экрана
+          // (иначе обёртка навигации подставляет colors.card — «прямоугольник»)
+          tabBarStyle: { backgroundColor: "transparent", borderTopWidth: 0, elevation: 0 },
         }}
         tabBar={(props) => <CustomTabBar {...props} />}
       >
