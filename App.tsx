@@ -131,7 +131,7 @@ const tabStyles = StyleSheet.create({
     backgroundColor: "transparent",
     alignItems: "center",
     paddingHorizontal: 8,
-    paddingTop: 10,
+    paddingTop: 6,
   },
   tabSlot: {
     flex: 1,

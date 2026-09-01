@@ -19,13 +19,14 @@ export function TabIcon({
   useEffect(() => {
     Animated.timing(anim, {
       toValue: focused ? 1 : 0,
-      duration: 260,
+      duration: 280,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
   }, [focused, anim]);
 
-  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
+  // Активная вкладка заметно крупнее и подсвечена — как на референсе
+  const scale = anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.24] });
   const labelOpacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] });
 
   return (
@@ -39,7 +40,7 @@ export function TabIcon({
       >
         <Ionicons
           name={name as any}
-          size={23}
+          size={focused ? 24 : 21}
           color={focused ? "#fff" : colors.textDim}
         />
       </Animated.View>
@@ -56,23 +57,28 @@ export function TabIcon({
 }
 
 const makeStyles = () => StyleSheet.create({
-  wrap: { alignItems: "center", justifyContent: "center", minWidth: 64 },
+  wrap: { alignItems: "center", justifyContent: "center", minWidth: 56 },
   badge: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: "center",
     justifyContent: "center",
   },
   badgeOff: {
-    backgroundColor: colors.cardLight,
+    backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: colors.border,
   },
   badgeOn: {
     backgroundColor: colors.accentDeep,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.accent,
+    elevation: 8,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.55,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
   },
   label: {
     color: colors.text,
