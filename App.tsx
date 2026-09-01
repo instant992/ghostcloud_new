@@ -95,7 +95,7 @@ const TAB_META: Record<string, { icon: string; outline: string; label: string }>
 function CustomTabBar({ state, navigation }: any) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[tabStyles.bar, { paddingBottom: 12 + insets.bottom }]}>
+    <View style={[tabStyles.bar, { paddingBottom: 10 + insets.bottom }]}>
       {state.routes.map((route: any, index: number) => {
         const meta = TAB_META[route.name];
         if (!meta) return null;
@@ -104,7 +104,7 @@ function CustomTabBar({ state, navigation }: any) {
           <Pressable
             key={route.key}
             hitSlop={8}
-            style={tabStyles.tabSlot}
+            style={[tabStyles.tabSlot, focused && tabStyles.tabSlotFocused]}
             accessibilityRole="tab"
             accessibilityLabel={meta.label}
             accessibilityState={{ selected: focused }}
@@ -113,11 +113,7 @@ function CustomTabBar({ state, navigation }: any) {
               navigation.navigate(route.name);
             }}
           >
-            <TabIcon
-              name={focused ? meta.icon : meta.outline}
-              focused={focused}
-              label={meta.label}
-            />
+            <TabIcon name={focused ? meta.icon : meta.outline} focused={focused} />
           </Pressable>
         );
       })}
@@ -128,15 +124,24 @@ function CustomTabBar({ state, navigation }: any) {
 const tabStyles = StyleSheet.create({
   bar: {
     flexDirection: "row",
+    justifyContent: "center",
     backgroundColor: "transparent",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingTop: 6,
+    paddingTop: 10,
   },
+  // Ширина слота меньше диаметра круга — соседние круги соприкасаются
+  // и сливаются в единую «цепочку», как на референсе
   tabSlot: {
-    flex: 1,
+    width: 44,
+    height: 54,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 1,
+  },
+  // Активный круг крупнее и лежит поверх соседних
+  tabSlotFocused: {
+    zIndex: 10,
+    elevation: 10,
   },
 });
 
