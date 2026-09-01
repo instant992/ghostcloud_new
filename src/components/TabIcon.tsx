@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle as SvgCircle, Defs, Line, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Circle as SvgCircle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { colors, useTheme } from "../theme";
 
 export type TabChainItem = {
@@ -18,10 +18,9 @@ const RING = 54; // диаметр активного круга
 const PAD = 12;
 
 /** Таб-бар основной темы в стиле референса: круги стоят ОТДЕЛЬНО с небольшим
- *  зазором, а соединены линией («змейкой») по центру — линия проходит сквозь
- *  центры кругов и видна только в промежутках между ними (заливка кругов
- *  цветом экрана закрывает её под собой). Активная вкладка — крупный яркий
- *  круг, скользящий вдоль цепочки. Никакой фоновой плашки позади нет. */
+ *  зазором, а соединены дорожками с фоном внутри (заполненные перемычки по
+ *  центрам кругов — «бусины на дорожке», не просто линия). Активная вкладка —
+ *  крупный яркий круг, скользящий вдоль цепочки. Никакой общей плашки позади нет. */
 export function TabChain({
   items,
   focusedIndex,
@@ -67,16 +66,27 @@ export function TabChain({
             <Stop offset="1" stopColor={colors.accentDeep} />
           </LinearGradient>
         </Defs>
-        {/* Линия-змейка по центрам кругов: видна только в зазорах между ними */}
-        <Line
-          x1={centers[0]}
-          y1={cy}
-          x2={centers[n - 1]}
-          y2={cy}
-          stroke="rgba(190,180,220,0.45)"
-          strokeWidth={1.2}
-        />
-        {/* Круги: заливка цветом экрана (прячет линию под собой) + контур */}
+        {/* Перемычки-дорожки между кругами: заполнены фоном (не просто линия),
+            с рамкой сверху и снизу — круги «нанизаны» на дорожку */}
+        {items.slice(0, -1).map((it, i) => {
+          const x1 = centers[i] + R - 6; // небольшой заход под края кругов
+          const x2 = centers[i + 1] - R + 6;
+          const h = 32;
+          return (
+            <Rect
+              key={`b-${it.key}`}
+              x={x1}
+              y={cy - h / 2}
+              width={x2 - x1}
+              height={h}
+              rx={h / 2 - 4}
+              fill={colors.cardLight}
+              stroke="rgba(190,180,220,0.45)"
+              strokeWidth={1.2}
+            />
+          );
+        })}
+        {/* Круги: заливка цветом экрана + контур (рисуются поверх дорожек) */}
         {items.map((it, i) => (
           <SvgCircle
             key={`c-${it.key}`}
