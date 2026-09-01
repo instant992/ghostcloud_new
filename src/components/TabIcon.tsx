@@ -66,8 +66,8 @@ export function TabChain({
             <Stop offset="1" stopColor={colors.accentDeep} />
           </LinearGradient>
         </Defs>
-        {/* Перемычки между кругами: прямые (без скругления), с фоном внутри
-            и рамкой сверху/снизу — круги «нанизаны» на дорожку */}
+        {/* Перемычки между кругами: прямые (без скругления), серые —
+            серый фон внутри и серая рамка; круги «нанизаны» на дорожку */}
         {items.slice(0, -1).map((it, i) => {
           const x1 = centers[i] + R - 6; // небольшой заход под края кругов
           const x2 = centers[i + 1] - R + 6;
@@ -79,8 +79,8 @@ export function TabChain({
               y={cy - h / 2}
               width={x2 - x1}
               height={h}
-              fill={colors.cardLight}
-              stroke="rgba(190,180,220,0.45)"
+              fill="#2E2E36"
+              stroke="rgba(165,165,175,0.55)"
               strokeWidth={1.2}
             />
           );
