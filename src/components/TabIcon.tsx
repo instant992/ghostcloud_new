@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle as SvgCircle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Circle as SvgCircle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { colors, useTheme } from "../theme";
 
 export type TabChainItem = {
@@ -66,27 +66,8 @@ export function TabChain({
             <Stop offset="1" stopColor={colors.accentDeep} />
           </LinearGradient>
         </Defs>
-        {/* Перемычки между кругами: прямые (без скругления), серые —
-            серый фон внутри и серая рамка; круги «нанизаны» на дорожку */}
-        {items.slice(0, -1).map((it, i) => {
-          const x1 = centers[i] + R - 6; // небольшой заход под края кругов
-          const x2 = centers[i + 1] - R + 6;
-          const h = 32;
-          return (
-            <Rect
-              key={`b-${it.key}`}
-              x={x1}
-              y={cy - h / 2}
-              width={x2 - x1}
-              height={h}
-              fill="#2E2E36"
-              stroke="rgba(165,165,175,0.55)"
-              strokeWidth={1.2}
-            />
-          );
-        })}
-        {/* Круги: заливка цветом экрана + серая обводка (как у перемычек),
-            чуть толще — рисуются поверх дорожек */}
+        {/* Круги: заливка цветом экрана + серая обводка.
+            Позади меню ничего нет — ни плашки, ни перемычек */}
         {items.map((it, i) => (
           <SvgCircle
             key={`c-${it.key}`}
