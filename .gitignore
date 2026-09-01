@@ -39,3 +39,7 @@ easbuild*.log*
 *.png.snapshot
 g[0-9]*.png
 ui.xml
+
+# временные файлы сравнения с референсом
+ref_*.jpg
+ref_*.png
