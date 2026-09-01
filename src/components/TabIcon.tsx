@@ -83,7 +83,7 @@ const makeStyles = () =>
       width: BASE,
       height: BASE,
       borderRadius: BASE / 2,
-      backgroundColor: colors.card,
+      backgroundColor: colors.bg,
       borderWidth: 1,
       borderColor: "rgba(190,180,220,0.4)",
     },

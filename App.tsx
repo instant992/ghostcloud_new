@@ -129,11 +129,11 @@ const tabStyles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 10,
   },
-  // Ширина слота меньше диаметра круга — соседние круги соприкасаются
+  // Ширина слота меньше диаметра круга — соседние круги заходят друг на друга
   // и сливаются в единую «цепочку», как на референсе
   tabSlot: {
-    width: 44,
-    height: 54,
+    width: 42,
+    height: 56,
     alignItems: "center",
     justifyContent: "center",
     zIndex: 1,
