@@ -121,10 +121,21 @@ npm run build:eas:android    # черновик: eas build --platform android --
 Никогда не публикуется автоматически. Особенности этого проекта для EAS Build:
 
 - `android/xraylibs/libXray.aar` отсутствует в репозитории — на билд-сервере его
-  скачивает хук `scripts/eas/download-libxray.sh` (подключён в `eas.json` как
-  `eas-build-pre-install`).
-- Keystore: перед первой сборкой загружается на EAS (`npx eas credentials` → Android →
-  upload keystore) с параметрами из `credentials/keystore.properties` (в git не попадает).
+  скачивает хук `scripts/eas/download-libxray.sh` (npm-скрипт `eas-build-pre-install`,
+  проверено на реальной сборке: AAR скачивается и распечатывается).
+- **`EAS_NO_VCS=1` задаёт обёртка `scripts/eas/build-android.mjs`**: на этой машине
+  внутренний `git clone file:///C:/...` у eas-cli падает (особенность среды), поэтому
+  проект отправляется архивом. Облачный сервер всё равно использует коммит/версии с
+  сервера (автоинкремент versionCode работает).
+- `package-lock.json` обязан быть синхронен с `package.json` — сервер выполняет
+  строгий `npm ci` (вложенный `typescript@5.9.3` от зависимостей `eas-cli` должен
+  присутствовать в локе; ломал сборку, починено).
+- Подпись: ключ загружен на EAS (конфигурация `default`, отпечаток совпадает с
+  локальным `credentials/ghostcloud-release.keystore`). EAS сам подставляет его в
+  Gradle через генерируемый `eas-build.gradle`; локальный `keystore.properties`
+  для облака не нужен.
+- Версиями управляет сервер (`cli.appVersionSource: remote`, `autoIncrement: true`).
+  Стартовый versionCode задан 10 (выше локальных 5001–5004 с учётом схемы `*1000+abi`).
 
 ## 7. Авторизация
 

@@ -14,7 +14,7 @@
     "ota:rollback": "node scripts/ota/rollback.mjs --branch preview --previous",
     "ota:status": "node scripts/ota/status.mjs",
     "ota:test": "node scripts/ota/__tests__/run-tests.mjs",
-    "build:eas:android": "node node_modules/eas-cli/bin/run build --platform android --profile production --no-wait",
+    "build:eas:android": "node scripts/eas/build-android.mjs",
     "eas-build-pre-install": "bash scripts/eas/download-libxray.sh"
   },
   "private": true,
