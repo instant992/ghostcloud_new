@@ -85,7 +85,8 @@ export function TabChain({
             />
           );
         })}
-        {/* Круги: заливка цветом экрана + контур (рисуются поверх дорожек) */}
+        {/* Круги: заливка цветом экрана + серая обводка (как у перемычек),
+            чуть толще — рисуются поверх дорожек */}
         {items.map((it, i) => (
           <SvgCircle
             key={`c-${it.key}`}
@@ -93,8 +94,8 @@ export function TabChain({
             cy={cy}
             r={R}
             fill={colors.bg}
-            stroke="rgba(190,180,220,0.45)"
-            strokeWidth={1.2}
+            stroke="rgba(165,165,175,0.55)"
+            strokeWidth={2}
           />
         ))}
         {/* Активный круг */}
