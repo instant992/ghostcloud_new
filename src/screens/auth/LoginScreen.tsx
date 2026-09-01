@@ -42,7 +42,7 @@ export default function LoginScreen() {
         <View style={styles.brand}>
           <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
           <Text style={styles.brandName}>GhostCloud</Text>
-          <Text style={styles.brandSub}>Ваш приватный доступ в интернет · OTA-тест ✓</Text>
+          <Text style={styles.brandSub}>Ваш приватный доступ в интернет · OTA-тест 2 ✓✓</Text>
         </View>
 
         <View style={styles.form}>
