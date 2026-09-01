@@ -1,0 +1,44 @@
+{
+  "_comment": "Снимок нативного API модуля XrayCore (modules/xray-core/android/src/main/java/expo/modules/xraycore/XrayCoreModule.kt) на момент внедрения автоматизации. Если в JS-диффе появляется вызов метода, отсутствующего здесь, — в уже установленных бинарниках его нет => нужна новая сборка (или совместимый фолбэк в коде). Обновлять снимок только вместе с новой нативной сборкой.",
+  "module": "XrayCore",
+  "snapshotCommit": "f451726",
+  "functions": [
+    "getNetworkType",
+    "getInstalledPackageNames",
+    "stopVpn",
+    "isVpnRunning",
+    "getSetting",
+    "setSetting",
+    "stopCoreVpn",
+    "isCoreRunning",
+    "getCpuAbi",
+    "getAppIcon",
+    "getCoreStatus",
+    "stopLibCoreVpn",
+    "isLibCoreRunning",
+    "getTrafficSnapshot",
+    "isUsageStatsAvailable",
+    "openUsageAccessSettings",
+    "xrayVersion"
+  ],
+  "asyncFunctions": [
+    "requestPermission",
+    "startVpn",
+    "getInstalledApps",
+    "startCoreVpn",
+    "getCoreVersion",
+    "downloadCore",
+    "deleteCore",
+    "loadLibCore",
+    "startLibCoreVpn",
+    "tcpPing",
+    "getUidTraffic",
+    "isPrepared",
+    "pingBatch"
+  ],
+  "events": [
+    "onVpnStateChanged",
+    "onCoreDownloadProgress",
+    "onNetworkTypeChanged"
+  ]
+}

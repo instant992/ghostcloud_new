@@ -1,12 +1,21 @@
 {
   "name": "ghostcloud",
-  "version": "1.0.0",
+  "version": "1.1.5",
   "main": "index.ts",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "ota:analyze": "node scripts/ota/classify.mjs",
+    "ota:analyze:range": "node scripts/ota/classify.mjs --range",
+    "ota:preview": "node scripts/ota/publish-ota.mjs --branch preview",
+    "ota:production": "node scripts/ota/publish-ota.mjs --branch production",
+    "ota:rollback": "node scripts/ota/rollback.mjs --branch preview --previous",
+    "ota:status": "node scripts/ota/status.mjs",
+    "ota:test": "node scripts/ota/__tests__/run-tests.mjs",
+    "build:eas:android": "node node_modules/eas-cli/bin/run build --platform android --profile production --no-wait",
+    "eas-build-pre-install": "bash scripts/eas/download-libxray.sh"
   },
   "private": true,
   "dependencies": {
@@ -41,5 +50,8 @@
     "react-native-svg": "15.15.4",
     "react-native-worklets": "0.10.1",
     "typescript": "~6.0.3"
+  },
+  "devDependencies": {
+    "eas-cli": "23.2.0"
   }
 }

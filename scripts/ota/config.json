@@ -1,0 +1,13 @@
+{
+  "_comment": "Настройки OTA-автоматизации",
+  "channels": ["development", "preview", "production"],
+  "defaultOtaBranch": "preview",
+  "production": {
+    "channel": "production",
+    "envVarGate": "GC_PUBLISH_PROD",
+    "envVarValue": "yes",
+    "flagGate": "--confirm-production"
+  },
+  "runtimeVersion": "1.0.0",
+  "platform": "android"
+}

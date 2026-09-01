@@ -29,5 +29,15 @@ curl -L -o android/xraylibs/libXray.aar \
 
 ## Обновления по воздуху
 
-EAS Update привязан к проекту `@ghost552/ghostcloud`:
-`npx eas-cli update --branch production` — только для JS-изменений.
+Проект привязан к `@ghost552/ghostcloud` (EAS). Полная документация по
+автоматизации, классификатору и откатам: [`docs/EAS_AUTOMATION.md`](docs/EAS_AUTOMATION.md).
+
+Кратко:
+- `runtimeVersion` зафиксирован `1.0.0`; каналы: `development` / `preview` / `production`;
+- `npm run ota:analyze` — классификатор изменения по последнему коммиту (OTA / NATIVE_BUILD / REVIEW_REQUIRED);
+- `npm run ota:preview` — публикация в тестовый канал;
+- `npm run ota:production` — только с двойным подтверждением (флаг + переменная окружения);
+- `npm run ota:rollback` — откат на предыдущую рабочую версию.
+
+Нативные изменения (всё в `android/`, `modules/*/android/`, права, зависимости с
+нативным кодом) требуют новой сборки: `npm run build:eas:android`.

@@ -1,0 +1,40 @@
+{
+  "_comment": "Реестр зависимостей для OTA-классификатора. kind: pure-js (можно по воздуху) | dev (не попадает в приложение) | expo-module / rn-native / native (нативный код — только новая сборка). Флаг native=true => NATIVE_BUILD при добавлении/удалении/смене версии.",
+  "packages": {
+    "@expo/vector-icons": { "kind": "pure-js", "note": "JS + шрифты, идут в JS-бандл" },
+    "@react-navigation/bottom-tabs": { "kind": "pure-js" },
+    "@react-navigation/native": { "kind": "pure-js" },
+    "@react-navigation/native-stack": { "kind": "pure-js" },
+    "@types/react": { "kind": "dev" },
+    "eas-cli": { "kind": "dev" },
+    "expo": { "kind": "expo-sdk", "native": true, "note": "ядро SDK" },
+    "expo-application": { "kind": "expo-module", "native": true },
+    "expo-blur": { "kind": "expo-module", "native": true },
+    "expo-camera": { "kind": "expo-module", "native": true },
+    "expo-clipboard": { "kind": "expo-module", "native": true },
+    "expo-constants": { "kind": "expo-module", "native": true },
+    "expo-device": { "kind": "expo-module", "native": true },
+    "expo-font": { "kind": "expo-module", "native": true },
+    "expo-haptics": { "kind": "expo-module", "native": true },
+    "expo-image-picker": { "kind": "expo-module", "native": true },
+    "expo-linking": { "kind": "expo-module", "native": true },
+    "expo-secure-store": { "kind": "expo-module", "native": true },
+    "expo-sharing": { "kind": "expo-module", "native": true },
+    "expo-status-bar": { "kind": "expo-module", "native": true },
+    "expo-updates": { "kind": "expo-module", "native": true },
+    "expo-web-browser": { "kind": "expo-module", "native": true },
+    "react": { "kind": "pure-js" },
+    "react-native": { "kind": "rn-core", "native": true },
+    "react-native-gesture-handler": { "kind": "rn-native", "native": true },
+    "react-native-qrcode-svg": { "kind": "pure-js", "note": "чистый JS поверх уже установленного нативного react-native-svg" },
+    "react-native-reanimated": { "kind": "rn-native", "native": true },
+    "react-native-safe-area-context": { "kind": "rn-native", "native": true },
+    "react-native-screens": { "kind": "rn-native", "native": true },
+    "react-native-svg": { "kind": "rn-native", "native": true },
+    "react-native-worklets": { "kind": "rn-native", "native": true },
+    "typescript": { "kind": "dev" }
+  },
+  "localModules": {
+    "xray-core": { "kind": "local-expo-module", "native": true, "note": "modules/xray-core — Kotlin-модуль, нативная часть в android/" }
+  }
+}

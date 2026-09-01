@@ -11,6 +11,7 @@ android/xraylibs/libXray.aar
 
 apks/
 credentials/
+credentials.json
 *.keystore
 *.jks
 
@@ -26,3 +27,6 @@ build_log.txt
 
 # Kotlin compiler sessions (build artifacts)
 android/.kotlin/
+
+# OTA automation local state
+scripts/ota/history.json
