@@ -128,8 +128,9 @@ try { history = JSON.parse(fs.readFileSync(HISTORY_FILE, "utf8")); } catch {}
 const entry = { time: new Date().toISOString(), branch: args.branch, commit, message: args.message };
 try {
   const list = easJson(["update:list", "--branch", args.branch, "--limit", "5"]);
-  const latest = Array.isArray(list) ? list[0] : null;
-  if (latest?.id) { entry.groupId = latest.id; entry.runtimeVersion = latest.runtimeVersion; }
+  const arr = Array.isArray(list) ? list : (list?.currentPage || []);
+  const latest = arr[0] || null;
+  if (latest?.group) { entry.groupId = latest.group; entry.runtimeVersion = latest.runtimeVersion; }
 } catch {}
 history.unshift(entry);
 fs.writeFileSync(HISTORY_FILE, JSON.stringify(history.slice(0, 200), null, 2));

@@ -68,15 +68,15 @@ function easJson(args) {
 let targetGroup = group;
 if (previous) {
   const list = easJson(["update:list", "--branch", branch, "--limit", "10"]);
-  const groups = Array.isArray(list) ? list : [];
+  const groups = Array.isArray(list) ? list : (list?.currentPage || []);
   if (groups.length < 2) {
     console.error("✖ На ветке меньше двух групп — переиздавать нечего. Альтернатива: пересоберите рабочую версию из тега и опубликуйте.");
     process.exit(1);
   }
-  targetGroup = groups[1].id;
-  console.error(`Найдена предыдущая группа: ${targetGroup} ("${groups[1].message || ""}")`);
+  targetGroup = groups[1].group;
+  console.error(`Найдена предыдущая группа: ${targetGroup} (${groups[1].message || ""})`);
 }
 
-console.error(`➤ eas update:republish --branch ${branch} --group ${targetGroup} --destination-branch ${branch}`);
-eas(["update:republish", "--branch", branch, "--group", targetGroup, "--destination-branch", branch, "-m", message, "--non-interactive"]);
+console.error(`➤ eas update:republish --group ${targetGroup} --destination-branch ${branch}`);
+eas(["update:republish", "--group", targetGroup, "--destination-branch", branch, "-m", message, "--non-interactive"]);
 console.error(`✔ Откат выполнен: ветка "${branch}" указывает на группу ${targetGroup}. Клиенты получат её при следующем запуске.`);
