@@ -10,7 +10,7 @@
     "updates": {
       "url": "https://u.expo.dev/610ee1ee-ed79-4bbc-93f4-f14e3e05c3e3",
       "requestHeaders": {
-        "expo-channel-name": "preview"
+        "expo-channel-name": "production"
       }
     },
     "runtimeVersion": "1.0.0",
