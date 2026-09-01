@@ -34,3 +34,8 @@ scripts/ota/history.json
 # временные файлы диагностики
 easbuild*.txt
 easbuild*.log*
+
+# скриншоты визуальной проверки (эмулятор)
+*.png.snapshot
+g[0-9]*.png
+ui.xml
