@@ -7,7 +7,6 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
-import { APP_FONT } from "./src/fontPatch";
 import { AppProvider, useApp } from "./src/context";
 import { colors, ThemeProvider, useTheme } from "./src/theme";
 

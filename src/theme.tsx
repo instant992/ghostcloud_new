@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { getThemeName, getThemeMode, getSetting, type ThemeMode } from "./settings";
+import { fontForTheme, setAppFont } from "./fontPatch";
 
 /** Стили темы (дизайн/UX). Режим (тёмный/светлый/авто) хранится отдельно. */
 export type ThemeName =
@@ -374,10 +375,12 @@ function resolveMode(mode: ThemeMode): "dark" | "light" {
 
 export const colors: any = { ...PALETTES[getThemeName()][resolveMode(getThemeMode())] };
 
-/** Перекрашивает объект colors на месте — все экраны перерисуются при следующем рендере */
+/** Перекрашивает объект colors на месте — все экраны перерисуются при следующем рендере.
+ *  Также переключает шрифт темы (свои шрифты у Liquid Glass и v2ray). */
 export function applyTheme(style: ThemeName, mode: ThemeMode) {
   const pair = PALETTES[style] || PALETTES.default;
   Object.assign(colors, pair[resolveMode(mode)] || pair.dark);
+  setAppFont(fontForTheme(style));
 }
 
 export const THEME_LABELS: Record<ThemeName, string> = {
