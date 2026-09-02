@@ -106,22 +106,33 @@ function CustomTabBar({ state, navigation }: any) {
   const focusedRoute = state.routes[state.index];
   const focusedIndex = items.findIndex((it: any) => it.name === focusedRoute.name);
   return (
-    <View style={[tabStyles.bar, { backgroundColor: colors.bg, paddingBottom: 8 + insets.bottom }]}>
-      <TabChain
-        items={items}
-        focusedIndex={focusedIndex}
-        onPress={(i: number) => {
-          Haptics.selectionAsync().catch(() => {});
-          navigation.navigate(items[i].name);
-        }}
-      />
+    // «Плавающий» таб-бар: обёртка нулевой высоты — контент экрана занимает всю
+    // высоту (под меню остаётся сплошной фон экрана), а само меню позиционируется
+    // абсолютно поверх него. Под меню больше нет отдельного нативного слоя,
+    // состыкованного с контентом, — исчезает «прямоугольник»-шов за меню.
+    <View style={{ height: 0 }} pointerEvents="box-none">
+      <View style={[tabStyles.bar, { paddingBottom: 8 + insets.bottom }]} pointerEvents="box-none">
+        <TabChain
+          items={items}
+          focusedIndex={focusedIndex}
+          onPress={(i: number) => {
+            Haptics.selectionAsync().catch(() => {});
+            navigation.navigate(items[i].name);
+          }}
+        />
+      </View>
     </View>
   );
 }
 
 const tabStyles = StyleSheet.create({
   bar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     alignItems: "center",
+    backgroundColor: "transparent",
     paddingTop: 10,
   },
 });
@@ -132,9 +143,6 @@ function MainTabs() {
       <Tabs.Navigator
         screenOptions={{
           headerShown: false,
-          // Таб-бар без фона: позади кругов должен быть только фон экрана
-          // (иначе обёртка навигации подставляет colors.card — «прямоугольник»)
-          tabBarStyle: { backgroundColor: "transparent", borderTopWidth: 0, elevation: 0 },
         }}
         tabBar={(props) => <CustomTabBar {...props} />}
       >
