@@ -620,12 +620,12 @@ export default function SettingsScreen() {
             </View>
           )}
         </View>
-        <View style={{ flexDirection: "row", gap: 12, marginTop: 12, opacity: isSponsor ? 1 : 0.55 }}>
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 12, opacity: isSponsor ? 1 : 0.55 }}>
           {(
             [
-              ["default", null, "GhostCloud"],
-              ["foxcloud", require("../../assets/icon_fox.png"), "FoxCloud"],
-            ] as Array<[string, any, string]>
+              ["default", "app_icon", "GhostCloud"],
+              ["foxcloud", "icon_fox", "FoxCloud"],
+            ] as Array<[string, string, string]>
           ).map(([type, preview, label]) => {
             const active = appIcon === type;
             return (
@@ -637,13 +637,9 @@ export default function SettingsScreen() {
                 accessibilityLabel={`Иконка приложения: ${label}`}
                 accessibilityState={{ selected: active }}
               >
-                {preview ? (
-                  <Image source={preview} style={styles.iconPreview} resizeMode="cover" />
-                ) : (
-                  <Image source={{ uri: "app_icon" }} style={styles.iconPreview} resizeMode="cover" />
-                )}
+                <Image source={{ uri: preview }} style={styles.iconPreview} resizeMode="cover" />
                 <Text style={[styles.iconOptionText, active && { color: colors.accent }]}>{label}</Text>
-                {active && <Ionicons name="checkmark-circle" size={16} color={colors.accent} style={{ position: "absolute", top: 8, right: 8 }} />}
+                {active && <Ionicons name="checkmark-circle" size={14} color={colors.accent} style={{ position: "absolute", top: 6, right: 6 }} />}
               </PressableScale>
             );
           })}
@@ -976,17 +972,17 @@ const makeStyles = () => StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 12,
+    padding: 8,
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   iconPreview: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
   },
-  iconOptionText: { fontSize: 13, fontWeight: "600", color: colors.textDim },
+  iconOptionText: { fontSize: 12, fontWeight: "600", color: colors.textDim },
   segRow: { flexDirection: "row", gap: 8 },
   segBtn: {
     flex: 1,
