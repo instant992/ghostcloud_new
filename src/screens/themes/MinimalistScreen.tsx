@@ -280,7 +280,7 @@ export default function MinimalistScreen() {
           bounces={false}
           overScrollMode="never"
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 116 }}
         showsVerticalScrollIndicator={false}
       >
 

@@ -31,7 +31,7 @@ import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
-import GlassScreen from "./src/screens/themes/GlassScreen";
+import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import { TabChain } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
@@ -289,16 +289,28 @@ function GlassDockBar({ state, navigation }: any) {
   useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View
-      style={{
-        backgroundColor: "transparent",
-        paddingHorizontal: 24,
-        paddingTop: 4,
-        paddingBottom: Math.max(8, insets.bottom),
-      }}
-    >
-      {/* Без общей подложки: пункты лежат прямо на фоне экрана */}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 6 }}>
+    // «Плавающий» док: обёртка нулевой высоты — контент экрана тянется до самого
+    // низа, и позади дока остаётся только фон темы. Иначе за доком видна полоса
+    // нативного фона окна на всю ширину («прямоугольник» внизу).
+    <View style={{ height: 0 }} pointerEvents="box-none">
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "transparent",
+          paddingHorizontal: 24,
+          paddingTop: 4,
+          paddingBottom: Math.max(8, insets.bottom),
+        }}
+        pointerEvents="box-none"
+      >
+        <GlassCard
+          radius={28}
+          intensity={70}
+          style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6 }}
+        >
         {DOCK_TABS.map((t, index) => {
           const focused = state.index === index;
           const press = () => {
@@ -320,7 +332,8 @@ function GlassDockBar({ state, navigation }: any) {
               <Ionicons name={t.icon as any} size={24} color={colors.textFaint} />
             </Pressable>
           );
-        })}
+          })}
+        </GlassCard>
       </View>
     </View>
   );
@@ -331,47 +344,55 @@ function MinimalDockBar({ state, navigation }: any) {
   useTheme();
   const insets = useSafeAreaInsets();
   return (
-    <View
-      style={{
-        backgroundColor: "transparent",
-        paddingHorizontal: 24,
-        paddingTop: 4,
-        paddingBottom: Math.max(8, insets.bottom),
-      }}
-    >
-      {/* Без общей плашки: круги лежат прямо на фоне экрана */}
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-        {DOCK_TABS.map((t, index) => {
-          const focused = state.index === index;
-          const press = () => {
-            Haptics.selectionAsync().catch(() => {});
-            navigation.navigate(t.name);
-          };
-          if (focused) {
+    // «Плавающий» док: как у GlassDockBar — позади дока только фон темы,
+    // без полноширинной полосы нативного фона окна.
+    <View style={{ height: 0 }} pointerEvents="box-none">
+      <View
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "transparent",
+          paddingHorizontal: 24,
+          paddingTop: 4,
+          paddingBottom: Math.max(8, insets.bottom),
+        }}
+        pointerEvents="box-none"
+      >
+        <View style={dockStyles.minimalBar}>
+          {DOCK_TABS.map((t, index) => {
+            const focused = state.index === index;
+            const press = () => {
+              Haptics.selectionAsync().catch(() => {});
+              navigation.navigate(t.name);
+            };
+            if (focused) {
+              return (
+                <View key={t.name} style={dockStyles.slot}>
+                  <Pressable onPress={press} style={dockStyles.minimalPill}>
+                    <View style={[dockStyles.minimalPillCircle, { backgroundColor: colors.accent }]}>
+                      <Ionicons name={t.iconActive as any} size={21} color="#fff" />
+                    </View>
+                    <Text style={[dockStyles.minimalPillText, { color: colors.text }]}>{t.name}</Text>
+                  </Pressable>
+                </View>
+              );
+            }
             return (
-              <View key={t.name} style={dockStyles.slot}>
-                <Pressable onPress={press} style={dockStyles.minimalPill}>
-                  <View style={[dockStyles.minimalPillCircle, { backgroundColor: colors.accent }]}>
-                    <Ionicons name={t.iconActive as any} size={21} color="#fff" />
-                  </View>
-                  <Text style={[dockStyles.minimalPillText, { color: colors.text }]}>{t.name}</Text>
-                </Pressable>
-              </View>
+              <Pressable key={t.name} style={dockStyles.slot} onPress={press}>
+                <View
+                  style={[
+                    dockStyles.minimalCircle,
+                    { backgroundColor: colors.card, borderColor: colors.border },
+                  ]}
+                >
+                  <Ionicons name={t.icon as any} size={23} color={colors.textFaint} />
+                </View>
+              </Pressable>
             );
-          }
-          return (
-            <Pressable key={t.name} style={dockStyles.slot} onPress={press}>
-              <View
-                style={[
-                  dockStyles.minimalCircle,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
-                <Ionicons name={t.icon as any} size={23} color={colors.textFaint} />
-              </View>
-            </Pressable>
-          );
-        })}
+          })}
+        </View>
       </View>
     </View>
   );
@@ -391,6 +412,21 @@ const dockStyles = StyleSheet.create({
     paddingVertical: 10,
   },
   glassPillText: { color: colors.accent, fontSize: 15, fontWeight: "600" },
+  minimalBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.cardLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 28,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+  },
   minimalPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -435,14 +471,16 @@ function DockedThemedFlow({
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="ThemeTabs">
         {() => (
-          <DockTabs.Navigator
-            screenOptions={{ headerShown: false }}
-            tabBar={(props) => <DockBar {...props} />}
-          >
-            <DockTabs.Screen name="Главная" component={Home} />
-            <DockTabs.Screen name="Подписка" component={SubscriptionScreen} />
-            <DockTabs.Screen name="Профиль" component={ProfileScreen} />
-          </DockTabs.Navigator>
+          <TabAreaContext.Provider value={true}>
+            <DockTabs.Navigator
+              screenOptions={{ headerShown: false }}
+              tabBar={(props) => <DockBar {...props} />}
+            >
+              <DockTabs.Screen name="Главная" component={Home} />
+              <DockTabs.Screen name="Подписка" component={SubscriptionScreen} />
+              <DockTabs.Screen name="Профиль" component={ProfileScreen} />
+            </DockTabs.Navigator>
+          </TabAreaContext.Provider>
         )}
       </Stack.Screen>
       <Stack.Screen name="Настройки" component={SettingsWithBack} />

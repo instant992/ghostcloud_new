@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../context";
 import { colors, formatBytes, useTheme } from "../theme";
 import { PressableScale } from "../components/PressableScale";
 import { BalanceSheet } from "../components/BalanceSheet";
+import { useInTabArea } from "../components/UI";
 import * as stats from "../stats";
 
 /** Раздел «Подписка» — перенесён из Flutter-версии: статус подписки,
@@ -14,6 +16,8 @@ export default function SubscriptionScreen() {
   useTheme();
   const styles = makeStyles();
   const nav = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const inTabs = useInTabArea();
   const { me, subscriptionActive } = useApp();
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
   const [balanceOpen, setBalanceOpen] = useState(false);
@@ -43,7 +47,12 @@ export default function SubscriptionScreen() {
           bounces={false}
           overScrollMode="never"
       style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ padding: 20, paddingTop: 84, paddingBottom: 40 }}
+      contentContainerStyle={{
+        padding: 20,
+        paddingTop: 84,
+        // Плавающий док тем: контент не должен залезать под меню
+        paddingBottom: inTabs ? insets.bottom + 116 : 40,
+      }}
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.pageTitle}>Моя подписка</Text>

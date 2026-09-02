@@ -328,7 +328,8 @@ export default function GlassScreen() {
         contentContainerStyle={{
           paddingHorizontal: 20,
           paddingTop: insets.top + 12,
-          paddingBottom: 24,
+          // Плавающий док: контент не должен залезать под меню
+          paddingBottom: insets.bottom + 116,
         }}
         showsVerticalScrollIndicator={false}
       >
