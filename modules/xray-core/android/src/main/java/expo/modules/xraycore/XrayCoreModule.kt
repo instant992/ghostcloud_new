@@ -720,5 +720,41 @@ class XrayCoreModule : Module() {
         }
       }
     }
+
+    // ── Смена иконки приложения на рабочем столе (как в старом проекте):
+    //    переключение activity-alias в манифесте. Типы: "default" (призрак)
+    //    и "foxcloud" (лисья). Выбор сохраняется в SharedPreferences. ──
+    Function("setLauncherIcon") { type: String ->
+      try {
+        val pkg = context.packageName
+        val pm = context.packageManager
+        val defaultAlias = android.content.ComponentName(pkg, "$pkg.DEFAULT")
+        val foxAlias = android.content.ComponentName(pkg, "$pkg.icon_foxcloud")
+        val enabled = android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        val disabled = android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        if (type == "foxcloud") {
+          pm.setComponentEnabledSetting(defaultAlias, disabled, android.content.pm.PackageManager.DONT_KILL_APP)
+          pm.setComponentEnabledSetting(foxAlias, enabled, android.content.pm.PackageManager.DONT_KILL_APP)
+        } else {
+          pm.setComponentEnabledSetting(foxAlias, disabled, android.content.pm.PackageManager.DONT_KILL_APP)
+          pm.setComponentEnabledSetting(defaultAlias, enabled, android.content.pm.PackageManager.DONT_KILL_APP)
+        }
+        context.getSharedPreferences("gc_settings", android.content.Context.MODE_PRIVATE)
+          .edit().putString("app_icon", if (type == "foxcloud") "foxcloud" else "default").apply()
+        true
+      } catch (e: Throwable) {
+        android.util.Log.e("GhostCloud", "setLauncherIcon failed", e)
+        false
+      }
+    }
+
+    Function("getLauncherIcon") {
+      try {
+        context.getSharedPreferences("gc_settings", android.content.Context.MODE_PRIVATE)
+          .getString("app_icon", "default") ?: "default"
+      } catch (e: Throwable) {
+        "default"
+      }
+    }
   }
 }

@@ -288,7 +288,7 @@ export default function HomeScreen() {
         </PressableScale>
       </View>
 
-      <ConnectionFilterModal
+      {appsOpen && <ConnectionFilterModal
         visible={appsOpen}
         onClose={() => {
           setAppsOpen(false);
@@ -307,16 +307,16 @@ export default function HomeScreen() {
             setBlockedCount(f.blocked.length);
           }).catch(() => {});
         }}
-      />
+      />}
 
-      <BalanceSheet
+      {balanceOpen && <BalanceSheet
         visible={balanceOpen}
         onClose={() => setBalanceOpen(false)}
         balance={(me?.balance || 0) / 100}
         daysLeft={daysLeft}
-      />
+      />}
 
-      <ServerPicker
+      {pickerOpen && <ServerPicker
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
         nodes={nodes}
@@ -347,7 +347,7 @@ export default function HomeScreen() {
           }
         }}
         onRefresh={() => reloadNodes().catch(() => {})}
-      />
+      />}
     </View>
   );
 }

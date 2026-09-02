@@ -17,9 +17,11 @@ import {
   downloadCore,
   getCpuAbi,
   getCoreStatus,
+  getLauncherIcon,
   getXrayVersion,
   loadLibCore,
   onCoreDownloadProgress,
+  setLauncherIcon,
 } from "../vpn/native";
 
 const CORES_REPO_MANIFEST = "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/manifest.json";
@@ -121,6 +123,31 @@ export default function SettingsScreen() {
   const [dnsOpen, setDnsOpen] = useState(false);
   const [dnsId, setDnsId] = useState(() => getSetting("dns_provider", "auto"));
   const [stopBusy, setStopBusy] = useState(false);
+
+  /** Иконка приложения на рабочем столе: "default" (призрак) / "foxcloud" (лиса) */
+  const [appIcon, setAppIcon] = useState<string>(() => getLauncherIcon());
+
+  const changeAppIcon = (type: "default" | "foxcloud") => {
+    if (type === appIcon) return;
+    if (!isSponsor) {
+      setBenefitsOpen(true);
+      return;
+    }
+    const prev = appIcon;
+    setAppIcon(type);
+    const ok = setLauncherIcon(type);
+    if (ok) {
+      showToast(
+        type === "foxcloud"
+          ? "Иконка FoxCloud применена"
+          : "Стандартная иконка восстановлена",
+        "top"
+      );
+    } else {
+      setAppIcon(prev);
+      showToast("Не удалось сменить иконку", "top");
+    }
+  };
 
   /** Мгновенная остановка VPN — без подтверждения, по одному нажатию */
   const stopVpnNow = async () => {
@@ -498,7 +525,7 @@ export default function SettingsScreen() {
             : "Применяется сразу, без перезагрузки"}
         </Text>
 
-        <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
+        {themeOpen && <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
           <PressableScale style={styles.modalBackdrop} onPress={() => setThemeOpen(false)}>
             <PressableScale style={styles.stylePanel} onPress={() => {}}>
               <Text style={styles.themeSheetTitle}>Стиль темы</Text>
@@ -536,10 +563,10 @@ export default function SettingsScreen() {
               )}
             </PressableScale>
           </PressableScale>
-        </Modal>
+        </Modal>}
 
         {/* Секретная тема: диалог ввода кода */}
-        <Modal visible={codeOpen} transparent animationType="fade" onRequestClose={() => setCodeOpen(false)}>
+        {codeOpen && <Modal visible={codeOpen} transparent animationType="fade" onRequestClose={() => setCodeOpen(false)}>
           <PressableScale style={styles.modalBackdrop} onPress={() => setCodeOpen(false)}>
             <PressableScale style={styles.modalCard} onPress={() => {}}>
               <Text style={styles.modalTitle}>Секретная тема</Text>
@@ -570,7 +597,60 @@ export default function SettingsScreen() {
               </View>
             </PressableScale>
           </PressableScale>
-        </Modal>
+        </Modal>}
+      </Card>
+
+      {/* Иконка приложения на рабочем столе (как в старом приложении) */}
+      <Card>
+        <Text style={styles.sectionTitle}>Иконка приложения</Text>
+        <View style={styles.themeRowLine}>
+          <Ionicons name="phone-portrait-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>Иконка на рабочем столе</Text>
+            <Text style={styles.themeRowSub}>
+              {isSponsor ? "Меняется сразу" : "Преимущество спонсоров"}
+            </Text>
+          </View>
+          {!isSponsor && (
+            <View style={styles.lockWrap}>
+              <SponsorHeart size={13} />
+              <View style={styles.lockBadge}>
+                <Ionicons name="lock-closed" size={14} color="#FF9800" />
+              </View>
+            </View>
+          )}
+        </View>
+        <View style={{ flexDirection: "row", gap: 12, marginTop: 12, opacity: isSponsor ? 1 : 0.55 }}>
+          {(
+            [
+              ["default", null, "GhostCloud"],
+              ["foxcloud", require("../../assets/icon_fox.png"), "FoxCloud"],
+            ] as Array<[string, any, string]>
+          ).map(([type, preview, label]) => {
+            const active = appIcon === type;
+            return (
+              <PressableScale
+                key={type}
+                style={[styles.iconOption, active && { borderColor: colors.accent }]}
+                onPress={() => changeAppIcon(type as "default" | "foxcloud")}
+                accessibilityRole="radio"
+                accessibilityLabel={`Иконка приложения: ${label}`}
+                accessibilityState={{ selected: active }}
+              >
+                {preview ? (
+                  <Image source={preview} style={styles.iconPreview} resizeMode="cover" />
+                ) : (
+                  <Image source={{ uri: "app_icon" }} style={styles.iconPreview} resizeMode="cover" />
+                )}
+                <Text style={[styles.iconOptionText, active && { color: colors.accent }]}>{label}</Text>
+                {active && <Ionicons name="checkmark-circle" size={16} color={colors.accent} style={{ position: "absolute", top: 8, right: 8 }} />}
+              </PressableScale>
+            );
+          })}
+        </View>
+        <Text style={styles.hint}>
+          На некоторых оболочках подпись под иконкой обновится после возврата на главный экран.
+        </Text>
       </Card>
 
       <Card>
@@ -702,7 +782,7 @@ export default function SettingsScreen() {
       </Card>
 
       {/* Стилизованное подтверждение загрузки ядра */}
-      <Modal visible={!!confirmCore} transparent animationType="fade" onRequestClose={() => setConfirmCore(null)}>
+        {confirmCore !== null && <Modal visible={!!confirmCore} transparent animationType="fade" onRequestClose={() => setConfirmCore(null)}>
         <PressableScale style={styles.modalBackdrop} onPress={() => setConfirmCore(null)}>
           <PressableScale style={styles.modalCard} onPress={() => {}}>
             <View style={styles.modalIcon}>
@@ -731,10 +811,10 @@ export default function SettingsScreen() {
             </View>
           </PressableScale>
         </PressableScale>
-      </Modal>
+      </Modal>}
 
       {/* Выбор DNS-сервера (спонсорам) */}
-      <Modal visible={dnsOpen} transparent animationType="fade" onRequestClose={() => setDnsOpen(false)}>
+      {dnsOpen && <Modal visible={dnsOpen} transparent animationType="fade" onRequestClose={() => setDnsOpen(false)}>
         <PressableScale style={styles.modalBackdrop} onPress={() => setDnsOpen(false)}>
           <PressableScale style={styles.stylePanel} onPress={() => {}}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -772,10 +852,10 @@ export default function SettingsScreen() {
             </Text>
           </PressableScale>
         </PressableScale>
-      </Modal>
+      </Modal>}
 
       {/* Шторка преимуществ спонсора */}
-      <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />
+      {benefitsOpen && <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />}
     </Screen>
   );
 }
@@ -892,6 +972,21 @@ const makeStyles = () => StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  iconOption: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 16,
+    padding: 12,
+    alignItems: "center",
+    gap: 8,
+  },
+  iconPreview: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+  },
+  iconOptionText: { fontSize: 13, fontWeight: "600", color: colors.textDim },
   segRow: { flexDirection: "row", gap: 8 },
   segBtn: {
     flex: 1,

@@ -475,18 +475,19 @@ export default function ProfileScreen() {
         </PressableScale>
       </ScrollView>
 
-      {/* ─── Шторки и модалки ─── */}
-      <BalanceSheet
+      {/* ─── Шторки и модалки (условный рендер: не монтируются, пока закрыты —
+           ускоряет перерисовку при смене темы) ─── */}
+      {balanceOpen && <BalanceSheet
         visible={balanceOpen}
         onClose={() => setBalanceOpen(false)}
         balance={(me?.balance || 0) / 100}
         daysLeft={daysLeft}
-      />
-      <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />
-      <QRScannerModal visible={scanOpen} onClose={() => setScanOpen(false)} onScan={(v) => confirmQrRaw(v)} />
+      />}
+      {benefitsOpen && <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />}
+      {scanOpen && <QRScannerModal visible={scanOpen} onClose={() => setScanOpen(false)} onScan={(v) => confirmQrRaw(v)} />}
 
       {/* Редактирование профиля */}
-      <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
+      {editOpen && <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Редактирование профиля</Text>
@@ -527,14 +528,14 @@ export default function ProfileScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Button size="sm" title="Сохранить" loading={busy} onPress={saveProfile} />
-              </View>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+                </View>
+                </View>
+                </Pressable>
+                </Pressable>
+                </Modal>}
 
-      {/* Промокод / подарочный ключ */}
-      <Modal visible={promoOpen} transparent animationType="fade" onRequestClose={() => setPromoOpen(false)}>
+                {/* Промокод / подарочный ключ */}
+                {promoOpen && <Modal visible={promoOpen} transparent animationType="fade" onRequestClose={() => setPromoOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setPromoOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Ввести промокод</Text>
@@ -553,10 +554,10 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
         </Pressable>
-      </Modal>
+      </Modal>}
 
       {/* Подарок для друга (спонсорам) */}
-      <Modal visible={giftOpen} transparent animationType="fade" onRequestClose={() => setGiftOpen(false)}>
+      {giftOpen && <Modal visible={giftOpen} transparent animationType="fade" onRequestClose={() => setGiftOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setGiftOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Подарок для друга</Text>
@@ -587,10 +588,10 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
         </Pressable>
-      </Modal>
+      </Modal>}
 
       {/* Подтверждение выхода */}
-      <Modal visible={logoutOpen} transparent animationType="fade" onRequestClose={() => setLogoutOpen(false)}>
+      {logoutOpen && <Modal visible={logoutOpen} transparent animationType="fade" onRequestClose={() => setLogoutOpen(false)}>
         <Pressable style={styles.modalBackdrop} onPress={() => setLogoutOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Выйти из аккаунта?</Text>
@@ -607,7 +608,7 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
         </Pressable>
-      </Modal>
+      </Modal>}
     </View>
   );
 }

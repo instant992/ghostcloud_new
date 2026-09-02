@@ -28,13 +28,24 @@
     <meta-data android:name="expo.modules.updates.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY" android:value="{&quot;expo-channel-name&quot;:&quot;production&quot;}"/>
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize|assetsPaths" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
       <intent-filter>
-        <action android:name="android.intent.action.MAIN"/>
-        <category android:name="android.intent.category.LAUNCHER"/>
-      </intent-filter>
-      <intent-filter>
         <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES"/>
       </intent-filter>
     </activity>
+    <!-- Стандартная иконка-призрак (по умолчанию). Переключается нативным
+         методом setLauncherIcon из модуля XrayCore (activity-alias). -->
+    <activity-alias android:name=".DEFAULT" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:enabled="true" android:exported="true" android:targetActivity="space.ghostcloud.app.MainActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
+    <!-- Вторая иконка — лисья (перенесена из старого приложения). -->
+    <activity-alias android:name=".icon_foxcloud" android:label="@string/app_name" android:icon="@mipmap/ic_launcher_fox" android:roundIcon="@mipmap/ic_launcher_fox_round" android:enabled="false" android:exported="true" android:targetActivity="space.ghostcloud.app.MainActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
     <service android:name="expo.modules.xraycore.GhostCloudTileService" android:exported="true" android:icon="@drawable/ic_qs_tile" android:label="@string/app_name" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
       <intent-filter>
         <action android:name="android.service.quicksettings.action.QS_TILE"/>

@@ -360,3 +360,27 @@ export async function pingNodesBatch(
   }
   return results;
 }
+
+// ── Смена иконки приложения на рабочем столе (перенесено из старого проекта:
+//    переключение activity-alias — «default» призрак / «foxcloud» лисья) ──
+
+/** Текущая иконка лаунчера: "default" | "foxcloud" */
+export function getLauncherIcon(): string {
+  if (!XrayNative) return "default";
+  try {
+    return XrayNative.getLauncherIcon() || "default";
+  } catch {
+    return "default";
+  }
+}
+
+/** Применяет иконку. Возвращает успех. На некоторых оболочках подпись под
+ *  иконкой обновится после возврата на главный экран. */
+export function setLauncherIcon(type: "default" | "foxcloud"): boolean {
+  if (!XrayNative) return false;
+  try {
+    return XrayNative.setLauncherIcon(type) === true;
+  } catch {
+    return false;
+  }
+}
