@@ -106,7 +106,7 @@ function CustomTabBar({ state, navigation }: any) {
   const focusedRoute = state.routes[state.index];
   const focusedIndex = items.findIndex((it: any) => it.name === focusedRoute.name);
   return (
-    <View style={[tabStyles.bar, { paddingBottom: 8 + insets.bottom }]}>
+    <View style={[tabStyles.bar, { backgroundColor: colors.bg, paddingBottom: 8 + insets.bottom }]}>
       <TabChain
         items={items}
         focusedIndex={focusedIndex}
@@ -122,7 +122,6 @@ function CustomTabBar({ state, navigation }: any) {
 const tabStyles = StyleSheet.create({
   bar: {
     alignItems: "center",
-    backgroundColor: "transparent",
     paddingTop: 10,
   },
 });
@@ -611,9 +610,14 @@ function ThemedContainer({ children }: { children: React.ReactNode }) {
     },
   };
   return (
-    <NavigationContainer theme={navTheme}>
-      <React.Fragment key={version}>{children}</React.Fragment>
-    </NavigationContainer>
+    // Корневая подложка цвета темы: гарантирует, что позади прозрачного таб-бара
+    // (и любых других прозрачных зон) виден только фон темы, а не системный
+    // фон окна и не подложки навигации — исключает любые «прямоугольники» за меню.
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <NavigationContainer theme={navTheme}>
+        <React.Fragment key={version}>{children}</React.Fragment>
+      </NavigationContainer>
+    </View>
   );
 }
 
