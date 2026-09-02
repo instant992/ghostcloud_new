@@ -145,7 +145,10 @@ export default function HomeScreen() {
   }, [me]);
 
   return (
-    <View style={styles.screen}>
+    // Плавающий таб-бар не занимает место в потоке — возвращаем контенту
+    // нижний отступ под меню (как у остальных вкладок через Screen),
+    // чтобы кнопка питания и нижние блоки не уходили под круги меню.
+    <View style={[styles.screen, { paddingBottom: insets.bottom + 116 }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.headerLeft}>
           <Image
