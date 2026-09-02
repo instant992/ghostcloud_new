@@ -13,7 +13,7 @@
         "expo-channel-name": "production"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.1.5",
     "android": {
       "package": "space.ghostcloud.app",
       "adaptiveIcon": {

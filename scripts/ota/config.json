@@ -8,6 +8,6 @@
     "envVarValue": "yes",
     "flagGate": "--confirm-production"
   },
-  "runtimeVersion": "1.0.0",
+  "runtimeVersion": "1.1.5",
   "platform": "android"
 }
