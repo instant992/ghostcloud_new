@@ -31,7 +31,7 @@ import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
-import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
+import GlassScreen from "./src/screens/themes/GlassScreen";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import { TabChain } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
@@ -297,11 +297,8 @@ function GlassDockBar({ state, navigation }: any) {
         paddingBottom: Math.max(8, insets.bottom),
       }}
     >
-      <GlassCard
-        radius={28}
-        intensity={70}
-        style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6 }}
-      >
+      {/* Без общей подложки: пункты лежат прямо на фоне экрана */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 6 }}>
         {DOCK_TABS.map((t, index) => {
           const focused = state.index === index;
           const press = () => {
@@ -324,7 +321,7 @@ function GlassDockBar({ state, navigation }: any) {
             </Pressable>
           );
         })}
-      </GlassCard>
+      </View>
     </View>
   );
 }
@@ -342,7 +339,8 @@ function MinimalDockBar({ state, navigation }: any) {
         paddingBottom: Math.max(8, insets.bottom),
       }}
     >
-      <View style={dockStyles.minimalBar}>
+      {/* Без общей плашки: круги лежат прямо на фоне экрана */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
         {DOCK_TABS.map((t, index) => {
           const focused = state.index === index;
           const press = () => {
@@ -393,21 +391,6 @@ const dockStyles = StyleSheet.create({
     paddingVertical: 10,
   },
   glassPillText: { color: colors.accent, fontSize: 15, fontWeight: "600" },
-  minimalBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.cardLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 28,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-  },
   minimalPill: {
     flexDirection: "row",
     alignItems: "center",

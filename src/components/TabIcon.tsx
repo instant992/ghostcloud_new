@@ -12,9 +12,9 @@ export type TabChainItem = {
   label: string;
 };
 
-const R = 30; // радиус круга вкладки (увеличен)
-const D = 74; // расстояние между центрами (зазор между кругами ~14 пкс)
-const RING = 76; // диаметр активного круга
+const R = 26; // радиус круга вкладки
+const D = 70; // расстояние между центрами (зазор между кругами)
+const RING = 64; // диаметр активного круга
 const PAD = 12;
 
 /** Таб-бар основной темы: увеличенные круги с серой обводкой, соединённые
@@ -142,7 +142,7 @@ export function TabChain({
           style={[styles.iconBox, { left: centers[i] - R, top: cy - R }]}
           pointerEvents="none"
         >
-          <Ionicons name={it.outline as any} size={27} color={colors.textDim} />
+          <Ionicons name={it.outline as any} size={24} color={colors.textDim} />
         </View>
       ))}
 
@@ -153,7 +153,7 @@ export function TabChain({
       >
         <Animated.View style={{ opacity: animO, transform: [{ translateX: animX }] }}>
           {focusedIndex >= 0 && (
-            <Ionicons name={items[focusedIndex].icon as any} size={31} color="#fff" />
+            <Ionicons name={items[focusedIndex].icon as any} size={28} color="#fff" />
           )}
         </Animated.View>
       </View>
@@ -185,8 +185,8 @@ const makeStyles = () =>
       justifyContent: "center",
     },
     activeIconBox: {
-      width: 31,
-      height: 31,
+      width: 28,
+      height: 28,
     },
     activeWrap: {
       position: "absolute",
