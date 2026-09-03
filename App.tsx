@@ -287,6 +287,7 @@ const DOCK_TABS: Array<{ name: string; icon: string; iconActive: string }> = [
 /** Стеклянный док Liquid Glass — таб-бар потока темы */
 function GlassDockBar({ state, navigation }: any) {
   useTheme();
+  const dockStyles = makeDockStyles();
   const insets = useSafeAreaInsets();
   return (
     // «Плавающий» док: обёртка нулевой высоты — контент экрана тянется до самого
@@ -342,6 +343,7 @@ function GlassDockBar({ state, navigation }: any) {
 /** Док минимализма (и Pink / FoxCloud) — таб-бар потока темы */
 function MinimalDockBar({ state, navigation }: any) {
   useTheme();
+  const dockStyles = makeDockStyles();
   const insets = useSafeAreaInsets();
   return (
     // «Плавающий» док: как у GlassDockBar — позади дока только фон темы,
@@ -398,7 +400,8 @@ function MinimalDockBar({ state, navigation }: any) {
   );
 }
 
-const dockStyles = StyleSheet.create({
+const makeDockStyles = () =>
+  StyleSheet.create({
   slot: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 6 },
   glassPill: {
     flexDirection: "row",
