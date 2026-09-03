@@ -110,20 +110,21 @@ export function ServerSheet({
                   {ping?.status === "pending" && (
                     <ActivityIndicator size="small" color={colors.accent} />
                   )}
-                  {ping?.status === "done" && ping.delay > 0 && (
-                    <Text
-                      style={{
-                        color: pingColorFor(ping.delay),
-                        fontWeight: "700",
-                        fontSize: 12,
-                      }}
-                    >
-                      {ping.delay} мс
-                    </Text>
-                  )}
-                  {ping?.status === "done" && !!ping.error && (
-                    <Text style={{ color: colors.red, fontSize: 11 }}>⚠</Text>
-                  )}
+                  {ping?.status === "done" &&
+                    (ping.error ? (
+                      // Не удалось проверить пинг — красный прочерк там же, где значение пинга
+                      <Text style={{ color: colors.red, fontWeight: "700", fontSize: 12 }}>—</Text>
+                    ) : ping.delay > 0 ? (
+                      <Text
+                        style={{
+                          color: pingColorFor(ping.delay),
+                          fontWeight: "700",
+                          fontSize: 12,
+                        }}
+                      >
+                        {ping.delay} мс
+                      </Text>
+                    ) : null)}
                   {selected && <View style={[styles.dot, { backgroundColor: colors.accent }]} />}
                 </Pressable>
               );

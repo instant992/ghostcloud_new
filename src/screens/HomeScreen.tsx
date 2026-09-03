@@ -454,26 +454,25 @@ function ServerPicker({
                     <Text style={styles.sheetItemSub} numberOfLines={1}>
                       {transportLabel(item)}
                     </Text>
-                    {ping?.status === "done" && !!ping.error && (
-                      <Text style={{ color: colors.red, fontSize: 10 }} numberOfLines={1}>
-                        ⚠ {ping.error}
-                      </Text>
-                    )}
                   </View>
                   {ping?.status === "pending" && (
                     <ActivityIndicator size="small" color={colors.accent} />
                   )}
-                  {ping?.status === "done" && !ping.error && (
-                    <Text
-                      style={{
-                        color: pingColor(ping.delay),
-                        fontWeight: "700",
-                        fontSize: 12,
-                      }}
-                    >
-                      {ping.delay} мс
-                    </Text>
-                  )}
+                  {ping?.status === "done" &&
+                    (ping.error ? (
+                      // Не удалось проверить пинг — красный прочерк там же, где значение пинга
+                      <Text style={{ color: colors.red, fontWeight: "700", fontSize: 12 }}>—</Text>
+                    ) : (
+                      <Text
+                        style={{
+                          color: pingColor(ping.delay),
+                          fontWeight: "700",
+                          fontSize: 12,
+                        }}
+                      >
+                        {ping.delay} мс
+                      </Text>
+                    ))}
                   {!item.supportedByXray && !ping && (
                     <Text style={{ color: colors.orange, fontSize: 11 }}>HY2</Text>
                   )}
