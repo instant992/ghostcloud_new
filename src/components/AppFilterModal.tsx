@@ -112,12 +112,21 @@ export function AppFilterContent({
   };
 
   const q = search.trim().toLowerCase();
-  const shown = apps.filter(
-    (a) =>
-      !q ||
-      a.appName.toLowerCase().includes(q) ||
-      a.packageName.toLowerCase().includes(q)
-  );
+  // Активированные приложения текущей вкладки — сверху списка,
+  // чтобы их не приходилось искать по всему списку
+  const activeSet = new Set(tab === "allow" ? allowed : blocked);
+  const shown = apps
+    .filter(
+      (a) =>
+        !q ||
+        a.appName.toLowerCase().includes(q) ||
+        a.packageName.toLowerCase().includes(q)
+    )
+    .sort((a, b) => {
+      const ai = activeSet.has(a.packageName) ? 0 : 1;
+      const bi = activeSet.has(b.packageName) ? 0 : 1;
+      return ai - bi; // активные сверху; порядок внутри групп сохраняется (стабильная сортировка)
+    });
 
   const whitelistMode = allowed.length > 0;
 
