@@ -274,6 +274,10 @@ function parseTrojan(link: string): VpnNode | null {
       path: p.path,
       serviceName: p.servicename,
       fingerprint: p.fp,
+      // REALITY у trojan: без pbk/sid ядро падает с empty "password"
+      publicKey: p.pbk,
+      shortId: p.sid,
+      spiderX: p.spx,
       headerType: p.headertype,
       supportedByXray: true,
       raw: link,
@@ -561,13 +565,14 @@ function jsonToNode(ob: any): VpnNode | null {
   const address = String(ob.server || "");
   const port = parseInt(String(ob.server_port || 0), 10);
   if (!address || !port) return null;
-  const tls = ob.tls?.enabled ? "tls" : "reality_enabled" in ob ? "tls" : "";
+  const realityPk = ob.tls?.reality?.public_key;
+  const tls = ob.tls?.enabled ? (realityPk ? "reality" : "tls") : "reality_enabled" in ob ? "tls" : "";
   const base = {
     id: `${type}-${address}-${port}`,
     name: String(ob.tag || type),
     address,
     port,
-    security: ob.tls?.server_name ? "tls" : tls,
+    security: tls || undefined,
     sni: ob.tls?.server_name,
     network: String(ob.transport?.type || "tcp"),
     path: ob.transport?.path,
@@ -577,11 +582,12 @@ function jsonToNode(ob: any): VpnNode | null {
   };
   switch (type) {
     case "vless":
-      return { ...base, protocol: "vless", uuid: ob.uuid, flow: ob.flow, publicKey: ob.tls?.reality?.public_key, shortId: ob.tls?.reality?.short_id } as VpnNode;
+      return { ...base, protocol: "vless", uuid: ob.uuid, flow: ob.flow, publicKey: realityPk, shortId: ob.tls?.reality?.short_id } as VpnNode;
     case "vmess":
       return { ...base, protocol: "vmess", uuid: ob.uuid, alterId: ob.alter_id || 0 } as VpnNode;
     case "trojan":
-      return { ...base, protocol: "trojan", password: ob.password } as VpnNode;
+      // REALITY у trojan: без publicKey ядро падает с empty "password"
+      return { ...base, protocol: "trojan", password: ob.password, publicKey: realityPk, shortId: ob.tls?.reality?.short_id } as VpnNode;
     case "shadowsocks":
       return { ...base, protocol: "ss", method: ob.method, password: ob.password } as VpnNode;
     default:
@@ -597,6 +603,8 @@ export function clashProxyToNode(px: any): VpnNode | null {
   if (!address || !port) return null;
   const wsOpts = px["ws-opts"] || {};
   const grpcOpts = px["grpc-opts"] || {};
+  const realityOpts = px["reality-opts"] || {};
+  const hasReality = Boolean(realityOpts["public-key"]);
   const base = {
     id: `${type}-${address}-${port}`,
     name: String(px.name || type),
@@ -604,7 +612,7 @@ export function clashProxyToNode(px: any): VpnNode | null {
     port,
     network: String(px.network || (grpcOpts["grpc-service-name"] ? "grpc" : "tcp")),
     sni: px.servername || px.sni,
-    security: px.tls ? "tls" : undefined,
+    security: hasReality ? "reality" : px.tls ? "tls" : undefined,
     path: wsOpts?.path,
     host: Array.isArray(wsOpts?.headers?.Host) ? wsOpts.headers.Host[0] : wsOpts?.headers?.Host,
     serviceName: grpcOpts?.["grpc-service-name"],
@@ -618,14 +626,22 @@ export function clashProxyToNode(px: any): VpnNode | null {
         protocol: "vless",
         uuid: px.uuid,
         flow: px.flow,
-        publicKey: px["reality-opts"]?.["public-key"],
-        shortId: px["reality-opts"]?.["short-id"],
+        publicKey: realityOpts["public-key"],
+        shortId: realityOpts["short-id"],
         fingerprint: px["client-fingerprint"],
       } as VpnNode;
     case "vmess":
       return { ...base, protocol: "vmess", uuid: px.uuid, alterId: px.alterId || 0, cipher: px.cipher } as any as VpnNode;
     case "trojan":
-      return { ...base, protocol: "trojan", password: px.password } as VpnNode;
+      // REALITY у trojan: без publicKey ядро падает с empty "password"
+      return {
+        ...base,
+        protocol: "trojan",
+        password: px.password,
+        publicKey: realityOpts["public-key"],
+        shortId: realityOpts["short-id"],
+        fingerprint: px["client-fingerprint"],
+      } as VpnNode;
     case "ss":
       return { ...base, protocol: "ss", method: px.cipher, password: px.password } as VpnNode;
     case "hysteria2":
