@@ -2,6 +2,7 @@ import React, { useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as pingStore from "../../vpn/pingStore";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
 import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColorFor } from "../../theme";
@@ -89,6 +90,30 @@ export function ServerSheet({
             keyExtractor={(n) => n.id}
             style={{ maxHeight: 400 }}
             contentContainerStyle={{ paddingBottom: 16 }}
+            ListHeaderComponent={
+              tab === "regular" ? (
+                <Pressable
+                  style={[styles.item, selectedId === AUTO_SERVER_ID && styles.itemOn]}
+                  onPress={() => onSelect(AUTO_SERVER_ID)}
+                >
+                  <Text style={{ fontSize: 22 }}>✨</Text>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text
+                      style={[styles.itemName, selectedId === AUTO_SERVER_ID && { color: colors.accent }]}
+                      numberOfLines={1}
+                    >
+                      Автовыбор
+                    </Text>
+                    <Text style={styles.itemSub} numberOfLines={1}>
+                      Лучший обычный сервер по пингу · авто-переключение при обрыве
+                    </Text>
+                  </View>
+                  {selectedId === AUTO_SERVER_ID && (
+                    <View style={[styles.dot, { backgroundColor: colors.accent }]} />
+                  )}
+                </Pressable>
+              ) : null
+            }
             renderItem={({ item }) => {
               const info = splitNameFlag(item.name);
               const selected = item.id === selectedId;

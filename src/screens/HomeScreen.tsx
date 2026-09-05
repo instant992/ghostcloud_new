@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
+import { AUTO_SERVER_ID, ensureFreshPings, resolveConnectNode } from "../vpn/autoSelect";
 import * as appFilterMod from "../vpn/appFilter";
 import { computeBypassForNetwork, loadFilterSettings } from "../vpn/connectionFilter";
 import { getNetworkType } from "../vpn/native";
@@ -85,9 +86,10 @@ export default function HomeScreen() {
     }, [vpnRunning, loadStats])
   );
 
+  const autoMode = selectedNodeId === AUTO_SERVER_ID;
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
-    [nodes, selectedNodeId]
+    () => (autoMode ? null : nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null),
+    [nodes, selectedNodeId, autoMode]
   );
 
   useEffect(() => {
@@ -122,8 +124,13 @@ export default function HomeScreen() {
         setVpnRunning(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } else {
-        if (!selectedNode) throw new Error("Нет доступных серверов");
-        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
+        // Режим «Автовыбор»: пингуем обычные серверы и подключаемся к лучшему
+        if (autoMode) await ensureFreshPings(nodes);
+        const target = autoMode
+          ? resolveConnectNode(nodes, AUTO_SERVER_ID)
+          : selectedNode;
+        if (!target) throw new Error("Нет доступных серверов");
+        await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
@@ -197,7 +204,14 @@ export default function HomeScreen() {
             <Ionicons name="flash" size={20} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            {selectedNode && selectedInfo ? (
+            {autoMode ? (
+              <>
+                <Text style={styles.serverName}>Автовыбор</Text>
+                <Text style={styles.serverSub} numberOfLines={1}>
+                  Лучший сервер по пингу · переключение при обрыве
+                </Text>
+              </>
+            ) : selectedNode && selectedInfo ? (
               <>
                 <Text style={styles.serverName} numberOfLines={1}>
                   {selectedInfo.name}
@@ -213,7 +227,11 @@ export default function HomeScreen() {
               </>
             )}
           </View>
-          {selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
+          {autoMode ? (
+            <Ionicons name="sparkles" size={20} color={colors.accent} />
+          ) : (
+            selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>
+          )}
           <PressableScale
             style={styles.infoBtn}
             onPress={refreshNodes}
@@ -328,11 +346,16 @@ export default function HomeScreen() {
           if (vpnRunning) {
             // Переподключаемся к новому серверу на лету
             (async () => {
-              const node = nodes.find((n) => n.id === id);
-              if (!node) return;
               setBusy(true);
               setError(null);
               try {
+                // Режим «Автовыбор»: пингуем обычные и берём лучший
+                if (id === AUTO_SERVER_ID) await ensureFreshPings(nodes);
+                const node =
+                  id === AUTO_SERVER_ID
+                    ? resolveConnectNode(nodes, AUTO_SERVER_ID)
+                    : nodes.find((n) => n.id === id);
+                if (!node) return;
                 await disconnect();
                 await connect(node, { isSponsor: me?.is_sponsor === true });
                 setVpnRunning(true);
@@ -437,6 +460,30 @@ function ServerPicker({
             data={filtered}
             keyExtractor={(n: any) => n.id}
             style={{ maxHeight: 420 }}
+            ListHeaderComponent={
+              tab === "regular" ? (
+                <PressableScale
+                  style={[
+                    styles.sheetItem,
+                    selectedId === AUTO_SERVER_ID && { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+                  ]}
+                  onPress={() => onSelect(AUTO_SERVER_ID)}
+                >
+                  <Text style={{ fontSize: 24 }}>✨</Text>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={styles.sheetItemName} numberOfLines={1}>
+                      Автовыбор
+                    </Text>
+                    <Text style={styles.sheetItemSub} numberOfLines={1}>
+                      Лучший обычный сервер по пингу · авто-переключение при обрыве
+                    </Text>
+                  </View>
+                  {selectedId === AUTO_SERVER_ID && (
+                    <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />
+                  )}
+                </PressableScale>
+              ) : null
+            }
             renderItem={({ item }: any) => {
               const info = splitNameFlag(item.name);
               const selected = item.id === selectedId;

@@ -17,6 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
+import { AUTO_SERVER_ID, ensureFreshPings, resolveConnectNode } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor } from "../../theme";
@@ -71,9 +72,13 @@ export default function MinimalistScreen() {
   );
   const allVisible = useMemo(() => [...mainNodes, ...lteNodes], [mainNodes, lteNodes]);
 
+  const autoMode = selectedNodeId === AUTO_SERVER_ID;
   const selectedNode = useMemo(
-    () => allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
-    [allVisible, selectedNodeId, mainNodes]
+    () =>
+      autoMode
+        ? null
+        : allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    [allVisible, selectedNodeId, mainNodes, autoMode]
   );
   /** Список серверов выбранного типа (обычные / LTE OPEN) */
   const tabNodes = useMemo(
@@ -133,11 +138,16 @@ export default function MinimalistScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        if (!selectedNode) {
+        // Режим «Автовыбор»: пингуем обычные серверы и подключаемся к лучшему
+        if (autoMode) await ensureFreshPings(nodes);
+        const target = autoMode
+          ? resolveConnectNode(nodes, AUTO_SERVER_ID)
+          : selectedNode;
+        if (!target) {
           showToast("Нет доступных серверов");
           return;
         }
-        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
+        await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -155,6 +165,29 @@ export default function MinimalistScreen() {
     if (vpnRunning) {
       try {
         setBusy(true);
+        await disconnect();
+        await connect(node, { isSponsor: me?.is_sponsor === true });
+        setVpnRunning(true);
+        setSeconds(0);
+      } catch (e: any) {
+        showToast(e?.message || "Ошибка переподключения");
+        setVpnRunning(false);
+      } finally {
+        setBusy(false);
+      }
+    }
+  };
+
+  /** Режим «Автовыбор»: пингуем обычные серверы и подключаемся к лучшему. */
+  const chooseAuto = async () => {
+    selectNode(AUTO_SERVER_ID);
+    Haptics.selectionAsync().catch(() => {});
+    if (vpnRunning) {
+      try {
+        setBusy(true);
+        await ensureFreshPings(nodes);
+        const node = resolveConnectNode(nodes, AUTO_SERVER_ID);
+        if (!node) return;
         await disconnect();
         await connect(node, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
@@ -397,10 +430,12 @@ export default function MinimalistScreen() {
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.selectedName} numberOfLines={1}>
-              {selectedInfo?.name || "Сервер не выбран"}
+              {autoMode ? "Автовыбор" : selectedInfo?.name || "Сервер не выбран"}
             </Text>
             <Text style={styles.selectedSub} numberOfLines={1}>
-              {selectedNode ? transportLabel(selectedNode) : "Нажмите, чтобы выбрать"}
+              {autoMode
+                ? "Лучший сервер по пингу"
+                : selectedNode ? transportLabel(selectedNode) : "Нажмите, чтобы выбрать"}
             </Text>
           </View>
           {selPing?.status === "pending" ? (
@@ -460,6 +495,22 @@ export default function MinimalistScreen() {
             )}
           </Pressable>
         </View>
+
+        {/* Автовыбор — лучший обычный сервер по пингу (только среди обычных) */}
+        {serverTab === "regular" && (
+          <Pressable
+            style={[styles.otherRow, autoMode && { borderColor: colors.accent }]}
+            onPress={chooseAuto}
+          >
+            <Text style={{ fontSize: 20 }}>✨</Text>
+            <Text style={styles.otherName} numberOfLines={1}>
+              Автовыбор
+            </Text>
+            {autoMode && (
+              <Text style={[styles.otherPing, { color: colors.accent }]}>активен</Text>
+            )}
+          </Pressable>
+        )}
 
         {otherNodes.map((n) => {
           const info = splitNameFlag(n.name);

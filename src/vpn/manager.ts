@@ -8,6 +8,7 @@ import { buildMihomoConfig } from "./mihomoConfig";
 import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
 import { computeBypassForNetwork, loadFilterSettings } from "./connectionFilter";
+import { AUTO_SERVER_ID, rankByPing } from "./autoSelect";
 import {
   getInstalledPackageNames,
   getNetworkType,
@@ -58,12 +59,19 @@ function buildConfigFor(core: string, node: VpnNode, bypassDomains: string[], is
   }
 }
 
-/** Собирает инфо для авто-файловера: текущий сервер + запасные (не-LTE, поддерживаемые ядром). */
+/** Собирает инфо для авто-файловера: текущий сервер + запасные (не-LTE, поддерживаемые ядром).
+ *  Запасные упорядочены по пингу (лучшие первыми), чтобы при обрыве
+ *  переключалось на самый быстрый из рабочих. */
 function buildFailoverInfo(core: string, current: VpnNode, bypassDomains: string[], isSponsor: boolean): FailoverInfo | undefined {
-  const candidates = failoverPool
+  const rest = failoverPool
     .filter((n) => n.id !== current.id)
     .filter((n) => n.source !== "lte")
-    .filter((n) => (core === "xray" ? n.supportedByXray : true))
+    .filter((n) => (core === "xray" ? n.supportedByXray : true));
+  const ranked = rankByPing(rest);
+  // без пинга — исходный порядок, после пропингованных
+  const rankedIds = new Set(ranked.map((n) => n.id));
+  const unranked = rest.filter((n) => !rankedIds.has(n.id));
+  const candidates = [...ranked, ...unranked]
     .slice(0, FAILOVER_MAX)
     .map((n) => {
       const config = buildConfigFor(core, n, bypassDomains, isSponsor);

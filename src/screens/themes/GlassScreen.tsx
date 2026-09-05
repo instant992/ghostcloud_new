@@ -21,6 +21,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
+import { AUTO_SERVER_ID, ensureFreshPings, resolveConnectNode } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor } from "../../theme";
@@ -184,9 +185,13 @@ export default function GlassScreen() {
   );
   const allVisible = useMemo(() => [...mainNodes, ...lteNodes], [mainNodes, lteNodes]);
 
+  const autoMode = selectedNodeId === AUTO_SERVER_ID;
   const selectedNode = useMemo(
-    () => allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
-    [allVisible, selectedNodeId, mainNodes]
+    () =>
+      autoMode
+        ? null
+        : allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    [allVisible, selectedNodeId, mainNodes, autoMode]
   );
 
   useEffect(() => {
@@ -236,11 +241,16 @@ export default function GlassScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        if (!selectedNode) {
+        // Режим «Автовыбор»: пингуем обычные серверы и подключаемся к лучшему
+        if (autoMode) await ensureFreshPings(nodes);
+        const target = autoMode
+          ? resolveConnectNode(nodes, AUTO_SERVER_ID)
+          : selectedNode;
+        if (!target) {
           showToast("Нет доступных серверов");
           return;
         }
-        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
+        await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
@@ -443,10 +453,12 @@ export default function GlassScreen() {
                 </Text>
               ) : null}
               <Text style={styles.serverName} numberOfLines={1}>
-                {selectedInfo?.name || "Сервер не выбран"}
+                {autoMode ? "Автовыбор" : selectedInfo?.name || "Сервер не выбран"}
               </Text>
               <Text style={styles.serverSub} numberOfLines={1}>
-                {selectedNode ? transportLabel(selectedNode) : "Выберите локацию"}
+                {autoMode
+                  ? "Лучший сервер по пингу"
+                  : selectedNode ? transportLabel(selectedNode) : "Выберите локацию"}
               </Text>
             </View>
             <Pressable onPress={syncAll} hitSlop={8} style={styles.roundRefresh}>
@@ -513,9 +525,34 @@ export default function GlassScreen() {
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
         nodes={allVisible}
-        selectedId={selectedNode?.id || null}
+        selectedId={autoMode ? AUTO_SERVER_ID : selectedNode?.id || null}
         onSelect={(id) => {
           setPickerOpen(false);
+          if (id === AUTO_SERVER_ID) {
+            // Режим «Автовыбор»: пингуем обычные серверы и подключаемся к лучшему
+            selectNode(AUTO_SERVER_ID);
+            Haptics.selectionAsync().catch(() => {});
+            if (vpnRunning) {
+              (async () => {
+                try {
+                  setBusy(true);
+                  await ensureFreshPings(nodes);
+                  const node = resolveConnectNode(nodes, AUTO_SERVER_ID);
+                  if (!node) return;
+                  await disconnect();
+                  await connect(node, { isSponsor: me?.is_sponsor === true });
+                  setVpnRunning(true);
+                  setSeconds(0);
+                } catch (e: any) {
+                  showToast(e?.message || "Ошибка переподключения");
+                  setVpnRunning(false);
+                } finally {
+                  setBusy(false);
+                }
+              })();
+            }
+            return;
+          }
           const node = allVisible.find((n) => n.id === id);
           if (node) chooseNode(node);
         }}
