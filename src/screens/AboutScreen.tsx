@@ -11,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Linking from "expo-linking";
+import * as Updates from "expo-updates";
 import { Screen, Card } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import * as update from "../update";
@@ -20,34 +21,66 @@ import { showToast } from "../components/Toast";
 
 const REPO_URL = "https://github.com/instant992/ghostcloud_new";
 
-type Person = { avatar: any; name: string; subtitle: string; url?: string };
+type PlatformKey = "windows" | "android" | "linux";
+
+const PLATFORM_ICONS: Record<PlatformKey, any> = {
+  windows: "logo-windows",
+  android: "logo-android",
+  linux: "logo-tux",
+};
+
+type Person = {
+  /** имя нативного drawable (аватарки лежат в res/drawable-nodpi) */
+  avatarUri: string;
+  name: string;
+  /** подпись-префикс над именем (как в старом приложении) */
+  prefix?: string;
+  platforms?: PlatformKey[];
+  /** ник Telegram без @ — тап по плитке открывает профиль */
+  username?: string;
+  url?: string;
+};
 
 const CONTRIBUTORS: Person[] = [
   {
-    avatar: require("../../assets/avatars/instant992.jpg"),
+    avatarUri: "avatar_instant992",
     name: "instant992",
-    subtitle: "Разработчик",
+    prefix: "Разработчик",
     url: "https://github.com/instant992",
   },
 ];
 
 const TESTERS: Person[] = [
   {
-    avatar: require("../../assets/avatars/cottonbunny.jpg"),
+    avatarUri: "avatar_cottonbunny",
+    prefix: "Тестировщик",
     name: "CottonBunny",
-    subtitle: "@CottonBunnyDPR · Windows, Android, Linux",
+    username: "CottonBunnyDPR",
+    platforms: ["windows", "android", "linux"],
   },
   {
-    avatar: require("../../assets/avatars/shitpost.jpg"),
+    avatarUri: "avatar_shitpost",
+    prefix: "Тестировщик",
     name: "Илья",
-    subtitle: "@shitpost_with_legs · Windows, Android",
+    username: "shitpost_with_legs",
+    platforms: ["windows", "android"],
   },
   {
-    avatar: require("../../assets/avatars/ruslan.jpg"),
+    avatarUri: "avatar_ruslan",
+    prefix: "Тестировщик",
     name: "Руслан",
-    subtitle: "@RusIan1382 · Android",
+    username: "RusIan1382",
+    platforms: ["android"],
   },
 ];
+
+/** Статус EAS OTA (expo-updates): свежая версия / скачано и ждёт перезапуска */
+type EasState =
+  | { status: "checking" }
+  | { status: "fresh" }
+  | { status: "restart" }
+  | { status: "disabled" }
+  | { status: "error"; message: string };
 
 /** Раздел «О программе» (перенесено из старого приложения):
  *  иконка/версии, участники, тестировщики, проверка обновлений, ссылки.
@@ -57,6 +90,42 @@ export default function AboutScreen() {
   const styles = makeStyles();
   const updateState = useSyncExternalStore(update.subscribe, update.getSnapshot);
   const [xrayVersion] = useState(() => getXrayVersion());
+  const [eas, setEas] = useState<EasState>({ status: "checking" });
+
+  // Проверка EAS OTA: скачано ли обновление, требующее перезапуска приложения
+  const checkEas = () => {
+    setEas({ status: "checking" });
+    (async () => {
+      try {
+        if (!Updates.isEnabled) {
+          setEas({ status: "disabled" });
+          return;
+        }
+        const res = await Updates.checkForUpdateAsync();
+        if (res.isAvailable) {
+          // есть новый OTA-бандл — нужно скачать и перезапустить
+          await Updates.fetchUpdateAsync();
+          setEas({ status: "restart" });
+        } else {
+          setEas({ status: "fresh" });
+        }
+      } catch (e: any) {
+        setEas({ status: "error", message: e?.message || "Не удалось проверить" });
+      }
+    })();
+  };
+
+  useEffect(() => {
+    checkEas();
+  }, []);
+
+  const restartApp = async () => {
+    try {
+      await Updates.reloadAsync();
+    } catch {
+      showToast("Не удалось перезапустить");
+    }
+  };
 
   // Пасхалка как в старом приложении — 10 быстрых тапов по иконке
   const tapCount = useRef(0);
@@ -107,22 +176,50 @@ export default function AboutScreen() {
     return checking ? "Проверка…" : "Проверить обновление";
   })();
 
-  const personTile = (p: Person) => (
-    <PressableScale
-      key={p.name}
-      style={styles.person}
-      onPress={p.url ? () => Linking.openURL(p.url as string).catch(() => {}) : undefined}
-      disabled={!p.url}
-    >
-      <Image source={p.avatar} style={styles.avatar} />
-      <Text style={styles.personName} numberOfLines={1}>
-        {p.name}
-      </Text>
-      <Text style={styles.personSub} numberOfLines={2}>
-        {p.subtitle}
-      </Text>
-    </PressableScale>
-  );
+  const easText = (() => {
+    switch (eas.status) {
+      case "checking":
+        return "Проверка…";
+      case "fresh":
+        return "Стоит свежая версия";
+      case "restart":
+        return "Скачана новая версия — перезапустите приложение";
+      case "disabled":
+        return "OTA отключено в этой сборке";
+      case "error":
+        return eas.message;
+    }
+  })();
+
+  const personTile = (p: Person) => {
+    const openLink = p.url || (p.username ? `https://t.me/${p.username}` : null);
+    return (
+      <PressableScale
+        key={p.name}
+        style={styles.person}
+        onPress={openLink ? () => Linking.openURL(openLink).catch(() => {}) : undefined}
+        disabled={!openLink}
+      >
+        <Image source={{ uri: p.avatarUri }} style={styles.avatar} resizeMode="cover" />
+        {!!p.prefix && <Text style={styles.personPrefix}>{p.prefix}</Text>}
+        <Text style={styles.personName} numberOfLines={1}>
+          {p.name}
+        </Text>
+        {!!p.platforms?.length && (
+          <View style={styles.platformRow}>
+            {p.platforms.map((pl) => (
+              <Ionicons
+                key={pl}
+                name={PLATFORM_ICONS[pl]}
+                size={13}
+                color={colors.textDim}
+              />
+            ))}
+          </View>
+        )}
+      </PressableScale>
+    );
+  };
 
   return (
     <Screen scroll={false}>
@@ -152,7 +249,7 @@ export default function AboutScreen() {
           VMess, Shadowsocks, Hysteria2. Простой и удобный, с автовыбором лучшего сервера.
         </Text>
 
-        {/* Обновление приложения */}
+        {/* Обновление приложения (APK) */}
         <Card>
           <PressableScale
             style={styles.rowBtn}
@@ -186,6 +283,39 @@ export default function AboutScreen() {
               {info.changelog}
             </Text>
           )}
+        </Card>
+
+        {/* EAS OTA — статус JS-обновления */}
+        <Card>
+          <PressableScale
+            style={styles.rowBtn}
+            onPress={() => {
+              if (eas.status === "restart") restartApp();
+              else if (eas.status !== "checking") checkEas();
+            }}
+            disabled={eas.status === "checking"}
+          >
+            <Ionicons
+              name={eas.status === "restart" ? "refresh-circle" : "radio-outline"}
+              size={17}
+              color={eas.status === "restart" ? colors.orange : colors.accent}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>EAS-обновление (OTA)</Text>
+              <Text style={styles.rowSub} numberOfLines={2}>
+                {easText}
+              </Text>
+            </View>
+            {eas.status === "checking" ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : eas.status === "restart" ? (
+              <View style={[styles.updatePill, { backgroundColor: colors.orange }]}>
+                <Text style={styles.updatePillText}>Перезапустить</Text>
+              </View>
+            ) : (
+              <Ionicons name="refresh" size={17} color={colors.textDim} />
+            )}
+          </PressableScale>
         </Card>
 
         {/* Команда */}
@@ -252,11 +382,18 @@ const makeStyles = () =>
       letterSpacing: 0.6,
       marginBottom: 10,
     },
-    peopleRow: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-    person: { alignItems: "center", width: 92 },
-    avatar: { width: 52, height: 52, borderRadius: 26 },
-    personName: { color: colors.text, fontSize: 12.5, fontWeight: "700", marginTop: 6 },
-    personSub: { color: colors.textFaint, fontSize: 10, textAlign: "center", marginTop: 2 },
+    peopleRow: { flexDirection: "row", flexWrap: "wrap", gap: 16 },
+    person: { alignItems: "center", width: 88 },
+    avatar: { width: 56, height: 56, borderRadius: 28 },
+    personPrefix: {
+      color: colors.textFaint,
+      fontSize: 9,
+      fontWeight: "500",
+      letterSpacing: 0.5,
+      marginTop: 5,
+    },
+    personName: { color: colors.text, fontSize: 12, marginTop: 1 },
+    platformRow: { flexDirection: "row", gap: 6, marginTop: 3 },
     rowBtn: {
       flexDirection: "row",
       alignItems: "center",
