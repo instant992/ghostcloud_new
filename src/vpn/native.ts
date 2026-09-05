@@ -340,7 +340,10 @@ export async function pingNodesBatch(
     }));
     try {
       const payload = JSON.stringify({ configs: chunk });
-      const res = XrayNative.pingBatch(payload, 10, "https://cp.cloudflare.com/generate_204");
+      // pingBatch — AsyncFunction на нативной стороне, обязательно await:
+      // без него JSON.parse(Promise) бросает «Unexpected token 'o'» и все
+      // узлы ложно помечаются непроверенными
+      const res = await XrayNative.pingBatch(payload, 10, "https://cp.cloudflare.com/generate_204");
       const parsed = JSON.parse(res);
       if (!parsed?.success) throw new Error(parsed?.error || "ping failed");
       const items = parsed?.data?.results || [];

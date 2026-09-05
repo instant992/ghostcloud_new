@@ -137,6 +137,13 @@ export async function pickBestNode(
     }
     if (outbounds.length) {
       const results = await pingNodesBatch(outbounds.map((xrayJson) => ({ xrayJson })));
+      // Диагностика: почему узлы не прошли тест (видно в logcat ReactNativeJS)
+      try {
+        console.log(
+          "[autoselect] pingBatch:",
+          results.map((r, i) => `${tested[i]?.name}: ${r?.success ? "OK " + r.delay + "ms" : "FAIL " + (r?.error || "?")}`).join(" | ")
+        );
+      } catch {}
       const scored = tested
         .map((n, i) => ({ n, r: results[i] }))
         .filter((x) => x.r?.success && x.r.delay >= 0)
