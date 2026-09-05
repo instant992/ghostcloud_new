@@ -8,7 +8,7 @@ import { buildMihomoConfig } from "./mihomoConfig";
 import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
 import { computeBypassForNetwork, loadFilterSettings } from "./connectionFilter";
-import { AUTO_SERVER_ID, rankByPing } from "./autoSelect";
+import { AUTO_SERVER_ID, rankByPing, isNodeUsable } from "./autoSelect";
 import {
   getInstalledPackageNames,
   getNetworkType,
@@ -66,6 +66,7 @@ function buildFailoverInfo(core: string, current: VpnNode, bypassDomains: string
   const rest = failoverPool
     .filter((n) => n.id !== current.id)
     .filter((n) => n.source !== "lte")
+    .filter((n) => isNodeUsable(n))
     .filter((n) => (core === "xray" ? n.supportedByXray : true));
   const ranked = rankByPing(rest);
   // без пинга — исходный порядок, после пропингованных

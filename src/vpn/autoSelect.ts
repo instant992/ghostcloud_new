@@ -8,12 +8,32 @@ export const AUTO_SERVER_ID = "__auto__";
 /** LTE-узлы в автовыбор не участвуют */
 const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-");
 
+/** Проверка, что узел вообще способен собрать рабочий конфиг:
+ *  у REALITY обязан быть publicKey (иначе ядро падает с «empty "password"»),
+ *  у vless/vmess — uuid, у trojan/ss/hysteria2 — пароль.
+ *  Битые записи подписки (без pbk и т.п.) в автовыбор/файловер не попадают. */
+export function isNodeUsable(n: VpnNode): boolean {
+  if (!n.address || !n.port) return false;
+  if (n.security === "reality" && !n.publicKey) return false;
+  switch (n.protocol) {
+    case "vless":
+    case "vmess":
+      return !!n.uuid;
+    case "trojan":
+    case "ss":
+    case "hysteria2":
+      return !!(n.password || n.uuid);
+    default:
+      return false;
+  }
+}
+
 /** Обычные серверы, отсортированные по пингу (лучшие сначала).
  *  Узлы без успешного замера не попадают в результат. */
 export function rankByPing(nodes: VpnNode[]): VpnNode[] {
   const snap = getSnapshot();
   return nodes
-    .filter((n) => !isLte(n))
+    .filter((n) => !isLte(n) && isNodeUsable(n))
     .map((n) => ({ n, p: snap[n.id] }))
     .filter(
       (x): x is { n: VpnNode; p: { status: "done"; delay: number } } =>
@@ -24,13 +44,14 @@ export function rankByPing(nodes: VpnNode[]): VpnNode[] {
 }
 
 /** Узел для подключения: в режиме авто — лучший обычный сервер по пингу
- *  (фолбэк — первый поддерживаемый), иначе — выбранный вручную. */
+ *  (фолбэк — первый работоспособный), иначе — выбранный вручную. */
 export function resolveConnectNode(
   nodes: VpnNode[],
   selectedId: string | null
 ): VpnNode | null {
   if (selectedId === AUTO_SERVER_ID) {
-    const regular = nodes.filter((n) => !isLte(n));
+    // Только обычные И способные собрать рабочий конфиг (битые REALITY без pbk — мимо)
+    const regular = nodes.filter((n) => !isLte(n) && isNodeUsable(n));
     if (regular.length === 0) return null;
     const ranked = rankByPing(regular);
     if (ranked.length > 0) return ranked[0];
@@ -45,7 +66,7 @@ export async function ensureFreshPings(
   nodes: VpnNode[],
   timeoutMs = 15000
 ): Promise<void> {
-  const regular = nodes.filter((n) => !isLte(n) && n.supportedByXray);
+  const regular = nodes.filter((n) => !isLte(n) && n.supportedByXray && isNodeUsable(n));
   if (regular.length === 0) return;
   const snap = getSnapshot();
   const hasAll = regular.every((n) => snap[n.id]?.status === "done");

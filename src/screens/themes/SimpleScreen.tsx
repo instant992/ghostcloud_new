@@ -7,6 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
+import { isNodeUsable } from "../../vpn/autoSelect";
 import { tcpPing } from "../../vpn/native";
 import type { VpnNode } from "../../vpn/parse";
 import { colors, splitNameFlag, useTheme, SIMPLE_UNLOCK_CODE } from "../../theme";
@@ -67,9 +68,10 @@ export default function SimpleScreen() {
   }, [vpnRunning]);
 
   const connectBest = async () => {
-    // LTE-серверы в автовыбор не попадают — только обычные
+    // LTE-серверы в автовыбор не попадают — только обычные,
+    // и только те, что способны собрать рабочий конфиг (битые REALITY без pbk — мимо)
     const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-");
-    const candidates = nodes.filter((n) => !isLte(n));
+    const candidates = nodes.filter((n) => !isLte(n) && isNodeUsable(n));
     if (candidates.length === 0) {
       showToast("Нет доступных серверов");
       return;
@@ -105,7 +107,7 @@ export default function SimpleScreen() {
     const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-");
     const all = nodesRef.current;
     const currentId = selectedIdRef.current;
-    const candidates = all.filter((n) => !isLte(n) && n.id !== currentId);
+    const candidates = all.filter((n) => !isLte(n) && n.id !== currentId && isNodeUsable(n));
     if (candidates.length === 0) {
       showToast("Нет других доступных серверов");
       return;

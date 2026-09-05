@@ -18,6 +18,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
+import { isNodeUsable } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
 import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode } from "../../theme";
@@ -184,13 +185,16 @@ export default function V2rayScreen() {
     setSmartLocation(true);
     setSetting("smart_location", "1");
     try {
-      await pingStore.pingAll(mainNodes);
+      // Битые узлы (REALITY без pbk и т.п.) в умный выбор не попадают —
+      // иначе ядро падает с «empty "password"» при подключении
+      const usable = mainNodes.filter((n) => isNodeUsable(n));
+      await pingStore.pingAll(usable);
       const snap = pingStore.getSnapshot();
       let best: VpnNode | null = null;
       let bestDelay = Infinity;
-      for (const n of mainNodes) {
+      for (const n of usable) {
         const p = snap[n.id];
-        if (p?.status === "done" && p.delay > 0 && p.delay < bestDelay) {
+        if (p?.status === "done" && !p.error && p.delay > 0 && p.delay < bestDelay) {
           best = n;
           bestDelay = p.delay;
         }
