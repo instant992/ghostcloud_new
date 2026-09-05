@@ -162,14 +162,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const s = loadFilterSettings();
             if (!hasNetworkDependentProfiles(s)) return;
             const all = nodesRef.current;
-            const { AUTO_SERVER_ID, resolveConnectNode } = await import("./vpn/autoSelect");
-            // В режиме автовыбора — переподключение на лучший сервер
-            const node =
-              selectedNodeIdRef.current === AUTO_SERVER_ID
-                ? resolveConnectNode(all, AUTO_SERVER_ID)
-                : all.find((n) => n.id === selectedNodeIdRef.current) || all[0];
-            if (!node) return;
+            const { AUTO_SERVER_ID } = await import("./vpn/autoSelect");
             await mgr.disconnect();
+            let node;
+            if (selectedNodeIdRef.current === AUTO_SERVER_ID) {
+              // В режиме автовыбора — настоящий тест через прокси (VPN уже выключен)
+              const best = await mgr.pickBestNode(all);
+              node = best[0];
+            } else {
+              node = all.find((n) => n.id === selectedNodeIdRef.current) || all[0];
+            }
+            if (!node) return;
             await mgr.connect(node, { isSponsor: meRef.current?.is_sponsor === true });
           } catch {}
         });

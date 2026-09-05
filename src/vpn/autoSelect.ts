@@ -7,6 +7,7 @@ export const AUTO_SERVER_ID = "__auto__";
 
 /** LTE-узлы в автовыбор не участвуют */
 const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-");
+export const isLteNode = isLte;
 
 /** Проверка, что узел вообще способен собрать рабочий конфиг:
  *  у REALITY обязан быть publicKey (иначе ядро падает с «empty "password"»),

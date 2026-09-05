@@ -17,9 +17,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "../context";
-import { connect, disconnect } from "../vpn/manager";
+import { connect, disconnect, pickBestNode } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
-import { AUTO_SERVER_ID, ensureFreshPings, resolveConnectNode } from "../vpn/autoSelect";
+import { AUTO_SERVER_ID } from "../vpn/autoSelect";
 import * as appFilterMod from "../vpn/appFilter";
 import { computeBypassForNetwork, loadFilterSettings } from "../vpn/connectionFilter";
 import { getNetworkType } from "../vpn/native";
@@ -124,11 +124,15 @@ export default function HomeScreen() {
         setVpnRunning(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } else {
-        // Режим «Автовыбор»: пингуем обычные серверы и подключаемся к лучшему
-        if (autoMode) await ensureFreshPings(nodes);
-        const target = autoMode
-          ? resolveConnectNode(nodes, AUTO_SERVER_ID)
-          : selectedNode;
+        // Режим «Автовыбор»: настоящий тест серверов через прокси (не TCP-пинг)
+        // и подключение к лучшему из реально рабочих
+        let target: import("../vpn/parse").VpnNode | null;
+        if (autoMode) {
+          const best = await pickBestNode(nodes);
+          target = best[0] || null;
+        } else {
+          target = selectedNode;
+        }
         if (!target) throw new Error("Нет доступных серверов");
         await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
@@ -349,14 +353,20 @@ export default function HomeScreen() {
               setBusy(true);
               setError(null);
               try {
-                // Режим «Автовыбор»: пингуем обычные и берём лучший
-                if (id === AUTO_SERVER_ID) await ensureFreshPings(nodes);
-                const node =
-                  id === AUTO_SERVER_ID
-                    ? resolveConnectNode(nodes, AUTO_SERVER_ID)
-                    : nodes.find((n) => n.id === id);
-                if (!node) return;
+                // Переподключаемся. Для автовыбора сначала разъединяемся,
+                // затем тестируем серверы через прокси (нужен выключенный VPN)
                 await disconnect();
+                let node;
+                if (id === AUTO_SERVER_ID) {
+                  const best = await pickBestNode(nodes);
+                  node = best[0] || null;
+                } else {
+                  node = nodes.find((n) => n.id === id) || null;
+                }
+                if (!node) {
+                  setVpnRunning(false);
+                  return;
+                }
                 await connect(node, { isSponsor: me?.is_sponsor === true });
                 setVpnRunning(true);
                 setSeconds(0);

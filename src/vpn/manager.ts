@@ -2,13 +2,20 @@ import { deviceHeaders, loadSession } from "../storage";
 import { getSelectedCore, getSetting, setSetting } from "../settings";
 import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "./parse";
 import type { VpnNode } from "./parse";
-import { buildXrayConfig } from "./xrayConfig";
+import { buildXrayConfig, buildOutbound as buildXrayOutbound } from "./xrayConfig";
 import { buildSingBoxConfig } from "./singboxConfig";
 import { buildMihomoConfig } from "./mihomoConfig";
 import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
 import { computeBypassForNetwork, loadFilterSettings } from "./connectionFilter";
-import { AUTO_SERVER_ID, rankByPing, isNodeUsable } from "./autoSelect";
+import {
+  AUTO_SERVER_ID,
+  rankByPing,
+  isNodeUsable,
+  ensureFreshPings,
+  isLteNode,
+} from "./autoSelect";
+import { pingNodesBatch } from "./native";
 import {
   getInstalledPackageNames,
   getNetworkType,
@@ -82,6 +89,81 @@ function buildFailoverInfo(core: string, current: VpnNode, bypassDomains: string
     .filter((c): c is { config: string; host: string; port: number } => c !== null);
   if (!candidates.length) return undefined;
   return { host: current.address, port: current.port, candidates };
+}
+
+/** Настоящий тест узлов через ядро: строит xray-конфиг для каждого и
+ *  запрашивает generate_204 ЧЕРЕЗ прокси (measureOutboundDelay в libXray).
+ *  В отличие от TCP-пинга (порт REALITY открыт для всех — маскировка,
+ *  поэтому пинг проходит даже у мёртвого прокси) — проверяет, что узел
+ *  реально несёт трафик.
+ *  ВАЖНО: требует выключенного VPN (pingBatch не работает при запущенном
+ *  в процессе Xray-инстансе).
+ *
+ *  Возвращает узлы, прошедшие тест, по возрастанию задержки.
+ *  Если ни один узел не прошёл — бросает ошибку (подключаться не к чему).
+ *  Для ядер не-xray — фолбэк на TCP-пинг. */
+export async function pickBestNode(
+  nodes: VpnNode[],
+  opts: { max?: number; excludeIds?: string[] } = {}
+): Promise<VpnNode[]> {
+  const max = opts.max ?? 4;
+  const exclude = new Set(opts.excludeIds || []);
+  const core = getSelectedCore();
+  // Кандидаты: обычные (не LTE), способные собрать рабочий конфиг
+  const candidates = nodes.filter(
+    (n) =>
+      !isLteNode(n) &&
+      !exclude.has(n.id) &&
+      isNodeUsable(n) &&
+      (core === "xray" ? n.supportedByXray : true)
+  );
+  if (candidates.length === 0) return [];
+
+  // Для ядра xray — настоящий URL-тест через прокси
+  if (core === "xray") {
+    // pingBatch не работает, пока в процессе поднят Xray-инстанс (VPN-сервис
+    // останавливается асинхронно через intent) — ждём остановки
+    for (let waited = 0; waited < 3000 && (await isVpnRunning()); waited += 200) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    const outbounds: string[] = [];
+    const tested: VpnNode[] = [];
+    for (const n of candidates) {
+      const ob = buildXrayOutbound(n);
+      if (!ob) continue;
+      // минимальный конфиг только с outbound'ом — pingBatch парсит поле outbounds
+      outbounds.push(JSON.stringify({ outbounds: [ob] }));
+      tested.push(n);
+    }
+    if (outbounds.length) {
+      const results = await pingNodesBatch(outbounds.map((xrayJson) => ({ xrayJson })));
+      const scored = tested
+        .map((n, i) => ({ n, r: results[i] }))
+        .filter((x) => x.r?.success && x.r.delay >= 0)
+        .sort((a, b) => a.r.delay - b.r.delay)
+        .map((x) => x.n);
+      if (scored.length) return scored.slice(0, max);
+      // Сам тест не смог запуститься (VPN ещё поднят в процессе и т.п.) —
+      // это не значит, что серверы мёртвы: фолбэк на TCP-пинг ниже
+      const testItselfFailed =
+        results.length > 0 &&
+        results.every(
+          (r) => !r?.success && /isolated process|unknown method|недоступен|ping failed/i.test(r?.error || "")
+        );
+      // Тест отработал, но ни один узел не несёт трафик — не молча
+      // подключаемся к мёртвому, а сообщаем
+      if (!testItselfFailed && results.some((r) => r && typeof r.success === "boolean")) {
+        throw new Error("Серверы недоступны — ни один не прошёл проверку. Попробуйте позже или выберите сервер вручную");
+      }
+      // результаты пустые (модуль недоступен и т.п.) — фолбэк на TCP-пинг
+    }
+  }
+
+  // Фолбэк (другое ядро / модуль недоступен) — TCP-пинг через pingStore
+  await ensureFreshPings(candidates);
+  const ranked = rankByPing(candidates);
+  if (ranked.length) return ranked.slice(0, max);
+  return candidates.slice(0, max);
 }
 
 async function fetchText(url: string, userAgent: string): Promise<string | null> {
