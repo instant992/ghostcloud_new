@@ -3,8 +3,9 @@ import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Switch, Text, T
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
-import { Card, Row, Screen, Title, useScreenTopPad } from "../components/UI";
+import { Card, Screen, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { useNavigation } from "@react-navigation/native";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
 import { SponsorHeart } from "../components/Badges";
 import { showToast } from "../components/Toast";
@@ -101,6 +102,7 @@ export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
+  const nav = useNavigation<any>();
   const { me, vpnRunning, setVpnRunning } = useApp();
   const [style, setStyle] = useState<ThemeName>(getThemeName());
   const [mode, setMode] = useState<ThemeMode>(getThemeMode());
@@ -773,8 +775,21 @@ export default function SettingsScreen() {
       </Card>
 
       <Card>
-        <Row label="Версия приложения" value={`${Application.nativeApplicationVersion || "?"} (${Application.nativeBuildVersion || "?"})`} />
-        {!!xrayVersion && <Row label="Ядро Xray" value={xrayVersion} />}
+        <PressableScale
+          style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
+          onPress={() => nav.navigate("About")}
+          accessibilityRole="button"
+          accessibilityLabel="О программе. Проверить обновления и посмотреть версию"
+        >
+          <Ionicons name="information-circle-outline" size={18} color={colors.accent} />
+          <Text style={{ flex: 1, color: colors.text, fontSize: 14, fontWeight: "600" }}>
+            О программе
+          </Text>
+          <Text style={{ color: colors.textFaint, fontSize: 12 }}>
+            v{Application.nativeApplicationVersion || "?"}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+        </PressableScale>
       </Card>
 
       {/* Стилизованное подтверждение загрузки ядра */}

@@ -44,5 +44,16 @@
       android:exported="false"
       android:excludeFromRecents="true"
       android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+    <!-- FileProvider для установки APK-обновлений (самообновление приложения) -->
+    <provider
+      android:name="androidx.core.content.FileProvider"
+      android:authorities="${applicationId}.xrayFileProvider"
+      android:exported="false"
+      android:grantUriPermissions="true">
+      <meta-data
+        android:name="android.support.FILE_PROVIDER_PATHS"
+        android:resource="@xml/xray_file_paths" />
+    </provider>
   </application>
 </manifest>

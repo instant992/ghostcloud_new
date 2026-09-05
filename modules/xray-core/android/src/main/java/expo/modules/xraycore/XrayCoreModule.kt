@@ -756,5 +756,57 @@ class XrayCoreModule : Module() {
         "default"
       }
     }
+
+    // ── Установка APK-обновления (перенесено из старого приложения):
+    //    скачанный файл отдаётся системному установщику через FileProvider. ──
+
+    /** Разрешена ли установка из неизвестных источников (Android 8+) */
+    Function("canInstallPackages") {
+      if (Build.VERSION.SDK_INT >= 26) {
+        context.packageManager.canRequestPackageInstalls()
+      } else {
+        true
+      }
+    }
+
+    /** Открывает системные настройки разрешения «Установка неизвестных приложений» */
+    Function("openInstallPermissionSettings") {
+      try {
+        if (Build.VERSION.SDK_INT >= 26) {
+          val intent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+            .setData(android.net.Uri.parse("package:${context.packageName}"))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+          context.startActivity(intent)
+        }
+      } catch (e: Throwable) {
+        android.util.Log.e("GhostCloud", "openInstallPermissionSettings failed", e)
+      }
+    }
+
+    /** Запускает системный установщик APK (путь — обычный файловый путь) */
+    AsyncFunction("installApk") { path: String, promise: Promise ->
+      try {
+        val file = File(path)
+        if (!file.exists() || file.length() == 0L) {
+          promise.reject("ERR_FILE", "Файл обновления не найден", null)
+          return@AsyncFunction
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+          context,
+          "${context.packageName}.xrayFileProvider",
+          file
+        )
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+          setDataAndType(uri, "application/vnd.android.package-archive")
+          addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+          addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+        promise.resolve(true)
+      } catch (e: Throwable) {
+        android.util.Log.e("GhostCloud", "installApk failed", e)
+        promise.reject("ERR_INSTALL", e.message ?: "Не удалось запустить установку", e)
+      }
+    }
   }
 }

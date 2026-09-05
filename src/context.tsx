@@ -140,6 +140,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return off;
   }, []);
 
+  // Автопроверка APK-обновлений при старте (как в старом приложении):
+  // молча, без всплывающих сообщений — баннер появится сам, если есть обновление.
+  // EAS OTA (expo-updates) при этом продолжает работать независимо.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      import("./update")
+        .then((u) => u.checkForUpdate({ silent: true }))
+        .catch(() => {});
+    }, 4000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Фильтр соединения: при смене сети (Wi-Fi ↔ LTE) перезапускаем туннель,
   // если активны профили с сетевым режимом — как в эталонном приложении.
   const nodesRef = useRef<VpnNode[]>([]);

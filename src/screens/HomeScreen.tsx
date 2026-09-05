@@ -12,6 +12,7 @@ import { PressableScale } from "../components/PressableScale";
 import { PowerButton } from "../components/PowerButton";
 import { ConnectionFilterModal } from "../components/ConnectionFilterModal";
 import { BalanceSheet } from "../components/BalanceSheet";
+import { UpdateBanner } from "../components/UpdateBanner";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -184,6 +185,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.powerArea}>
+        <UpdateBanner />
         <PowerButton connected={connected} busy={busy} onToggle={toggle} />
         {!!connected && (
           <Text style={styles.timer}>

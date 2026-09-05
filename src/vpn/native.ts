@@ -387,3 +387,28 @@ export function setLauncherIcon(type: "default" | "foxcloud"): boolean {
     return false;
   }
 }
+
+// ── Установка APK-обновления (перенесено из старого проекта) ──
+
+/** Разрешена ли установка из неизвестных источников (Android 8+) */
+export function canInstallPackages(): boolean {
+  if (!XrayNative?.canInstallPackages) return true;
+  try {
+    return XrayNative.canInstallPackages() === true;
+  } catch {
+    return true;
+  }
+}
+
+/** Открывает системные настройки разрешения «Установка неизвестных приложений» */
+export function openInstallPermissionSettings(): void {
+  try {
+    XrayNative?.openInstallPermissionSettings?.();
+  } catch {}
+}
+
+/** Запускает системный установщик APK. path — файловый путь (не file://). */
+export async function installApk(path: string): Promise<boolean> {
+  if (!XrayNative?.installApk) return false;
+  return (await XrayNative.installApk(path)) === true;
+}

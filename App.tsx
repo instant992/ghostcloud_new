@@ -27,6 +27,7 @@ import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
 import SupportTicketScreen from "./src/screens/SupportTicketScreen";
 import SponsorLeaderboardScreen from "./src/screens/SponsorLeaderboardScreen";
+import AboutScreen from "./src/screens/AboutScreen";
 import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
@@ -262,6 +263,11 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
         options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
       <Stack.Screen name="SponsorLeaderboard" component={SponsorLeaderboardScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
     </Stack.Navigator>
   );
 }
@@ -515,6 +521,11 @@ function DockedThemedFlow({
         options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
       <Stack.Screen name="SponsorLeaderboard" component={SponsorLeaderboardScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
     </Stack.Navigator>
   );
 }
@@ -586,6 +597,11 @@ function Root() {
             options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
           />
           <Stack.Screen name="SponsorLeaderboard" component={SponsorLeaderboardScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
         </>
       )}
     </Stack.Navigator>
