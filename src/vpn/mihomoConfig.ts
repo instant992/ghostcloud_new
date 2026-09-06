@@ -1,5 +1,6 @@
 import { VpnNode } from "./parse";
 import { getDnsProvider, type DnsProvider } from "./dns";
+import { mihomoRoscom, type RoscomMode } from "./roscomRouting";
 
 function yq(value: string | undefined): string {
   const s = String(value ?? "");
@@ -106,13 +107,24 @@ export function mihomoProxyBlock(node: VpnNode, name = "gc-proxy"): string {
 export function buildMihomoConfig(
   node: VpnNode,
   dns?: DnsProvider,
-  bypassDomains: string[] = []
+  bypassDomains: string[] = [],
+  roscomMode?: RoscomMode | null
 ): string {
   const proxy = mihomoProxyBlock(node);
   const provider = dns || getDnsProvider(null);
 
   // Правила «мимо VPN» для доменов активных профилей фильтра соединения
   const domainRules = bypassDomains.map((d) => `  - DOMAIN-SUFFIX,${d},DIRECT`);
+
+  // RoscomVPN-роутинг: локальные rule-set'ы (.mrs распакованы нативно в rule-set/)
+  const roscom = roscomMode ? mihomoRoscom(roscomMode) : { providers: {}, rules: [] };
+  const providerLines = Object.entries(roscom.providers).flatMap(([name, p]) => [
+    `  ${name}:`,
+    `    type: ${p.type}`,
+    `    behavior: ${p.behavior}`,
+    `    format: ${p.format}`,
+    `    path: ${yq(p.path)}`,
+  ]);
 
   return [
     `mode: rule`,
@@ -138,8 +150,10 @@ export function buildMihomoConfig(
     `    type: select`,
     `    proxies:`,
     `      - ${yq("gc-proxy")}`,
+    ...(providerLines.length ? [`rule-providers:`, ...providerLines] : []),
     `rules:`,
     ...domainRules,
+    ...roscom.rules.map((r) => `  - ${r}`),
     `  - IP-CIDR,10.0.0.0/8,DIRECT,no-resolve`,
     `  - IP-CIDR,172.16.0.0/12,DIRECT,no-resolve`,
     `  - IP-CIDR,192.168.0.0/16,DIRECT,no-resolve`,

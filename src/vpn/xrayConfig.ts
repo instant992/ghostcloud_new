@@ -1,5 +1,6 @@
 import { VpnNode } from "./parse";
 import { getDnsProvider, type DnsProvider } from "./dns";
+import { xrayRoscomRules, type RoscomMode } from "./roscomRouting";
 
 export function buildStreamSettings(node: VpnNode): Record<string, any> {
   const network = node.network || "tcp";
@@ -196,7 +197,8 @@ export function buildXrayConfig(
   node: VpnNode,
   tunFd: number | null,
   dns?: DnsProvider,
-  bypassDomains: string[] = []
+  bypassDomains: string[] = [],
+  roscomMode?: RoscomMode | null
 ): string {
   const outbound = buildOutbound(node);
   if (!outbound) throw new Error("Протокол не поддерживается ядром Xray");
@@ -240,6 +242,8 @@ export function buildXrayConfig(
         { type: "field", ip: [TUN_DNS], outboundTag: "dns-out" },
         // Домены активных профилей «мимо VPN» — напрямую
         ...domainRules,
+        // RoscomVPN-роутинг (гео-категории из geoip.dat/geosite.dat в APK)
+        ...(roscomMode ? xrayRoscomRules(roscomMode) : []),
         { type: "field", ip: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16"], outboundTag: "direct" },
         { type: "field", ip: ["224.0.0.0/3", "ff00::/8"], outboundTag: "block" },
       ],

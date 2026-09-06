@@ -17,6 +17,8 @@ import { useApp } from "../context";
 import {
   activateProfile,
   BUILTIN_PROFILES,
+  BUILTIN_ROSCOMVPN_ID,
+  ROSCOMVPN_DESCRIPTION,
   deactivateProfile,
   getScope,
   isBuiltinProfileId,
@@ -52,6 +54,7 @@ export function ConnectionFilterModal({
   const [settings, setSettings] = useState<FilterSettings>(() => loadFilterSettings());
   const [editing, setEditing] = useState<BypassProfile | null>(null);
   const [viewing, setViewing] = useState<BypassProfile | null>(null);
+  const [roscomInfo, setRoscomInfo] = useState(false);
   const [restartBusy, setRestartBusy] = useState(false);
   /** Пакеты, реально установленные на устройстве — для подсчёта в карточках профилей */
   const [installedPkgs, setInstalledPkgs] = useState<Set<string> | null>(null);
@@ -250,13 +253,14 @@ export function ConnectionFilterModal({
                 const builtin = isBuiltinProfileId(p.id);
                 const isActive = settings.active.includes(p.id);
                 const scope = getScope(settings, p.id);
+                const isRoscom = p.id === BUILTIN_ROSCOMVPN_ID;
                 return (
                   <View key={p.id} style={[styles.card, isActive && styles.cardOn]}>
                     <View style={styles.cardTop}>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                           <Ionicons
-                            name={builtin ? "shield-checkmark" : "document-text"}
+                            name={isRoscom ? "git-network-outline" : builtin ? "shield-checkmark" : "document-text"}
                             size={16}
                             color={isActive ? colors.accent : colors.textDim}
                           />
@@ -269,6 +273,11 @@ export function ConnectionFilterModal({
                             </View>
                           )}
                         </View>
+                        {isRoscom ? (
+                          <Text style={styles.cardSub}>
+                            Роском-роутинг: RU напрямую, YouTube/Telegram через VPN
+                          </Text>
+                        ) : (
                         <Text style={styles.cardSub}>
                           {p.domains.length > 0 && `${p.domains.length} сайтов`}
                           {p.domains.length > 0 && p.packages.length > 0 && " · "}
@@ -283,6 +292,7 @@ export function ConnectionFilterModal({
                           {p.domains.length === 0 && p.packages.length === 0 && "пусто"}
                           {" — мимо VPN"}
                         </Text>
+                        )}
                       </View>
                       <Switch
                         value={isActive}
@@ -334,9 +344,12 @@ export function ConnectionFilterModal({
 
                     {/* Действия: просмотр списка — для всех, редактирование/удаление — для своих */}
                     <View style={styles.cardActions}>
-                      <PressableScale style={styles.actionBtn} onPress={() => setViewing(p)}>
-                        <Ionicons name="list-outline" size={14} color={colors.textDim} />
-                        <Text style={styles.actionBtnText}>Список</Text>
+                      <PressableScale
+                        style={styles.actionBtn}
+                        onPress={() => (isRoscom ? setRoscomInfo(true) : setViewing(p))}
+                      >
+                        <Ionicons name={isRoscom ? "help-circle-outline" : "list-outline"} size={14} color={colors.textDim} />
+                        <Text style={styles.actionBtnText}>{isRoscom ? "Как работает" : "Список"}</Text>
                       </PressableScale>
                       {!builtin && (
                         <>
@@ -380,6 +393,30 @@ export function ConnectionFilterModal({
         installedPkgs={installedPkgs}
         appNames={appNames}
       />
+
+      {/* Описание Роском-роутинга */}
+      <Modal visible={roscomInfo} transparent animationType="fade" onRequestClose={() => setRoscomInfo(false)}>
+        <PressableScale style={styles.edBackdrop} onPress={() => setRoscomInfo(false)}>
+          <PressableScale style={styles.edCard} onPress={() => {}}>
+            <Text style={styles.edTitle}>Роском-роутинг</Text>
+            <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+              <Text style={styles.roscomInfoText}>{ROSCOMVPN_DESCRIPTION}</Text>
+              <Text style={styles.roscomInfoText}>
+                Режим выбирается автоматически по серверу: обычные серверы — DEFAULT
+                (российские сервисы и игры напрямую), LTE Open — WHITELIST (напрямую
+                только белые списки РФ).
+              </Text>
+              <Text style={styles.roscomInfoText}>
+                Списки доменов и IP обновляются вместе с приложением (данные проекта
+                roscomvpn-routing вшиты в APK).
+              </Text>
+            </ScrollView>
+            <PressableScale style={styles.edSave} onPress={() => setRoscomInfo(false)}>
+              <Text style={styles.edSaveText}>Понятно</Text>
+            </PressableScale>
+          </PressableScale>
+        </PressableScale>
+      </Modal>
     </Modal>
   );
 }
@@ -747,6 +784,15 @@ const makeStyles = () =>
       backgroundColor: colors.accentDeep,
     },
     edBtnPrimaryText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+    edSave: {
+      paddingVertical: 12,
+      borderRadius: 14,
+      alignItems: "center",
+      backgroundColor: colors.accentDeep,
+      marginTop: 14,
+    },
+    edSaveText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+    roscomInfoText: { color: colors.textDim, fontSize: 13, lineHeight: 19, marginBottom: 10 },
     edNote: { color: colors.textFaint, fontSize: 10.5, marginTop: 12, lineHeight: 15 },
     // Просмотр списков профиля
     vwCard: {

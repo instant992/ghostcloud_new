@@ -7,7 +7,8 @@ import { buildSingBoxConfig } from "./singboxConfig";
 import { buildMihomoConfig } from "./mihomoConfig";
 import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
-import { computeBypassForNetwork, loadFilterSettings } from "./connectionFilter";
+import { computeBypassForNetwork, loadFilterSettings, roscomRoutingForNetwork } from "./connectionFilter";
+import type { RoscomMode } from "./roscomRouting";
 import {
   AUTO_SERVER_ID,
   rankByPing,
@@ -54,13 +55,19 @@ function selectedDnsProvider(isSponsor: boolean) {
   return getDnsProvider(id);
 }
 
-function buildConfigFor(core: string, node: VpnNode, bypassDomains: string[], isSponsor: boolean): string | null {
+function buildConfigFor(
+  core: string,
+  node: VpnNode,
+  bypassDomains: string[],
+  isSponsor: boolean,
+  roscomMode?: RoscomMode | null
+): string | null {
   try {
     const dns = selectedDnsProvider(isSponsor);
-    if (core === "sing-box") return buildSingBoxConfig(node, dns, bypassDomains);
-    if (core === "mihomo") return buildMihomoConfig(node, dns, bypassDomains);
+    if (core === "sing-box") return buildSingBoxConfig(node, dns, bypassDomains, roscomMode);
+    if (core === "mihomo") return buildMihomoConfig(node, dns, bypassDomains, roscomMode);
     if (!node.supportedByXray) return null;
-    return buildXrayConfig(node, null, dns, bypassDomains);
+    return buildXrayConfig(node, null, dns, bypassDomains, roscomMode);
   } catch {
     return null;
   }
@@ -69,7 +76,13 @@ function buildConfigFor(core: string, node: VpnNode, bypassDomains: string[], is
 /** Собирает инфо для авто-файловера: текущий сервер + запасные (не-LTE, поддерживаемые ядром).
  *  Запасные упорядочены по пингу (лучшие первыми), чтобы при обрыве
  *  переключалось на самый быстрый из рабочих. */
-function buildFailoverInfo(core: string, current: VpnNode, bypassDomains: string[], isSponsor: boolean): FailoverInfo | undefined {
+function buildFailoverInfo(
+  core: string,
+  current: VpnNode,
+  bypassDomains: string[],
+  isSponsor: boolean,
+  roscomMode?: RoscomMode | null
+): FailoverInfo | undefined {
   const rest = failoverPool
     .filter((n) => n.id !== current.id)
     .filter((n) => n.source !== "lte")
@@ -82,7 +95,7 @@ function buildFailoverInfo(core: string, current: VpnNode, bypassDomains: string
   const candidates = [...ranked, ...unranked]
     .slice(0, FAILOVER_MAX)
     .map((n) => {
-      const config = buildConfigFor(core, n, bypassDomains, isSponsor);
+      const config = buildConfigFor(core, n, bypassDomains, isSponsor, roscomMode);
       if (!config) return null;
       return { config, host: n.address, port: n.port };
     })
@@ -320,7 +333,14 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
 
   const core = getSelectedCore();
   const isSponsor = opts.isSponsor === true;
-  const failover = buildFailoverInfo(core, node, bypass.domains, isSponsor);
+  // RoscomVPN-роутинг: если профиль активен — режим по типу узла
+  // (обычные серверы → DEFAULT, LTE Open → WHITELIST), иначе null
+  let roscomMode: RoscomMode | null = null;
+  try {
+    const active = roscomRoutingForNetwork(loadFilterSettings(), getNetworkType());
+    if (active) roscomMode = isLteNode(node) ? "whitelist" : "default";
+  } catch {}
+  const failover = buildFailoverInfo(core, node, bypass.domains, isSponsor, roscomMode);
 
   // Сохраняем конфигурацию для плитки быстрых настроек (включение без приложения)
   const saveTileConfig = (config: string, coreKey: string) => {
@@ -338,14 +358,14 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     } catch {}
   };
   if (core === "sing-box") {
-    const config = buildSingBoxConfig(node, selectedDnsProvider(isSponsor), bypass.domains);
+    const config = buildSingBoxConfig(node, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
     return;
   }
   if (core === "mihomo") {
-    const config = buildMihomoConfig(node, selectedDnsProvider(isSponsor), bypass.domains);
+    const config = buildMihomoConfig(node, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
     saveTileConfig(config, "mihomo");
     await startLibCoreVpn("mihomo", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
@@ -354,7 +374,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   if (!node.supportedByXray) {
     throw new Error("Hysteria2 доступен только на ядрах sing-box и mihomo — выберите их в настройках");
   }
-  const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains);
+  const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
   saveTileConfig(config, "xray");
   await startVpn(config, allowed, blocked, failover);
   lastConnectedNodeId = node.id;

@@ -10,6 +10,7 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import expo.modules.kotlin.Promise
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -129,6 +130,18 @@ class LibCoreVpnService : VpnService() {
         throw IllegalStateException("Не удалось создать TUN-интерфейс")
       }
       tunInterface = pfd
+
+      // Geo rule-set'ы RoscomVPN: распаковываем в домашний каталог ядра
+      // (тот же, что задан в loadLibCore: filesDir/singbox или filesDir/mihomo;
+      //  gcInit делает chdir в него, поэтому относительные пути rule-set/... работают)
+      try {
+        val home = File(filesDir, if (lib == "singbox") "singbox" else "mihomo")
+        if (!home.exists()) home.mkdirs()
+        if (lib == "singbox") GeoAssets.singboxRuleSets(applicationContext, home)
+        else GeoAssets.mihomoRuleSets(applicationContext, home)
+      } catch (e: Throwable) {
+        android.util.Log.e("GhostCloud", "geo rule-sets failed", e)
+      }
 
       val err = when (lib) {
         "mihomo" -> GcCore.gcStart(config, pfd.fd)

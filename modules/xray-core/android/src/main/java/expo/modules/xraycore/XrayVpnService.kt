@@ -150,6 +150,14 @@ class XrayVpnService : VpnService() {
       val json = JSONObject(configJson)
       val env = json.optJSONObject("env") ?: JSONObject().also { json.put("env", it) }
       env.put("xray.tun.fd", pfd.fd.toLong().toString())
+      // Geo-данные RoscomVPN: распаковываем geoip.dat/geosite.dat и указываем
+      // Xray, откуда их читать (env применяется через os.Setenv до сборки роутера)
+      try {
+        val geoDir = GeoAssets.xrayAssetDir(applicationContext)
+        env.put("xray.location.asset", geoDir.absolutePath)
+      } catch (e: Throwable) {
+        android.util.Log.e("GhostCloud", "geo assets failed", e)
+      }
 
       try {
         LibXray.setDNS(dialerController, "8.8.8.8:53")
@@ -215,6 +223,11 @@ class XrayVpnService : VpnService() {
       val json = JSONObject(configJson)
       val env = json.optJSONObject("env") ?: JSONObject().also { json.put("env", it) }
       env.put("xray.tun.fd", pfd.fd.toLong().toString())
+      // geo-данные RoscomVPN — как при первом старте
+      try {
+        env.put("xray.location.asset", GeoAssets.xrayAssetDir(applicationContext).absolutePath)
+      } catch (_: Throwable) {
+      }
       val request = JSONObject().put("xrayJson", json.toString())
       val response = XrayApi.invoke(applicationContext, "runXray", request)
       val ok = response.optBoolean("success", false)

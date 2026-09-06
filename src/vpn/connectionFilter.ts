@@ -31,6 +31,11 @@ export type BypassProfile = {
 export const BUILTIN_RUSSIA_ID = "__builtin_russia__";
 export const BUILTIN_RUSSIA_APPS2_ID = "__builtin_russia_apps2__";
 export const BUILTIN_RUSSIA_LTE_ID = "__builtin_russia_lte__";
+export const BUILTIN_ROSCOMVPN_ID = "__builtin_roscomvpn__";
+
+/** Описание профиля RoscomVPN (роутинг по geo-категориям, правила в конфиге ядра) */
+export const ROSCOMVPN_DESCRIPTION =
+  "Роском-роутинг: RU-сервисы, банки и игры идут напрямую, YouTube, Telegram и GitHub — через VPN, реклама, торренты и слежка — блокируются. На LTE Open работает режим «белый список»: напрямую только сайты из белого списка РФ.";
 
 /** Встроенные профили — защищены от удаления и редактирования */
 export const BUILTIN_PROFILES: BypassProfile[] = [
@@ -54,6 +59,16 @@ export const BUILTIN_PROFILES: BypassProfile[] = [
     builtin: true,
     domains: [],
     packages: RUSSIA_LTE_PACKAGES,
+  },
+  {
+    // Особый профиль: не списки «мимо VPN», а geo-правила в конфигурации ядра
+    // (RoscomVPN routing). Режим выбирается автоматически по типу сервера:
+    // обычные — DEFAULT, LTE Open — WHITELIST.
+    id: BUILTIN_ROSCOMVPN_ID,
+    name: "RoscomVPN (роутинг)",
+    builtin: true,
+    domains: [],
+    packages: [],
   },
 ];
 
@@ -169,6 +184,17 @@ export function computeBypassForNetwork(s: FilterSettings, netType: string): {
  *  таким нужен рестарт при смене сети. */
 export function hasNetworkDependentProfiles(s: FilterSettings): boolean {
   return s.active.some((id) => getScope(s, id) !== "all");
+}
+
+/** Активен ли профиль RoscomVPN для текущей сети (роутинг в конфиге ядра).
+ *  Возвращает режим: "whitelist" для LTE-узлов, "default" для обычных. */
+export function roscomRoutingForNetwork(
+  s: FilterSettings,
+  netType: string
+): import("./roscomRouting").RoscomMode | null {
+  if (!s.active.includes(BUILTIN_ROSCOMVPN_ID)) return null;
+  if (!scopeMatches(getScope(s, BUILTIN_ROSCOMVPN_ID), netType)) return null;
+  return "default"; // режим уточняется по типу узла в manager.ts (LTE → whitelist)
 }
 
 export function newUserId(): string {

@@ -1,5 +1,6 @@
 import { VpnNode } from "./parse";
 import { getDnsProvider, type DnsProvider } from "./dns";
+import { singboxRoscom, type RoscomMode } from "./roscomRouting";
 
 const TUN_ADDRESS_V4 = "26.26.26.1/30";
 const TUN_ADDRESS_V6 = "fdfe:dcba:9876::1/126";
@@ -123,7 +124,8 @@ function buildOutbound(node: VpnNode): Record<string, any> | null {
 export function buildSingBoxConfig(
   node: VpnNode,
   dns?: DnsProvider,
-  bypassDomains: string[] = []
+  bypassDomains: string[] = [],
+  roscomMode?: RoscomMode | null
 ): string {
   const outbound = buildOutbound(node);
   if (!outbound) throw new Error("Протокол не поддерживается ядром sing-box");
@@ -145,6 +147,9 @@ export function buildSingBoxConfig(
     });
   }
 
+  // RoscomVPN-роутинг: локальные rule-set'ы (.srs распакованы нативно в rule-set/)
+  const roscom = roscomMode ? singboxRoscom(roscomMode) : { ruleSets: [], rules: [] };
+
   const config: Record<string, any> = {
     log: { level: "info", timestamp: true },
     dns: {
@@ -164,15 +169,22 @@ export function buildSingBoxConfig(
         stack: "mixed",
       },
     ],
-    outbounds: [outbound, { type: "direct", tag: "direct" }],
+    outbounds: [
+      outbound,
+      { type: "direct", tag: "direct" },
+      // block нужен для правил RoscomVPN (реклама/торренты/слежка)
+      ...(roscomMode ? [{ type: "block", tag: "block" }] : []),
+    ],
     route: {
       rules: [
         ...domainBypassRules,
+        ...roscom.rules,
         {
           ip_is_private: true,
           outbound: "direct",
         },
       ],
+      rule_set: roscom.ruleSets,
       final: "proxy",
       auto_detect_interface: true,
     },
