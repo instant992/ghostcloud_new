@@ -43,27 +43,102 @@ export function parseAnnText(raw: string): Piece[][] {
   });
 }
 
-/** Цвета баннера: свои из админки или дефолтный градиент под текущую тему */
-function bannerColors(a: Announcement): { gradient: [string, string]; text: string; custom: boolean } {
+/** Цвета баннера. Объявления не должны кричать: любой цвет из админки
+ *  превращается в мягкую полупрозрачную тонировку, а сам цвет остаётся
+ *  только акцентом (рамка, иконка, кнопка). Дефолт — бледный фиолетовый
+ *  градиент под текущую палитру. */
+
+/** #rgb / #rrggbb → [r,g,b]; null если формат не распознан */
+function hexToRgb(s: string): [number, number, number] | null {
+  const m = s.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  let h = m[1];
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Относительная яркость 0..1 (по формуле WCAG) */
+function luminance(rgb: [number, number, number]): number {
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  }) as [number, number, number];
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Смешать цвет с белым/чёрным, чтобы акцент был виден на бледной подложке */
+function mix(rgb: [number, number, number], target: [number, number, number], k: number): string {
+  const c = rgb.map((v, i) => Math.round(v + (target[i] - v) * k));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+type BannerColors = {
+  /** градиент дефолтного фона: пары [цвет, прозрачность] — ВАЖНО: альфа
+   *  внутри rgba() в stopColor react-native-svg игнорируется, поэтому
+   *  прозрачность передаётся отдельным атрибутом stopOpacity */
+  gradient: [{ color: string; opacity: number }, { color: string; opacity: number }];
+  /** свой цвет из админки → тонировка: цвет + прозрачность вместо сплошной заливки */
+  tint: { color: string; opacity: number } | null;
+  text: string;
+  accent: string;
+  border: string;
+};
+
+function bannerColors(a: Announcement): BannerColors {
   const light = isLightPalette();
-  const defText = light ? "#1a1a2e" : "#f5f5f5";
   const bg = (a.bg_color || "").trim();
-  const text = (a.text_color || "").trim() || (bg ? "#fff" : defText);
-  if (bg) {
-    // свой цвет (solid) — градиент из него же
-    return { gradient: [bg, bg], text, custom: true };
+  const rgb = bg ? hexToRgb(bg) : null;
+
+  // Дефолт: бледный фиолетовый градиент, акцент — цвет темы
+  const defGradient: BannerColors["gradient"] = light
+    ? [
+        { color: "#A855F7", opacity: 0.1 },
+        { color: "#7C3AED", opacity: 0.045 },
+      ]
+    : [
+        { color: "#A855F7", opacity: 0.15 },
+        { color: "#7C3AED", opacity: 0.07 },
+      ];
+
+  if (!bg || !rgb) {
+    return {
+      gradient: defGradient,
+      tint: null,
+      text: colors.text,
+      accent: colors.accent,
+      border: light ? "rgba(168,85,247,0.16)" : "rgba(168,85,247,0.18)",
+    };
   }
-  return light
-    ? {
-        gradient: ["rgba(168,85,247,0.16)", "rgba(124,58,237,0.07)"],
-        text: colors.text,
-        custom: false,
-      }
-    : {
-        gradient: ["rgba(168,85,247,0.22)", "rgba(124,58,237,0.10)"],
-        text: colors.text,
-        custom: false,
-      };
+
+  // Свой цвет из админки: бледная тонировка + акцент этим же цветом.
+  // В светлой теме акцент затемняем, в тёмной — осветляем, чтобы был виден.
+  const lum = luminance(rgb);
+  const accent = light
+    ? lum > 0.55
+      ? mix(rgb, [40, 30, 60], 0.55)
+      : `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`
+    : lum < 0.45
+      ? mix(rgb, [255, 255, 255], 0.45)
+      : `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+
+  // Явный цвет текста из админки применяем, только если он контрастен
+  // бледной подложке текущей темы (иначе текст слился бы с фоном)
+  const tc = (a.text_color || "").trim();
+  const tcRgb = tc ? hexToRgb(tc) : null;
+  let text = colors.text;
+  if (tcRgb) {
+    const tcLum = luminance(tcRgb);
+    if (light ? tcLum < 0.62 : tcLum > 0.38) text = tc;
+  }
+
+  return {
+    gradient: defGradient,
+    tint: { color: bg, opacity: light ? 0.11 : 0.17 },
+    text,
+    accent,
+    border: `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${light ? 0.22 : 0.26})`,
+  };
 }
 
 const DISMISSED_KEY = "announcements_dismissed_v1";
@@ -71,23 +146,30 @@ const DISMISSED_KEY = "announcements_dismissed_v1";
 function AnnBanner({ a, onDismiss }: { a: Announcement; onDismiss: (id: number) => void }) {
   useTheme();
   const lines = useMemo(() => parseAnnText(a.text || ""), [a.text]);
-  const { gradient, text, custom } = bannerColors(a);
+  const { gradient, tint, text, accent, border } = bannerColors(a);
   const buttons = (a.buttons || []).filter((b) => (b.url || "").trim());
   // is_dismissible приходит числом 0/1 из SQLite (или булем); по умолчанию можно скрыть
   const dismissible = a.is_dismissible === undefined ? true : !!Number(a.is_dismissible);
 
   return (
     <View style={styles.banner}>
-      {/* Фон: градиент через SVG (работает во всех темах) */}
+      {/* Фон: бледный градиент через SVG (альфа — отдельным stopOpacity!) */}
       <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
         <Defs>
           <SvgGradient id={`ann${a.id}`} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={gradient[0]} />
-            <Stop offset="1" stopColor={gradient[1]} />
+            <Stop offset="0" stopColor={gradient[0].color} stopOpacity={gradient[0].opacity} />
+            <Stop offset="1" stopColor={gradient[1].color} stopOpacity={gradient[1].opacity} />
           </SvgGradient>
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" rx={16} fill={`url(#ann${a.id})`} />
       </Svg>
+      {/* Цвет из админки — мягкая тонировка поверх градиента, не сплошная заливка */}
+      {!!tint && (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { borderRadius: 16, backgroundColor: tint.color, opacity: tint.opacity }]}
+        />
+      )}
       <View
         pointerEvents="none"
         style={[
@@ -95,14 +177,14 @@ function AnnBanner({ a, onDismiss }: { a: Announcement; onDismiss: (id: number) 
           {
             borderRadius: 16,
             borderWidth: 1,
-            borderColor: custom ? "rgba(255,255,255,0.12)" : "rgba(168,85,247,0.25)",
+            borderColor: border,
           },
         ]}
       />
 
       <View style={styles.content}>
-        <View style={styles.iconBox}>
-          <Ionicons name="megaphone" size={16} color={text} />
+        <View style={[styles.iconBox, { backgroundColor: "transparent" }]}>
+          <Ionicons name="megaphone" size={16} color={accent} />
         </View>
         <View style={{ flex: 1 }}>
           {lines.map((pieces, li) => (
@@ -111,13 +193,14 @@ function AnnBanner({ a, onDismiss }: { a: Announcement; onDismiss: (id: number) 
                 <Text
                   key={pi}
                   style={{
-                    fontWeight: p.style.bold ? "800" : "500",
+                    fontWeight: p.style.bold ? "700" : "400",
                     fontStyle: p.style.italic ? "italic" : "normal",
                     textDecorationLine: p.style.underline
                       ? "underline"
                       : p.style.strike
                         ? "line-through"
                         : "none",
+                    color: p.style.bold ? accent : undefined,
                   }}
                 >
                   {p.text}
@@ -130,14 +213,14 @@ function AnnBanner({ a, onDismiss }: { a: Announcement; onDismiss: (id: number) 
               {buttons.map((b, i) => (
                 <PressableScale
                   key={i}
-                  style={[styles.linkBtn, custom && { borderColor: "rgba(255,255,255,0.3)" }]}
+                  style={[styles.linkBtn, { borderColor: border }]}
                   onPress={() => Linking.openURL((b.url || "").trim()).catch(() => {})}
                   accessibilityRole="link"
                 >
-                  <Text style={[styles.linkText, { color: text }]} numberOfLines={1}>
+                  <Text style={[styles.linkText, { color: accent }]} numberOfLines={1}>
                     {(b.label || b.text || "Ссылка").trim()}
                   </Text>
-                  <Ionicons name="open-outline" size={12} color={text} />
+                  <Ionicons name="open-outline" size={12} color={accent} />
                 </PressableScale>
               ))}
             </View>
@@ -154,7 +237,7 @@ function AnnBanner({ a, onDismiss }: { a: Announcement; onDismiss: (id: number) 
             accessibilityLabel="Скрыть объявление"
             hitSlop={6}
           >
-            <Ionicons name="close" size={15} color={text} />
+            <Ionicons name="close" size={15} color={colors.textFaint} />
           </PressableScale>
         )}
       </View>
@@ -215,7 +298,6 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(168,85,247,0.18)",
     marginTop: 1,
   },
   text: { fontSize: 13, lineHeight: 18.5 },
@@ -231,13 +313,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     maxWidth: 240,
   },
-  linkText: { fontSize: 12, fontWeight: "700", flexShrink: 1 },
+  linkText: { fontSize: 12, fontWeight: "600", flexShrink: 1 },
   closeBtn: {
     width: 26,
     height: 26,
     borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(128,128,140,0.14)",
+    backgroundColor: "rgba(128,128,140,0.10)",
   },
 });
