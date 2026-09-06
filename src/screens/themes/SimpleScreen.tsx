@@ -11,6 +11,7 @@ import { tcpPing } from "../../vpn/native";
 import type { VpnNode } from "../../vpn/parse";
 import { colors, splitNameFlag, useTheme, SIMPLE_UNLOCK_CODE } from "../../theme";
 import { showToast } from "../../components/Toast";
+import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 
 function formatTimer(total: number): string {
   const h = Math.floor(total / 3600);
@@ -225,6 +226,9 @@ export default function SimpleScreen() {
           <Ionicons name="settings-outline" size={22} color={colors.textDim} />
         </Pressable>
       </View>
+
+      {/* Объявления с сервера */}
+      <AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 10 }} />
 
       {/* Большая кнопка */}
       <View style={styles.center}>

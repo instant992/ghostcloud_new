@@ -63,8 +63,13 @@ async function request(
 
 // ── Auth ──
 
-export async function login(loginStr: string, password: string) {
-  return request("POST", "/api/auth/login", { login: loginStr, password }, { auth: false });
+export async function login(loginStr: string, password: string, totpCode?: string) {
+  return request(
+    "POST",
+    "/api/auth/login",
+    totpCode ? { login: loginStr, password, totp_code: totpCode } : { login: loginStr, password },
+    { auth: false }
+  );
 }
 
 export async function checkEmail(email: string) {
@@ -296,4 +301,55 @@ export async function getDonorLeaderboard() {
 
 export async function getReferralLeaderboard() {
   return request("GET", "/api/auth/mobile/referral/leaderboard");
+}
+
+// ─── Подарить подписку за деньги (другому пользователю) ───
+
+export async function giftSubscription(recipient: string, plan: string) {
+  return request("POST", "/api/auth/mobile/gift", { recipient, plan });
+}
+
+export async function getGiftHistory() {
+  return request("GET", "/api/auth/mobile/gifts");
+}
+
+// ─── 2FA (TOTP) ───
+
+export async function twoFaStatus() {
+  return request("GET", "/api/auth/mobile/2fa/status");
+}
+
+export async function twoFaSetup() {
+  return request("POST", "/api/auth/mobile/2fa/setup");
+}
+
+export async function twoFaConfirm(code: string) {
+  return request("POST", "/api/auth/mobile/2fa/confirm", { code });
+}
+
+export async function twoFaDisable(code: string, password?: string) {
+  return request("POST", "/api/auth/mobile/2fa/disable", { code, password });
+}
+
+export async function twoFaRegenerateBackup(code: string, password?: string) {
+  return request("POST", "/api/auth/mobile/2fa/regenerate-backup", { code, password });
+}
+
+// ─── Объявления ───
+
+export type AnnouncementButton = { label?: string; text?: string; url?: string };
+
+export type Announcement = {
+  id: number;
+  text: string;
+  bg_color?: string;
+  text_color?: string;
+  is_dismissible?: number | boolean;
+  buttons?: AnnouncementButton[];
+  created_at?: string;
+};
+
+export async function getAnnouncements(): Promise<Announcement[]> {
+  const r = await request("GET", "/api/auth/mobile/announcements");
+  return Array.isArray(r?.announcements) ? r.announcements : [];
 }

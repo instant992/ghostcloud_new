@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Alert,
   Image,
@@ -23,6 +23,7 @@ import { BalanceSheet } from "../components/BalanceSheet";
 import { QRScannerModal } from "../components/QRScannerModal";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
 import { CustomBadge, SponsorHeart, VerifiedBadge } from "../components/Badges";
+import QRCode from "react-native-qrcode-svg";
 import { useApp } from "../context";
 import {
   BASE_URL,
@@ -32,10 +33,17 @@ import {
   claimSponsorDevice,
   generateGiftKey,
   getGiftKeyStatus,
+  getPrices,
+  giftSubscription,
   qrConfirm,
   resetPassword,
   telegramLink,
   telegramUnlink,
+  twoFaConfirm,
+  twoFaDisable,
+  twoFaRegenerateBackup,
+  twoFaSetup,
+  twoFaStatus,
   updateDisplayName,
   updateLogin,
   uploadAvatar,
@@ -66,6 +74,23 @@ export default function ProfileScreen() {
   const [giftOpen, setGiftOpen] = useState(false);
   const [giftKey, setGiftKey] = useState<string | null>(null);
   const [giftBusy, setGiftBusy] = useState(false);
+  // Платный подарок подписки (кнопка «Подарить»)
+  const [paidGiftOpen, setPaidGiftOpen] = useState(false);
+  const [paidRecipient, setPaidRecipient] = useState("");
+  const [paidPlan, setPaidPlan] = useState<string | null>(null);
+  const [paidPrices, setPaidPrices] = useState<Record<string, number>>({});
+  const [paidNames, setPaidNames] = useState<Record<string, string>>({});
+  const [paidDays, setPaidDays] = useState<Record<string, number>>({});
+  const [paidBusy, setPaidBusy] = useState(false);
+  // Двухфакторная аутентификация (TOTP)
+  const [twoFaOpen, setTwoFaOpen] = useState(false);
+  const [twoFaEnabled, setTwoFaEnabled] = useState<boolean | null>(null);
+  const [twoFaBackupLeft, setTwoFaBackupLeft] = useState(0);
+  const [twoFaSetupData, setTwoFaSetupData] = useState<{ secret: string; otpauth_url: string } | null>(null);
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [twoFaPassword, setTwoFaPassword] = useState("");
+  const [twoFaBackupCodes, setTwoFaBackupCodes] = useState<string[] | null>(null);
+  const [twoFaBusy, setTwoFaBusy] = useState(false);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [benefitsOpen, setBenefitsOpen] = useState(false);
 
@@ -82,6 +107,16 @@ export default function ProfileScreen() {
     if (Number.isNaN(d)) return 0;
     return Math.max(0, Math.ceil((d - Date.now()) / 86400000));
   })();
+
+  // Статус 2FA для подписи пункта меню (вкл/выкл) — грузим один раз при входе
+  useEffect(() => {
+    twoFaStatus()
+      .then((r) => {
+        setTwoFaEnabled(!!r?.enabled);
+        setTwoFaBackupLeft(r?.backup_codes_remaining ?? 0);
+      })
+      .catch(() => setTwoFaEnabled(false));
+  }, []);
 
   const openEditor = () => {
     setNick(me?.display_name || "");
@@ -223,7 +258,7 @@ export default function ProfileScreen() {
     try {
       const r = await generateGiftKey();
       if (!r?.success) throw new Error(r?.error || "Не удалось создать ключ");
-      setGiftKey(r.trial_key);
+      setGiftKey(r.deeplink || (r.token ? `${BASE_URL}/gift/${r.token}` : null));
       showToast("Ключ создан — отправьте его другу");
     } catch (e: any) {
       const msg = String(e?.message || "");
@@ -265,6 +300,152 @@ export default function ProfileScreen() {
     Share.share({ message: `Держи подарок GhostCloud — 24 часа VPN-доступа.\nАктивируй по ссылке: ${key}` }).catch(
       () => {}
     );
+  };
+
+  /** Платный подарок подписки: открыть модалку и загрузить цены */
+  const openPaidGift = async () => {
+    setPaidGiftOpen(true);
+    setPaidRecipient("");
+    setPaidPlan(null);
+    try {
+      const r = await getPrices();
+      if (r?.success) {
+        setPaidPrices(r.prices || {});
+        setPaidNames(r.names || {});
+        setPaidDays(r.days || {});
+      }
+    } catch {}
+  };
+
+  const sendPaidGift = async () => {
+    const recipient = paidRecipient.trim();
+    if (!recipient) {
+      showToast("Укажите email или логин получателя");
+      return;
+    }
+    if (!paidPlan) {
+      showToast("Выберите тариф");
+      return;
+    }
+    const price = paidPrices[paidPlan] ?? 0;
+    Alert.alert(
+      "Подарить подписку?",
+      `${paidNames[paidPlan] || paidPlan} (${paidDays[paidPlan] || "?"} дн.) пользователю ${recipient} за ${price} ₽. Сумма спишется с вашего баланса.`,
+      [
+        { text: "Отмена", style: "cancel" },
+        {
+          text: `Подарить за ${price} ₽`,
+          onPress: async () => {
+            setPaidBusy(true);
+            try {
+              const r = await giftSubscription(recipient, paidPlan);
+              if (!r?.success) throw new Error(r?.error || "Не удалось подарить");
+              setPaidGiftOpen(false);
+              await refreshMe();
+              showToast(r?.message || "Подписка подарена!");
+            } catch (e: any) {
+              showToast(e?.message || "Не удалось подарить");
+            } finally {
+              setPaidBusy(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  /** 2FA: открыть модалку и загрузить статус */
+  const openTwoFa = async () => {
+    setTwoFaOpen(true);
+    setTwoFaSetupData(null);
+    setTwoFaCode("");
+    setTwoFaPassword("");
+    setTwoFaBackupCodes(null);
+    try {
+      const r = await twoFaStatus();
+      setTwoFaEnabled(!!r?.enabled);
+      setTwoFaBackupLeft(r?.backup_codes_remaining ?? 0);
+    } catch {
+      setTwoFaEnabled(false);
+    }
+  };
+
+  const twoFaStart = async () => {
+    setTwoFaBusy(true);
+    try {
+      const r = await twoFaSetup();
+      if (!r?.success) throw new Error(r?.error || "Не удалось начать настройку");
+      setTwoFaSetupData({ secret: r.secret, otpauth_url: r.otpauth_url });
+      setTwoFaCode("");
+    } catch (e: any) {
+      showToast(e?.message || "Не удалось начать настройку");
+    } finally {
+      setTwoFaBusy(false);
+    }
+  };
+
+  const twoFaConfirmCode = async () => {
+    const code = twoFaCode.trim();
+    if (!code) {
+      showToast("Введите код из приложения");
+      return;
+    }
+    setTwoFaBusy(true);
+    try {
+      const r = await twoFaConfirm(code);
+      if (!r?.success) throw new Error(r?.error || "Неверный код");
+      setTwoFaEnabled(true);
+      setTwoFaSetupData(null);
+      setTwoFaBackupCodes(r.backup_codes || []);
+      setTwoFaBackupLeft((r.backup_codes || []).length);
+      showToast("Двухфакторная аутентификация включена");
+    } catch (e: any) {
+      showToast(e?.message || "Неверный код");
+    } finally {
+      setTwoFaBusy(false);
+    }
+  };
+
+  const twoFaOff = async () => {
+    if (!twoFaCode.trim() && !twoFaPassword.trim()) {
+      showToast("Введите код из приложения или пароль");
+      return;
+    }
+    setTwoFaBusy(true);
+    try {
+      const r = await twoFaDisable(twoFaCode.trim(), twoFaPassword.trim() || undefined);
+      if (!r?.success) throw new Error(r?.error || "Не удалось отключить");
+      setTwoFaEnabled(false);
+      setTwoFaCode("");
+      setTwoFaPassword("");
+      setTwoFaBackupCodes(null);
+      setTwoFaBackupLeft(0);
+      showToast("Двухфакторная аутентификация отключена");
+    } catch (e: any) {
+      showToast(e?.message || "Не удалось отключить");
+    } finally {
+      setTwoFaBusy(false);
+    }
+  };
+
+  const twoFaRegen = async () => {
+    if (!twoFaCode.trim() && !twoFaPassword.trim()) {
+      showToast("Введите код из приложения или пароль");
+      return;
+    }
+    setTwoFaBusy(true);
+    try {
+      const r = await twoFaRegenerateBackup(twoFaCode.trim(), twoFaPassword.trim() || undefined);
+      if (!r?.success) throw new Error(r?.error || "Не удалось перевыпустить коды");
+      setTwoFaBackupCodes(r.backup_codes || []);
+      setTwoFaBackupLeft((r.backup_codes || []).length);
+      setTwoFaCode("");
+      showToast("Новые резервные коды выпущены");
+    } catch (e: any) {
+      showToast(e?.message || "Не удалось перевыпустить коды");
+    } finally {
+      setTwoFaBusy(false);
+    }
   };
 
   /** QR-авторизация: подтвердить вход другого устройства по коду из QR */
@@ -399,16 +580,14 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* Кнопки: Продлить / Подарить (спонсорам) / Промокод */}
+          {/* Кнопки: Продлить / Подарить (за деньги, всем) / Промокод */}
           <View style={styles.chipsRow}>
             <View style={{ flex: 1 }}>
               <Button size="sm" title="Продлить" onPress={() => nav.navigate("Тарифы")} />
             </View>
-            {isSponsor && (
-              <View style={{ flex: 1 }}>
-                <Button size="sm" title="Подарить" variant="ghost" onPress={() => setGiftOpen(true)} />
-              </View>
-            )}
+            <View style={{ flex: 1 }}>
+              <Button size="sm" title="Подарить" variant="ghost" onPress={openPaidGift} />
+            </View>
             <View style={{ flex: 1 }}>
               <Button size="sm" title="Промокод" variant="ghost" onPress={() => setPromoOpen(true)} />
             </View>
@@ -444,6 +623,31 @@ export default function ProfileScreen() {
               ) : undefined
             }
             onPress={me?.telegram_linked ? unlinkTelegram : linkTelegram}
+          />
+          <View style={styles.menuDivider} />
+          {isSponsor && (
+            <>
+              <MenuItem
+                icon="gift"
+                iconColor="#F472B6"
+                title="Спонсорский подарок"
+                sub="24 часа VPN другу — раз в 30 дней бесплатно"
+                onPress={() => setGiftOpen(true)}
+              />
+              <View style={styles.menuDivider} />
+            </>
+          )}
+          <MenuItem
+            icon="shield-checkmark"
+            iconColor={colors.green}
+            title="Двухфакторная аутентификация"
+            sub={twoFaEnabled === null ? "Проверка…" : twoFaEnabled ? "Включена — защита аккаунта" : "Защитите аккаунт кодом из приложения"}
+            trailing={
+              twoFaEnabled ? (
+                <Ionicons name="checkmark-circle" size={22} color={colors.green} />
+              ) : undefined
+            }
+            onPress={openTwoFa}
           />
           <View style={styles.menuDivider} />
           <MenuItem
@@ -584,6 +788,185 @@ export default function ProfileScreen() {
                 </View>
               )}
               <Button size="sm" title="Закрыть" variant="ghost" onPress={() => setGiftOpen(false)} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>}
+
+      {/* Платный подарок подписки (любому пользователю) */}
+      {paidGiftOpen && <Modal visible={paidGiftOpen} transparent animationType="fade" onRequestClose={() => setPaidGiftOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setPaidGiftOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>🎁 Подарить подписку</Text>
+            <Text style={styles.modalText}>
+              Подписка будет активирована у получателя сразу, сумма спишется с вашего баланса.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={paidRecipient}
+              onChangeText={setPaidRecipient}
+              placeholder="Email или логин получателя"
+              placeholderTextColor={colors.textFaint}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.planGrid}>
+              {Object.keys(paidPrices).map((p) => {
+                const on = paidPlan === p;
+                return (
+                  <PressableScale
+                    key={p}
+                    style={[styles.planCard, on && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
+                    onPress={() => setPaidPlan(p)}
+                  >
+                    <Text style={[styles.planName, on && { color: colors.accent }]}>
+                      {paidNames[p] || p}
+                    </Text>
+                    <Text style={styles.planPrice}>{paidPrices[p]} ₽</Text>
+                  </PressableScale>
+                );
+              })}
+            </View>
+            {!!paidPlan && (
+              <View style={styles.giftPriceRow}>
+                <Text style={styles.modalText}>
+                  К списанию: {paidPrices[paidPlan]} ₽ · Ваш баланс: {((me?.balance || 0) / 100).toFixed(0)} ₽
+                </Text>
+              </View>
+            )}
+            <View style={{ gap: 8, marginTop: 4 }}>
+              <Button title="Подарить" loading={paidBusy} onPress={sendPaidGift} />
+              <Button size="sm" title="Отмена" variant="ghost" onPress={() => setPaidGiftOpen(false)} />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>}
+
+      {/* Двухфакторная аутентификация (TOTP) */}
+      {twoFaOpen && <Modal visible={twoFaOpen} transparent animationType="fade" onRequestClose={() => setTwoFaOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setTwoFaOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 560 }}>
+              <Text style={styles.modalTitle}>🔐 Двухфакторная аутентификация</Text>
+
+              {/* Резервные коды — показать один раз */}
+              {!!twoFaBackupCodes && (
+                <View style={styles.backupBox}>
+                  <Text style={styles.backupTitle}>Резервные коды — сохраните сейчас!</Text>
+                  <Text style={styles.backupHint}>
+                    Показываются один раз. Используйте их, если потеряете доступ к приложению-аутентификатору.
+                  </Text>
+                  <View style={styles.backupGrid}>
+                    {twoFaBackupCodes.map((c) => (
+                      <Text key={c} style={styles.backupCode} selectable>
+                        {c}
+                      </Text>
+                    ))}
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        size="sm"
+                        title="Скопировать"
+                        variant="ghost"
+                        onPress={async () => {
+                          await Clipboard.setStringAsync(twoFaBackupCodes.join("\n"));
+                          showToast("Коды скопированы");
+                        }}
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Button
+                        size="sm"
+                        title="Поделиться"
+                        variant="ghost"
+                        onPress={() => {
+                          Share.share({ message: `Резервные коды 2FA GhostCloud:\n${twoFaBackupCodes.join("\n")}` }).catch(() => {});
+                        }}
+                      />
+                    </View>
+                  </View>
+                  <View style={{ marginTop: 10 }}>
+                    <Button size="sm" title="Я сохранил(а) коды" onPress={() => setTwoFaBackupCodes(null)} />
+                  </View>
+                </View>
+              )}
+
+              {/* Шаг 1: настройка QR */}
+              {!twoFaBackupCodes && twoFaEnabled === false && !twoFaSetupData && (
+                <View style={{ gap: 10 }}>
+                  <Text style={styles.modalText}>
+                    Дополнительная защита аккаунта: при входе потребуется код из приложения
+                    Google Authenticator, Authy или аналогичного.
+                  </Text>
+                  <Button title="Начать настройку" loading={twoFaBusy} onPress={twoFaStart} />
+                </View>
+              )}
+
+              {/* Шаг 2: QR + код подтверждения */}
+              {!twoFaBackupCodes && !!twoFaSetupData && (
+                <View style={{ gap: 10 }}>
+                  <Text style={styles.modalText}>
+                    Отсканируйте QR-код в приложении-аутентификаторе и введите код оттуда.
+                  </Text>
+                  <View style={styles.qrBox}>
+                    <QRCode value={twoFaSetupData.otpauth_url} size={180} backgroundColor="#fff" color="#111" />
+                  </View>
+                  <PressableScale
+                    style={styles.secretRow}
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(twoFaSetupData.secret);
+                      showToast("Секрет скопирован");
+                    }}
+                  >
+                    <Text style={styles.secretText} numberOfLines={1}>
+                      Секрет: {twoFaSetupData.secret}
+                    </Text>
+                  </PressableScale>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={twoFaCode}
+                    onChangeText={(t) => setTwoFaCode(t.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="6-значный код"
+                    placeholderTextColor={colors.textFaint}
+                    keyboardType="number-pad"
+                  />
+                  <Button title="Подтвердить и включить" loading={twoFaBusy} onPress={twoFaConfirmCode} />
+                </View>
+              )}
+
+              {/* Включена: управление */}
+              {!twoFaBackupCodes && twoFaEnabled === true && (
+                <View style={{ gap: 10 }}>
+                  <View style={styles.twoFaOnRow}>
+                    <Ionicons name="shield-checkmark" size={20} color={colors.green} />
+                    <Text style={styles.modalText}>
+                      2FA включена. Резервных кодов осталось: {twoFaBackupLeft}.
+                    </Text>
+                  </View>
+                  <TextInput
+                    style={styles.modalInput}
+                    value={twoFaCode}
+                    onChangeText={(t) => setTwoFaCode(t.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="Код из приложения (или резервный)"
+                    placeholderTextColor={colors.textFaint}
+                    keyboardType="number-pad"
+                  />
+                  <TextInput
+                    style={styles.modalInput}
+                    value={twoFaPassword}
+                    onChangeText={setTwoFaPassword}
+                    placeholder="Или пароль аккаунта"
+                    placeholderTextColor={colors.textFaint}
+                    secureTextEntry
+                  />
+                  <Button title="Перевыпустить резервные коды" variant="ghost" loading={twoFaBusy} onPress={twoFaRegen} />
+                  <Button title="Отключить 2FA" variant="danger" loading={twoFaBusy} onPress={twoFaOff} />
+                </View>
+              )}
+            </ScrollView>
+            <View style={{ marginTop: 10 }}>
+              <Button size="sm" title="Закрыть" variant="ghost" onPress={() => setTwoFaOpen(false)} />
             </View>
           </Pressable>
         </Pressable>
@@ -801,4 +1184,77 @@ const makeStyles = () =>
       marginBottom: 12,
     },
     giftKeyText: { color: colors.text, fontSize: 13, fontWeight: "600", lineHeight: 19 },
+    // Платный подарок
+    modalInput: {
+      backgroundColor: colors.bgSoft,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      color: colors.text,
+      fontSize: 14,
+      marginBottom: 10,
+    },
+    planGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginBottom: 10,
+    },
+    planCard: {
+      flexGrow: 1,
+      flexBasis: "45%",
+      backgroundColor: colors.bgSoft,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 8,
+      alignItems: "center",
+    },
+    planName: { color: colors.text, fontSize: 13, fontWeight: "700" },
+    planPrice: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+    giftPriceRow: { marginBottom: 10 },
+    // 2FA
+    qrBox: {
+      backgroundColor: "#fff",
+      borderRadius: 14,
+      padding: 12,
+      alignSelf: "center",
+      marginBottom: 4,
+    },
+    secretRow: {
+      backgroundColor: colors.bgSoft,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      marginBottom: 4,
+    },
+    secretText: { color: colors.textFaint, fontSize: 11.5, fontFamily: "monospace" },
+    twoFaOnRow: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" },
+    backupBox: {
+      backgroundColor: colors.orange + "14",
+      borderWidth: 1,
+      borderColor: colors.orange + "55",
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 10,
+    },
+    backupTitle: { color: colors.orange, fontSize: 14, fontWeight: "800", textAlign: "center", marginBottom: 6 },
+    backupHint: { color: colors.textDim, fontSize: 12, lineHeight: 17, textAlign: "center", marginBottom: 10 },
+    backupGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
+    backupCode: {
+      backgroundColor: sheetSurfaceBg(),
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "700",
+      fontFamily: "monospace",
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      overflow: "hidden",
+    },
   });

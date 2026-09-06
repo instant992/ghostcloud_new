@@ -23,6 +23,7 @@ import { getSetting, setSetting } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
+import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
 import * as stats from "../../stats";
 
@@ -323,6 +324,8 @@ export default function MinimalistScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 116 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Объявления с сервера — в самом верху */}
+        <AnnouncementsArea style={{ marginTop: 10, marginBottom: 6 }} />
 
         {/* Кнопка питания — цвета как в основной теме */}
         <View style={styles.powerArea}>

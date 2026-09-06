@@ -30,6 +30,7 @@ import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButt
 import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
+import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
 import * as stats from "../../stats";
 import {
@@ -325,6 +326,9 @@ export default function HappScreen() {
         contentContainerStyle={{ padding: 10, paddingBottom: insets.bottom + 28 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Объявления с сервера — в самом верху */}
+        <AnnouncementsArea style={{ marginBottom: 6 }} />
+
         {/* Кнопка подключения — неоморфные круги */}
         <View style={styles.powerArea}>
           <Animated.View

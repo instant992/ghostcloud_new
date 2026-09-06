@@ -24,6 +24,7 @@ import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings
 import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode } from "../../theme";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
+import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { SponsorHeart } from "../../components/Badges";
 import { showToast } from "../../components/Toast";
 
@@ -262,6 +263,9 @@ export default function V2rayScreen() {
           <IconBtn icon="person-outline" onPress={() => nav.navigate("Профиль")} />
           <IconBtn icon="ellipsis-vertical" onPress={() => setMenuOpen(true)} />
         </View>
+
+        {/* Объявления с сервера — над балансом */}
+        <AnnouncementsArea style={{ marginTop: 8 }} />
 
         <View style={styles.balanceBar}>
           <IconBtn icon="add-circle-outline" size={18} color={colors.accent} onPress={() => setBalanceOpen(true)} />

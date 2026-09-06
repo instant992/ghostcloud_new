@@ -16,17 +16,24 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [need2fa, setNeed2fa] = useState(false);
+  const [totp, setTotp] = useState("");
 
   const doLogin = async () => {
     if (!loginStr.trim() || !password) {
       setError("Введите логин и пароль");
       return;
     }
+    if (need2fa && !totp.trim()) {
+      setError("Введите код из приложения-аутентификатора");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      await signIn(loginStr.trim(), password);
+      await signIn(loginStr.trim(), password, need2fa ? totp.trim() : undefined);
     } catch (e: any) {
+      if (e?.requires2fa) setNeed2fa(true);
       setError(e?.message || "Ошибка входа");
     } finally {
       setLoading(false);
@@ -64,6 +71,19 @@ export default function LoginScreen() {
             returnKeyType="go"
             onSubmitEditing={doLogin}
           />
+          {need2fa && (
+            <Input
+              label="Код 2FA"
+              placeholder="6-значный код из приложения"
+              value={totp}
+              onChangeText={(t) => setTotp(t.replace(/\D/g, "").slice(0, 10))}
+              keyboardType="number-pad"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="go"
+              onSubmitEditing={doLogin}
+            />
+          )}
           <Pressable
             onPress={() => nav.navigate("ResetPassword")}
             accessibilityRole="link"

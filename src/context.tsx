@@ -92,7 +92,7 @@ type AppState = {
   selectedNodeId: string | null;
   vpnRunning: boolean;
   subscriptionActive: boolean;
-  signIn: (loginStr: string, password: string) => Promise<void>;
+  signIn: (loginStr: string, password: string, totpCode?: string) => Promise<void>;
   signInViaToken: (subscriptionUrl: string, user?: any) => Promise<void>;
   signOut: () => Promise<void>;
   refreshMe: () => Promise<void>;
@@ -393,9 +393,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [reloadNodes]);
 
-  const signIn = useCallback(async (loginStr: string, password: string) => {
-    const data = await api.login(loginStr, password);
-    if (!data?.success) throw new Error(data?.error || "Неверный логин или пароль");
+  const signIn = useCallback(async (loginStr: string, password: string, totpCode?: string) => {
+    const data = await api.login(loginStr, password, totpCode);
+    if (!data?.success) {
+      const err: any = new Error(data?.error || "Неверный логин или пароль");
+      err.requires2fa = !!data?.requires_2fa;
+      throw err;
+    }
     await saveSession({
       subUrl: data.subscription_url,
       combinedSubUrl: data.subscription_url,

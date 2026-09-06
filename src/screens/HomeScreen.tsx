@@ -12,6 +12,7 @@ import { PressableScale } from "../components/PressableScale";
 import { PowerButton } from "../components/PowerButton";
 import { ConnectionFilterModal } from "../components/ConnectionFilterModal";
 import { BalanceSheet } from "../components/BalanceSheet";
+import { AnnouncementsArea } from "../components/AnnouncementsArea";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -159,8 +160,11 @@ export default function HomeScreen() {
     // Плавающий таб-бар не занимает место в потоке — возвращаем контенту
     // нижний отступ под меню (как у остальных вкладок через Screen),
     // чтобы кнопка питания и нижние блоки не уходили под круги меню.
-    <View style={[styles.screen, { paddingBottom: insets.bottom + 116 }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+    <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 116 }]}>
+      {/* Объявления с сервера — над шапкой с балансом */}
+      <AnnouncementsArea style={{ marginHorizontal: 20, marginBottom: 10 }} />
+
+      <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Image
             source={{ uri: "app_icon" }}

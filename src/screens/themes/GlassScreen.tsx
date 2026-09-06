@@ -26,6 +26,7 @@ import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor } from "../../theme";
 import { PowerButton } from "../../components/PowerButton";
+import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -356,6 +357,9 @@ export default function GlassScreen() {
             <Ionicons name="headset-outline" size={22} color={colors.text} />
           </GlassCard>
         </View>
+
+        {/* Объявления с сервера — над балансом */}
+        <AnnouncementsArea style={{ marginTop: 6, marginBottom: 10 }} />
 
         {/* Статус + баланс */}
         <View style={{ flexDirection: "row", alignItems: "flex-start", marginTop: 6 }}>
