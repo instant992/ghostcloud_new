@@ -382,7 +382,6 @@ export default function ProfileScreen() {
               <Row
                 label="Баланс"
                 value={`${((me?.balance || 0) / 100).toFixed(0)} ₽  ›`}
-                valueColor={colors.accent}
                 compact
               />
             </PressableScale>
