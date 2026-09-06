@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
-import { colors, useTheme } from "../theme";
+import { colors, useTheme, BRAND_PURPLE } from "../theme";
 
 const FOX_FACTS = [
   "Лиса слышит мышь под слоем снега глубиной до метра — и прыгает точно в точку.",
@@ -36,7 +36,7 @@ export default function FoxSplash({ onDone }: { onDone: () => void }) {
       <Text style={styles.appName}>GhostCloud</Text>
       <Text style={styles.factLabel}>А вы знали?</Text>
       <Text style={styles.fact}>{fact}</Text>
-      <ActivityIndicator color={colors.accent} style={{ marginTop: 28 }} />
+      <ActivityIndicator color={BRAND_PURPLE} style={{ marginTop: 28 }} />
     </View>
   );
 }
@@ -57,13 +57,13 @@ const makeStyles = () =>
     },
     logo: { width: 64, height: 64, borderRadius: 16, marginBottom: 12 },
     appName: {
-      color: colors.text,
+      color: BRAND_PURPLE,
       fontSize: 22,
       fontWeight: "800",
       marginBottom: 26,
     },
     factLabel: {
-      color: colors.accent,
+      color: BRAND_PURPLE,
       fontSize: 12,
       fontWeight: "800",
       textTransform: "uppercase",

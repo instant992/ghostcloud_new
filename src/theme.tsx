@@ -375,9 +375,9 @@ function resolveMode(mode: ThemeMode): "dark" | "light" {
 
 export const colors: any = { ...PALETTES[getThemeName()][resolveMode(getThemeMode())] };
 
-/** Фирменный фиолетовый — цвет волос персонажа на иконке GhostCloud
- *  (медиана #8B65A1). Единый цвет названия приложения во всех темах. */
-export const BRAND_PURPLE = "#8B65A1";
+/** Фирменный фиолетовый — как акцент приложения (иконки, значки): яркий
+ *  purple-500. Единый цвет названия приложения во всех темах. */
+export const BRAND_PURPLE = "#A855F7";
 
 /** Перекрашивает объект colors на месте — все экраны перерисуются при следующем рендере.
  *  Также переключает шрифт темы (свои шрифты у Liquid Glass и v2ray). */
