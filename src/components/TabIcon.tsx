@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle as SvgCircle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { colors, useTheme } from "../theme";
+import { colors, isLightPalette, useTheme } from "../theme";
 
 export type TabChainItem = {
   key: string;
@@ -32,6 +32,11 @@ export function TabChain({
 }) {
   useTheme();
   const styles = makeStyles();
+  const light = isLightPalette();
+  // Перемычки и обводки: на светлой теме светло-серые (не бросаются в глаза),
+  // на тёмной — как раньше (тёмный фон + серая рамка)
+  const connFill = light ? "#E4E1EE" : "#2E2E36";
+  const connStroke = light ? "rgba(160,158,175,0.45)" : "rgba(165,165,175,0.55)";
   const n = items.length;
   const W = PAD * 2 + R * 2 + D * (n - 1);
   const H = PAD * 2 + RING;
@@ -79,8 +84,8 @@ export function TabChain({
               y={cy - h / 2}
               width={x2 - x1}
               height={h}
-              fill="#2E2E36"
-              stroke="rgba(165,165,175,0.55)"
+              fill={connFill}
+              stroke={connStroke}
               strokeWidth={1.2}
             />
           );
@@ -93,7 +98,7 @@ export function TabChain({
             cy={cy}
             r={R}
             fill={colors.bg}
-            stroke="rgba(165,165,175,0.55)"
+            stroke={connStroke}
             strokeWidth={2}
           />
         ))}

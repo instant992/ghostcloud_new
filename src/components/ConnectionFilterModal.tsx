@@ -402,9 +402,10 @@ export function ConnectionFilterModal({
             <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
               <Text style={styles.roscomInfoText}>{ROSCOMVPN_DESCRIPTION}</Text>
               <Text style={styles.roscomInfoText}>
-                Режим выбирается автоматически по серверу: обычные серверы — DEFAULT
-                (российские сервисы и игры напрямую), LTE Open — WHITELIST (напрямую
-                только белые списки РФ).
+                Профиль включает DEFAULT-роутинг на обычных серверах (российские
+                сервисы и игры напрямую). Для LTE Open-серверов WHITELIST-роутинг
+                применяется всегда автоматически — напрямую идут только белые
+                списки РФ, остальное через VPN.
               </Text>
               <Text style={styles.roscomInfoText}>
                 Списки доменов и IP обновляются вместе с приложением (данные проекта

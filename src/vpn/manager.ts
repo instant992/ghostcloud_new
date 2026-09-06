@@ -333,12 +333,17 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
 
   const core = getSelectedCore();
   const isSponsor = opts.isSponsor === true;
-  // RoscomVPN-роутинг: если профиль активен — режим по типу узла
-  // (обычные серверы → DEFAULT, LTE Open → WHITELIST), иначе null
+  // RoscomVPN-роутинг: LTE Open-серверы ВСЕГДА получают WHITELIST-роутинг
+  // (напрямую только белые списки РФ) — профиль для этого включать не нужно;
+  // обычные серверы получают DEFAULT-роутинг, только если профиль активен.
   let roscomMode: RoscomMode | null = null;
   try {
-    const active = roscomRoutingForNetwork(loadFilterSettings(), getNetworkType());
-    if (active) roscomMode = isLteNode(node) ? "whitelist" : "default";
+    if (isLteNode(node)) {
+      roscomMode = "whitelist";
+    } else {
+      const active = roscomRoutingForNetwork(loadFilterSettings(), getNetworkType());
+      if (active) roscomMode = "default";
+    }
   } catch {}
   const failover = buildFailoverInfo(core, node, bypass.domains, isSponsor, roscomMode);
 
