@@ -24,7 +24,7 @@ import * as pingStore from "../../vpn/pingStore";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor, BRAND_PURPLE } from "../../theme";
 import { PowerButton } from "../../components/PowerButton";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { transportLabel } from "../../utils/transportLabel";
@@ -576,7 +576,7 @@ const makeStyles = () => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   headerLogo: { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
-    color: "#7B2FBE",
+    color: BRAND_PURPLE,
     fontSize: 26,
     fontWeight: "700",
     letterSpacing: -0.5,

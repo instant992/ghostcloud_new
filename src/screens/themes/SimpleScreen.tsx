@@ -9,7 +9,7 @@ import { connect, disconnect, pickBestNode } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { tcpPing } from "../../vpn/native";
 import type { VpnNode } from "../../vpn/parse";
-import { colors, splitNameFlag, useTheme, SIMPLE_UNLOCK_CODE } from "../../theme";
+import { colors, splitNameFlag, useTheme, SIMPLE_UNLOCK_CODE, BRAND_PURPLE } from "../../theme";
 import { showToast } from "../../components/Toast";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 
@@ -323,7 +323,7 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 8,
   },
-  appName: { color: colors.text, fontSize: 26, fontWeight: "800" },
+  appName: { color: BRAND_PURPLE, fontSize: 26, fontWeight: "800" },
   modeLabel: { color: colors.textDim, fontSize: 15, marginTop: 2 },
   gearBtn: { padding: 8 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },

@@ -26,7 +26,7 @@ import * as pingStore from "../../vpn/pingStore";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, BRAND_PURPLE } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -1045,7 +1045,7 @@ const makeStyles = () => {
   headerSide: { flexDirection: "row", alignItems: "center", width: 104 },
   headerIcon: { padding: 7, alignItems: "center", justifyContent: "center", borderRadius: 10 },
   appTitle: {
-    color: TITLE_PURPLE,
+    color: BRAND_PURPLE,
     fontSize: 21,
     fontWeight: "800",
     letterSpacing: -0.3,

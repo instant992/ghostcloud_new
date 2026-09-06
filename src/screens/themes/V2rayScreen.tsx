@@ -21,7 +21,7 @@ import * as pingStore from "../../vpn/pingStore";
 import { pickBestNode } from "../../vpn/manager";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
-import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode } from "../../theme";
+import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode, BRAND_PURPLE } from "../../theme";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
@@ -73,6 +73,11 @@ export default function V2rayScreen() {
   const [smartBusy, setSmartBusy] = useState(false);
   const [smartName, setSmartName] = useState<string | null>(null);
   const [tab, setTab] = useState<"pinned" | "main" | "lte">("main");
+  /** Ширина области списка серверов — для постраничного свайпа влево-вправо */
+  const [pagerW, setPagerW] = useState(0);
+  const pagerRef = useRef<ScrollView>(null);
+  /** Свайп сейчас ведёт сам — не боремся с ним автопрокруткой */
+  const pagerSelfDriven = useRef(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
@@ -229,11 +234,10 @@ export default function V2rayScreen() {
     }
   };
 
-  const currentNodes = tab === "pinned" ? pinnedNodes : tab === "lte" ? lteNodes : mainNodes;
-  const emptyText =
-    tab === "pinned"
+  const emptyTextFor = (key: "pinned" | "main" | "lte") =>
+    key === "pinned"
       ? "Нет закреплённых серверов"
-      : tab === "lte"
+      : key === "lte"
         ? "Нет серверов LTE OPEN"
         : "Серверов пока нет";
 
@@ -241,6 +245,21 @@ export default function V2rayScreen() {
   if (pinnedNodes.length > 0) tabs.push({ key: "pinned", label: "Закрепленные", count: pinnedNodes.length });
   tabs.push({ key: "main", label: "Основные", count: mainNodes.length });
   if (lteNodes.length > 0 && subscriptionActive) tabs.push({ key: "lte", label: "LTE OPEN", count: lteNodes.length });
+
+  const nodesForTab = (key: "pinned" | "main" | "lte") =>
+    key === "pinned" ? pinnedNodes : key === "lte" ? lteNodes : mainNodes;
+  const tabIndex = Math.max(0, tabs.findIndex((t) => t.key === tab));
+
+  // Тап по вкладке → прокрутка пейджера к нужной странице
+  useEffect(() => {
+    if (!pagerW || pagerSelfDriven.current) return;
+    pagerRef.current?.scrollTo({ x: tabIndex * pagerW, animated: true });
+  }, [tabIndex, pagerW]);
+
+  // Если текущая вкладка исчезла из tabs (например, выключен LTE) — возврат к основной
+  useEffect(() => {
+    if (!tabs.some((t) => t.key === tab)) setTab("main");
+  }, [tabs.length, tab]);
 
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
   let statusText = "Нет соединения";
@@ -306,33 +325,64 @@ export default function V2rayScreen() {
         </ScrollView>
       </View>
 
-      <View style={{ flex: 1 }}>
-        <FlatList
+      <View style={{ flex: 1 }} onLayout={(e) => setPagerW(e.nativeEvent.layout.width)}>
+        <ScrollView
+          ref={pagerRef}
+          horizontal
+          pagingEnabled
           bounces={false}
+          showsHorizontalScrollIndicator={false}
           overScrollMode="never"
-          data={currentNodes}
-          keyExtractor={(n) => n.id}
-          contentContainerStyle={{ paddingBottom: 96 }}
-          renderItem={({ item }) => (
-            <ServerRow
-              node={item}
-              selected={item.id === selectedNode?.id}
-              ping={pings[item.id]}
-              isPinned={pinned.includes(item.id)}
-              onSelect={() => {
-                selectNode(item.id);
-                Haptics.selectionAsync().catch(() => {});
-              }}
-              onPing={() => pingStore.pingOne(item)}
-              onTogglePin={() => togglePin(item.id)}
-            />
-          )}
-          ListEmptyComponent={
-            <View style={{ alignItems: "center", paddingVertical: 48 }}>
-              <Text style={{ color: colors.textDim }}>{emptyText}</Text>
-            </View>
-          }
-        />
+          scrollEventThrottle={16}
+          onMomentumScrollEnd={(e) => {
+            const w = pagerW || e.nativeEvent.layoutMeasurement.width;
+            if (!w) return;
+            const idx = Math.round(e.nativeEvent.contentOffset.x / w);
+            const t = tabs[idx];
+            if (!t || t.key === tab) return;
+            // свайп ведёт сам — глушим автопрокрутку, пока вкладка догоняет страницу
+            pagerSelfDriven.current = true;
+            setTab(t.key);
+            Haptics.selectionAsync().catch(() => {});
+            setTimeout(() => {
+              pagerSelfDriven.current = false;
+            }, 400);
+          }}
+        >
+          {tabs.map((t) => {
+            const pageNodes = nodesForTab(t.key);
+            return (
+              <View key={t.key} style={{ width: pagerW || undefined, flex: pagerW ? undefined : 1 }}>
+                <FlatList
+                  bounces={false}
+                  overScrollMode="never"
+                  data={pageNodes}
+                  keyExtractor={(n) => n.id}
+                  contentContainerStyle={{ paddingBottom: 96 }}
+                  renderItem={({ item }) => (
+                    <ServerRow
+                      node={item}
+                      selected={item.id === selectedNode?.id}
+                      ping={pings[item.id]}
+                      isPinned={pinned.includes(item.id)}
+                      onSelect={() => {
+                        selectNode(item.id);
+                        Haptics.selectionAsync().catch(() => {});
+                      }}
+                      onPing={() => pingStore.pingOne(item)}
+                      onTogglePin={() => togglePin(item.id)}
+                    />
+                  )}
+                  ListEmptyComponent={
+                    <View style={{ alignItems: "center", paddingVertical: 48 }}>
+                      <Text style={{ color: colors.textDim }}>{emptyTextFor(t.key)}</Text>
+                    </View>
+                  }
+                />
+              </View>
+            );
+          })}
+        </ScrollView>
 
         <Pressable
           style={[styles.fab, { backgroundColor: vpnRunning ? "#22C55E" : "#B0B0B0", opacity: busy ? 0.7 : 1 }]}
@@ -646,7 +696,7 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  appTitle: { color: colors.accent, fontSize: 22, fontWeight: "800", marginLeft: 2 },
+  appTitle: { color: BRAND_PURPLE, fontSize: 22, fontWeight: "800", marginLeft: 2 },
   balanceBar: {
     height: 38,
     flexDirection: "row",

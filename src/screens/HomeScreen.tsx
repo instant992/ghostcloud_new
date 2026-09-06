@@ -26,7 +26,7 @@ import { computeBypassForNetwork, loadFilterSettings } from "../vpn/connectionFi
 import { getNetworkType } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes, useTheme, pingColor } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor, BRAND_PURPLE } from "../theme";
 
 export default function HomeScreen() {
   useTheme();
@@ -589,7 +589,7 @@ const makeStyles = () => StyleSheet.create({
     height: 36,
     borderRadius: 10,
   },
-  clientName: { color: colors.text, fontSize: 15, fontWeight: "800" },
+  clientName: { color: BRAND_PURPLE, fontSize: 15, fontWeight: "800" },
   subPill: {
     backgroundColor: colors.accentDeep,
     borderRadius: 20,
