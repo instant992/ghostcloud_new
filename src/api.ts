@@ -63,13 +63,12 @@ async function request(
 
 // ── Auth ──
 
-export async function login(loginStr: string, password: string, totpCode?: string) {
-  return request(
-    "POST",
-    "/api/auth/login",
-    totpCode ? { login: loginStr, password, totp_code: totpCode } : { login: loginStr, password },
-    { auth: false }
-  );
+export async function login(loginStr: string, password?: string, totpCode?: string) {
+  // Пароль и код 2ФА — взаимозаменяемые способы входа: достаточно любого одного.
+  const body: Record<string, unknown> = { login: loginStr };
+  if (password) body.password = password;
+  if (totpCode) body.totp_code = totpCode;
+  return request("POST", "/api/auth/login", body, { auth: false });
 }
 
 export async function checkEmail(email: string) {

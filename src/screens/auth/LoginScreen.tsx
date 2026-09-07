@@ -16,24 +16,23 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [need2fa, setNeed2fa] = useState(false);
   const [totp, setTotp] = useState("");
 
   const doLogin = async () => {
-    if (!loginStr.trim() || !password) {
-      setError("Введите логин и пароль");
+    if (!loginStr.trim()) {
+      setError("Введите логин");
       return;
     }
-    if (need2fa && !totp.trim()) {
-      setError("Введите код из приложения-аутентификатора");
+    // Пароль и код 2FA — взаимозаменяемые: достаточно любого одного
+    if (!password && !totp.trim()) {
+      setError("Введите пароль или код 2FA");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await signIn(loginStr.trim(), password, need2fa ? totp.trim() : undefined);
+      await signIn(loginStr.trim(), password || undefined, totp.trim() || undefined);
     } catch (e: any) {
-      if (e?.requires2fa) setNeed2fa(true);
       setError(e?.message || "Ошибка входа");
     } finally {
       setLoading(false);
@@ -65,25 +64,21 @@ export default function LoginScreen() {
           />
           <PasswordInput
             label="Пароль"
-            placeholder="Пароль"
+            placeholder="Ваш пароль"
             value={password}
             onChangeText={setPassword}
+            returnKeyType="next"
+          />
+          <Input
+            label="Код 2FA — или пароль выше (что-то одно)"
+            placeholder="Код из приложения или резервный XXXX-XXXX"
+            value={totp}
+            onChangeText={(t) => setTotp(t.toUpperCase().replace(/[^0-9A-Z-]/g, "").slice(0, 10))}
+            autoCapitalize="characters"
+            autoCorrect={false}
             returnKeyType="go"
             onSubmitEditing={doLogin}
           />
-          {need2fa && (
-            <Input
-              label="Код 2FA"
-              placeholder="6-значный код из приложения"
-              value={totp}
-              onChangeText={(t) => setTotp(t.replace(/\D/g, "").slice(0, 10))}
-              keyboardType="number-pad"
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="go"
-              onSubmitEditing={doLogin}
-            />
-          )}
           <Pressable
             onPress={() => nav.navigate("ResetPassword")}
             accessibilityRole="link"
