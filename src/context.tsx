@@ -93,6 +93,7 @@ type AppState = {
   vpnRunning: boolean;
   subscriptionActive: boolean;
   signIn: (loginStr: string, password?: string, totpCode?: string) => Promise<void>;
+  signIn2fa: (totpCode: string) => Promise<void>;
   signInViaToken: (subscriptionUrl: string, user?: any) => Promise<void>;
   signOut: () => Promise<void>;
   refreshMe: () => Promise<void>;
@@ -393,13 +394,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, [reloadNodes]);
 
-  const signIn = useCallback(async (loginStr: string, password?: string, totpCode?: string) => {
-    const data = await api.login(loginStr, password, totpCode);
-    if (!data?.success) {
-      const err: any = new Error(data?.error || "Неверный логин или пароль");
-      err.requires2fa = !!data?.requires_2fa;
-      throw err;
-    }
+  const applyLoginResult = useCallback(async (data: any) => {
     await saveSession({
       subUrl: data.subscription_url,
       combinedSubUrl: data.subscription_url,
@@ -414,6 +409,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {}
     scheduleNodesRetry();
   }, [refreshMe, reloadNodes]);
+
+  const signIn = useCallback(async (loginStr: string, password?: string, totpCode?: string) => {
+    const data = await api.login(loginStr, password, totpCode);
+    if (!data?.success) {
+      const err: any = new Error(data?.error || "Неверный логин или пароль");
+      err.requires2fa = !!data?.requires_2fa;
+      throw err;
+    }
+    await applyLoginResult(data);
+  }, [applyLoginResult]);
+
+  const signIn2fa = useCallback(async (totpCode: string) => {
+    // Вход только по коду 2FA — без логина и пароля
+    const data = await api.login2fa(totpCode);
+    if (!data?.success) {
+      throw new Error(data?.error || "Неверный код 2FA");
+    }
+    await applyLoginResult(data);
+  }, [applyLoginResult]);
 
   const signInViaToken = useCallback(async (subscriptionUrl: string, user?: any) => {
     await saveSession({
@@ -464,6 +478,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       vpnRunning,
       subscriptionActive,
       signIn,
+      signIn2fa,
       signInViaToken,
       signOut,
       refreshMe,
@@ -471,7 +486,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       selectNode,
       setVpnRunning,
     }),
-    [loading, session, me, nodes, unsupportedCount, selectedNodeId, vpnRunning, subscriptionActive, signIn, signOut, refreshMe, reloadNodes, selectNode]
+    [loading, session, me, nodes, unsupportedCount, selectedNodeId, vpnRunning, subscriptionActive, signIn, signIn2fa, signOut, refreshMe, reloadNodes, selectNode]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

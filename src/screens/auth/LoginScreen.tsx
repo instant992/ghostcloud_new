@@ -11,32 +11,51 @@ export default function LoginScreen() {
   const styles = makeStyles();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
-  const { signIn } = useApp();
+  const { signIn, signIn2fa } = useApp();
   const [loginStr, setLoginStr] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** false — обычный вход (логин+пароль), true — вход только по коду 2FA */
+  const [twoFaMode, setTwoFaMode] = useState(false);
   const [totp, setTotp] = useState("");
 
   const doLogin = async () => {
-    if (!loginStr.trim()) {
-      setError("Введите логин");
-      return;
-    }
-    // Пароль и код 2FA — взаимозаменяемые: достаточно любого одного
-    if (!password && !totp.trim()) {
-      setError("Введите пароль или код 2FA");
+    if (!loginStr.trim() || !password) {
+      setError("Введите логин и пароль");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      await signIn(loginStr.trim(), password || undefined, totp.trim() || undefined);
+      await signIn(loginStr.trim(), password);
     } catch (e: any) {
       setError(e?.message || "Ошибка входа");
     } finally {
       setLoading(false);
     }
+  };
+
+  const doLogin2fa = async () => {
+    if (!totp.trim()) {
+      setError("Введите код из приложения-аутентификатора");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      // Логин и пароль не нужны — сервер находит аккаунт по коду
+      await signIn2fa(totp.trim());
+    } catch (e: any) {
+      setError(e?.message || "Ошибка входа");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const switchMode = (to2fa: boolean) => {
+    setTwoFaMode(to2fa);
+    setError(null);
   };
 
   return (
@@ -52,43 +71,68 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.formTitle}>Вход</Text>
-          <Input
-            label="Логин или email"
-            placeholder="Логин или email"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={loginStr}
-            onChangeText={setLoginStr}
-            returnKeyType="next"
-          />
-          <PasswordInput
-            label="Пароль"
-            placeholder="Ваш пароль"
-            value={password}
-            onChangeText={setPassword}
-            returnKeyType="next"
-          />
-          <Input
-            label="Код 2FA — или пароль выше (что-то одно)"
-            placeholder="Код из приложения или резервный XXXX-XXXX"
-            value={totp}
-            onChangeText={(t) => setTotp(t.toUpperCase().replace(/[^0-9A-Z-]/g, "").slice(0, 10))}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            returnKeyType="go"
-            onSubmitEditing={doLogin}
-          />
-          <Pressable
-            onPress={() => nav.navigate("ResetPassword")}
-            accessibilityRole="link"
-            style={styles.forgot}
-            hitSlop={8}
-          >
-            <Text style={styles.forgotText}>Забыли пароль?</Text>
-          </Pressable>
-          <ErrorText>{error}</ErrorText>
-          <Button title="Войти" onPress={doLogin} loading={loading} />
+          {!twoFaMode ? (
+            <>
+              <Text style={styles.formTitle}>Вход</Text>
+              <Input
+                label="Логин или email"
+                placeholder="Логин или email"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={loginStr}
+                onChangeText={setLoginStr}
+                returnKeyType="next"
+              />
+              <PasswordInput
+                label="Пароль"
+                placeholder="Ваш пароль"
+                value={password}
+                onChangeText={setPassword}
+                returnKeyType="go"
+                onSubmitEditing={doLogin}
+              />
+              <Pressable
+                onPress={() => nav.navigate("ResetPassword")}
+                accessibilityRole="link"
+                style={styles.forgot}
+                hitSlop={8}
+              >
+                <Text style={styles.forgotText}>Забыли пароль?</Text>
+              </Pressable>
+              <ErrorText>{error}</ErrorText>
+              <Button title="Войти" onPress={doLogin} loading={loading} />
+              <Button
+                title="Вход по 2FA"
+                variant="ghost"
+                onPress={() => switchMode(true)}
+              />
+            </>
+          ) : (
+            <>
+              <Text style={styles.formTitle}>Вход по 2FA</Text>
+              <Input
+                label="Код из приложения-аутентификатора"
+                placeholder="000000 или резервный XXXX-XXXX"
+                value={totp}
+                onChangeText={(t) => setTotp(t.toUpperCase().replace(/[^0-9A-Z-]/g, "").slice(0, 9))}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                returnKeyType="go"
+                onSubmitEditing={doLogin2fa}
+              />
+              <Text style={styles.hint2fa}>Логин и пароль не нужны — введите только код</Text>
+              <Pressable
+                onPress={() => switchMode(false)}
+                accessibilityRole="link"
+                style={styles.forgot}
+                hitSlop={8}
+              >
+                <Text style={styles.forgotText}>← Вход по паролю</Text>
+              </Pressable>
+              <ErrorText>{error}</ErrorText>
+              <Button title="Войти по коду" onPress={doLogin2fa} loading={loading} />
+            </>
+          )}
         </View>
 
         <View style={styles.dividerRow}>
@@ -153,6 +197,11 @@ const makeStyles = () => StyleSheet.create({
     ...typo.heading,
     fontSize: 18,
     marginBottom: 14,
+  },
+  hint2fa: {
+    color: colors.textDim,
+    ...typo.caption,
+    marginTop: 8,
   },
   forgot: {
     alignSelf: "flex-end",

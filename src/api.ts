@@ -71,6 +71,11 @@ export async function login(loginStr: string, password?: string, totpCode?: stri
   return request("POST", "/api/auth/login", body, { auth: false });
 }
 
+export async function login2fa(totpCode: string) {
+  // Вход ТОЛЬКО по коду 2FA — без логина и пароля (сервер найдёт аккаунт по коду).
+  return request("POST", "/api/auth/login-2fa", { totp_code: totpCode }, { auth: false });
+}
+
 export async function checkEmail(email: string) {
   return request("POST", "/api/check-email", { email }, { auth: false });
 }
