@@ -11,6 +11,7 @@ import * as api from "./api";
 import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session } from "./storage";
 import { VpnNode } from "./vpn/parse";
 import { isVpnRunning, onVpnStateChanged } from "./vpn/manager";
+import type { SecurityAlert } from "./components/SecurityAlertModal";
 import * as FileSystem from "expo-file-system/legacy";
 
 const NODES_CACHE_FILE = "nodes_cache.json";
@@ -81,6 +82,7 @@ export type MeInfo = {
   is_donor_eligible?: boolean;
   nick_style?: NickStyle | null;
   badges?: UserBadge[];
+  security_alerts?: SecurityAlert[];
 };
 
 type AppState = {
@@ -100,6 +102,12 @@ type AppState = {
   reloadNodes: () => Promise<void>;
   selectNode: (id: string) => void;
   setVpnRunning: (v: boolean) => void;
+  /** Уведомление безопасности (вход по 2FA) + действия из модалки */
+  securityAlert: SecurityAlert | null;
+  securityBusy: boolean;
+  securityConfirm: () => Promise<void>;
+  securityDisable2fa: () => Promise<void>;
+  securityKickAll: () => Promise<void>;
 };
 
 const Ctx = createContext<AppState>(null as any);
@@ -116,6 +124,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [unsupportedCount, setUnsupportedCount] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [vpnRunning, setVpnRunning] = useState(false);
+  /** Текущее уведомление безопасности (модалка «Вход по коду 2FA») */
+  const [securityAlert, setSecurityAlert] = useState<SecurityAlert | null>(null);
+  const [securityBusy, setSecurityBusy] = useState(false);
   const mounted = useRef(true);
   const cleanupRef = useRef<(() => void) | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
@@ -291,10 +302,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshMe = useCallback(async () => {
     const data = await api.getMe();
-    if (!data?.success) throw new Error(data?.error || "Не удалось получить профиль");
+    if (!data?.success) {
+      // Кик: сервер отозвал мобильную сессию — разлогиниваемся
+      if (data?.session_revoked) {
+        if (!mounted.current) return;
+        try {
+          const mod = await import("./vpn/manager");
+          await mod.disconnect();
+        } catch {}
+        await clearSession();
+        setSession(null);
+        setMe(null);
+        setNodes([]);
+        setSecurityAlert(null);
+        const err: any = new Error(data?.error || "Сессия завершена — войдите заново");
+        err.sessionRevoked = true;
+        throw err;
+      }
+      throw new Error(data?.error || "Не удалось получить профиль");
+    }
     if (!mounted.current) return;
     setMe(data as MeInfo);
     writeCacheFile(ME_CACHE_FILE, data);
+    // Лента уведомлений безопасности (вход по 2FA): показать последнее, если ещё не показывали
+    const alerts: SecurityAlert[] = data.security_alerts || [];
+    if (alerts.length > 0) {
+      setSecurityAlert((prev) => (prev && prev.id === alerts[0].id ? prev : alerts[0]));
+    }
     const newSession = await loadSession();
     const rw = data.subscription_url || newSession?.rwSubUrl;
     const combined = data.combined_subscription_url || undefined;
@@ -352,6 +386,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!mounted.current) return;
       setSession(s);
       if (s) {
+        // Push: регистрация FCM-токена для уведомлений безопасности
+        import("./push").then((p) => p.initPush()).catch(() => {});
+        // Тап по security-push -> сразу подтянуть ленту (/mobile/me покажет модалку)
+        import("./push").then((p) =>
+          p.addPushResponseListener(() => {
+            refreshMe().catch(() => {});
+          })
+        ).catch(() => {});
         // Мгновенный старт: показываем кэш профиля и серверов, сеть догоняет в фоне.
         // Так приложение полноценно работает офлайн.
         const [cachedMe, cachedNodes] = await Promise.all([readCacheFile(ME_CACHE_FILE), readNodesCache()]);
@@ -403,6 +445,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     const s = await loadSession();
     setSession(s);
+    // Push: регистрируем FCM-токен устройства для уведомлений безопасности
+    import("./push").then((p) => p.initPush()).catch(() => {});
     try {
       await refreshMe();
       await reloadNodes();
@@ -428,6 +472,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     await applyLoginResult(data);
   }, [applyLoginResult]);
+
+  // ── Действия из модалки уведомления безопасности ──
+  const securityConfirm = useCallback(async () => {
+    if (!securityAlert) return;
+    setSecurityBusy(true);
+    try {
+      await api.securityAlertRead(securityAlert.id);
+    } catch {}
+    setSecurityAlert(null);
+    setSecurityBusy(false);
+  }, [securityAlert]);
+
+  const securityDisable2fa = useCallback(async () => {
+    if (!securityAlert) return;
+    setSecurityBusy(true);
+    try {
+      const r = await api.securityDisable2fa(securityAlert.id);
+      if (!r?.success) throw new Error(r?.error || "Не удалось отключить 2FA");
+      setSecurityAlert(null);
+      try { await refreshMe(); } catch {}
+    } finally {
+      setSecurityBusy(false);
+    }
+  }, [securityAlert, refreshMe]);
+
+  const securityKickAll = useCallback(async () => {
+    if (!securityAlert) return;
+    setSecurityBusy(true);
+    try {
+      const r = await api.securityKick(securityAlert.id);
+      if (!r?.success) throw new Error(r?.error || "Не удалось выкинуть устройства");
+      // Кик отзывает и текущую сессию — разлогиниваемся сами
+      try {
+        const mod = await import("./vpn/manager");
+        await mod.disconnect();
+      } catch {}
+      await clearSession();
+      setSession(null);
+      setMe(null);
+      setNodes([]);
+      setSecurityAlert(null);
+    } finally {
+      setSecurityBusy(false);
+    }
+  }, [securityAlert]);
 
   const signInViaToken = useCallback(async (subscriptionUrl: string, user?: any) => {
     await saveSession({
@@ -485,8 +574,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       reloadNodes,
       selectNode,
       setVpnRunning,
+      securityAlert,
+      securityBusy,
+      securityConfirm,
+      securityDisable2fa,
+      securityKickAll,
     }),
-    [loading, session, me, nodes, unsupportedCount, selectedNodeId, vpnRunning, subscriptionActive, signIn, signIn2fa, signOut, refreshMe, reloadNodes, selectNode]
+    [loading, session, me, nodes, unsupportedCount, selectedNodeId, vpnRunning, subscriptionActive, signIn, signIn2fa, signOut, refreshMe, reloadNodes, selectNode, securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

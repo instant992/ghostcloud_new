@@ -36,6 +36,7 @@ import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import { TabChain } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
+import { SecurityAlertModal } from "./src/components/SecurityAlertModal";
 import { ToastHost } from "./src/components/Toast";
 import { TabAreaContext } from "./src/components/UI";
 
@@ -608,6 +609,20 @@ function Root() {
   );
 }
 
+function SecurityAlertHost() {
+  const { securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll } = useApp();
+  return (
+    <SecurityAlertModal
+      alert={securityAlert}
+      busy={securityBusy}
+      onConfirm={securityConfirm}
+      onDisable2fa={securityDisable2fa}
+      onKick={securityKickAll}
+      onClose={securityConfirm}
+    />
+  );
+}
+
 export default function App() {
   const [splashDone, setSplashDone] = React.useState(false);
 
@@ -632,6 +647,7 @@ export default function App() {
               <Root />
             </ThemedContainer>
             <ToastHost />
+            <SecurityAlertHost />
             {!splashDone && <FoxSplash onDone={() => setSplashDone(true)} />}
           </AppProvider>
         </SafeAreaProvider>

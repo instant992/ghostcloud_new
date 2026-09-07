@@ -16,6 +16,7 @@
     "runtimeVersion": "1.1.5",
     "android": {
       "package": "space.ghostcloud.app",
+      "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/monochrome-icon.png",
@@ -34,7 +35,13 @@
     "plugins": [
       "expo-secure-store",
       "expo-sharing",
-      "expo-camera"
+      "expo-camera",
+      [
+        "expo-notifications",
+        {
+          "color": "#A855F7"
+        }
+      ]
     ],
     "extra": {
       "eas": {

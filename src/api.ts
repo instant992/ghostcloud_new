@@ -98,6 +98,24 @@ export async function getMe() {
   return request("GET", "/api/auth/mobile/me");
 }
 
+// ── Push / Security alerts ──
+
+export async function registerFcmToken(fcmToken: string) {
+  return request("POST", "/api/auth/mobile/fcm-register", { fcm_token: fcmToken });
+}
+
+export async function securityAlertRead(alertId: number) {
+  return request("POST", "/api/auth/mobile/security/alert-read", { alert_id: alertId });
+}
+
+export async function securityDisable2fa(alertId: number) {
+  return request("POST", "/api/auth/mobile/security/disable-2fa", { alert_id: alertId });
+}
+
+export async function securityKick(alertId: number) {
+  return request("POST", "/api/auth/mobile/security/kick", { alert_id: alertId });
+}
+
 export async function updateDisplayName(displayName: string) {
   return request("PUT", "/api/auth/mobile/display-name", { display_name: displayName });
 }

@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "282550460811",
+    "project_id": "ghostcloud-fdb3c",
+    "storage_bucket": "ghostcloud-fdb3c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:282550460811:android:1bb5d0b81fda6c605bcf8e",
+        "android_client_info": {
+          "package_name": "com.foxcloud.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5opMxGe58VlHpJ_fDoKjfnVQ1UzxxWxU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:282550460811:android:9868d413712321a95bcf8e",
+        "android_client_info": {
+          "package_name": "space.ghostcloud.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5opMxGe58VlHpJ_fDoKjfnVQ1UzxxWxU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
