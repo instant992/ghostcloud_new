@@ -484,7 +484,7 @@ export default function GlassScreen() {
             </View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.serverName}>Лиса-раннер</Text>
-              <Text style={styles.serverSub}>Собери 75 монет — получи +1 день</Text>
+              <Text style={styles.serverSub}>Собери 500 монет — получи +1 день</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>

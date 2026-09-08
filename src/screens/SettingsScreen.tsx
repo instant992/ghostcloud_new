@@ -787,7 +787,7 @@ export default function SettingsScreen() {
               Лиса-раннер
             </Text>
             <Text style={{ color: colors.textFaint, fontSize: 11, marginTop: 1 }}>
-              Мини-игра: собери 75 монет — получи +1 день подписки
+              Мини-игра: собери 500 монет — получи +1 день подписки
             </Text>
           </View>
           <Text style={{ color: colors.accent, fontSize: 11, fontWeight: "700" }}>BETA</Text>

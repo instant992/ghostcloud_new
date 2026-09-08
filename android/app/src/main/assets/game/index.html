@@ -80,7 +80,7 @@
 <canvas id="gl"></canvas>
 
 <div class="hud hidden" id="hud">
-  <div class="medal"><div class="ring">🪙</div><div><b id="hCoins">0</b><span>/75</span></div></div>
+  <div class="medal"><div class="ring">🪙</div><div><b id="hCoins">0</b><span>/500</span></div></div>
   <div class="hudRight">
     <div class="iconBtn" id="hPause">❚❚</div>
     <div class="dist">🌙 <span id="hDist">0</span> м</div>
@@ -105,11 +105,12 @@
     <div class="statRow"><span>Кошелёк</span><span id="mWallet">0 🪙</span></div>
     <div class="statRow"><span>Забегов</span><span id="mRuns">0</span></div>
     <div style="height:8px;"></div>
+    <div class="topRow" style="color:#C7A6FF;font-weight:800;font-size:12px;letter-spacing:1px;"><span>🏆 ТОП ИГРОКОВ</span><span>монеты · метры</span></div>
     <div id="mTop"></div>
   </div>
   <div class="iconBtn soundTag" id="bSound">🔊</div>
   <div class="badge3d">3D · WebGL</div>
-  <p class="hint">Свайп ← → полоса · ↑ прыжок · ↓ подкат<br>🛹 Ховерборд спасёт от одного удара · Собери 75 монет — «+1 день»</p>
+  <p class="hint">Свайп ← → полоса · ↑ прыжок · ↓ подкат<br>🛹 Ховерборд спасёт от одного удара · Собери 500 монет — «+1 день»</p>
 </div>
 
 <div class="overlay hidden" id="pause">
@@ -176,7 +177,7 @@ const JUMP_V=15.6, GRAV=34;
 const SNEAKER_MUL=1.45;               // супер-кроссовки: прыжок выше
 const JET_Y=4.3;                      // высота полёта джетпака
 const SPAWN_Z=-108, CULL_Z=24;
-const REWARD_COINS=75;
+const REWARD_COINS=500;
 const FOX_H=1.55;
 const WALL_N=12, WALL_SPAN=16;        // граффити-стены
 const ARCH_N=4, ARCH_SPAN=64;         // арки-тоннели
@@ -191,11 +192,52 @@ function blip(f0,f1,dur,type,vol){if(!AC||!soundOn)return;try{
   g.gain.setValueAtTime(vol||0.12,AC.currentTime);
   g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+dur);
   o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+dur+0.02);}catch(e){}}
-const sfx={coin(){blip(880,1320,0.09,"sine",0.10);},jump(){blip(300,620,0.14,"sine",0.10);},
+const sfx={
+  // монетка: яркий «динг» из двух гармоник с быстрым затуханием (как в Subway),
+  // тон растёт с серией комбо — до 12 шагов
+  coin(combo){
+    if(!AC||!soundOn)return;
+    const step=Math.min(combo||0,12);
+    const base=1046.5*Math.pow(2,step/24); // C6 и выше по полутонам
+    try{
+      const t=AC.currentTime;
+      [1,2.0].forEach((mult,i)=>{
+        const o=AC.createOscillator(),g=AC.createGain();
+        o.type=i?"sine":"triangle";
+        o.frequency.setValueAtTime(base*mult,t);
+        o.frequency.exponentialRampToValueAtTime(base*mult*1.02,t+0.06);
+        g.gain.setValueAtTime(i?0.05:0.12,t);
+        g.gain.exponentialRampToValueAtTime(0.001,t+(i?0.12:0.22));
+        o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+0.25);
+      });
+    }catch(e){}
+  },
+  jump(){blip(300,620,0.14,"sine",0.10);},
   slide(){blip(500,180,0.12,"triangle",0.08);},hit(){blip(220,55,0.4,"sawtooth",0.18);},
   power(){blip(520,1040,0.12,"square",0.07);setTimeout(()=>blip(780,1560,0.12,"square",0.07),90);},
   land(){blip(150,90,0.07,"triangle",0.06);},swipe(){blip(420,720,0.05,"sine",0.05);},
-  roof(){blip(200,320,0.09,"square",0.06);},save(){blip(660,1320,0.2,"square",0.1);blip(990,1980,0.25,"sine",0.08);}};
+  roof(){blip(200,320,0.09,"square",0.06);},save(){blip(660,1320,0.2,"square",0.1);blip(990,1980,0.25,"sine",0.08);},
+  reward(){ // фанфары награды
+    [523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,f*2,0.22,"triangle",0.1),i*110));},
+};
+
+// ── фоновая музыка (CC0 FreePD «Backbeat», зациклена) ──
+let bgm=null,bgmOn=true;
+function initBGM(){
+  if(bgm)return;
+  try{
+    bgm=new Audio("audio/bgm.mp3");
+    bgm.loop=true;bgm.volume=0.32;
+    bgm.preload="auto";
+  }catch(e){bgm=null;}
+}
+function bgmPlay(){
+  initBGM();
+  if(!bgm||!bgmOn||soundOn===false)return;
+  bgm.play().catch(()=>{}); // autoplay policy: старт по жесту
+}
+function bgmPause(){if(bgm){try{bgm.pause();}catch(e){}}}
+function bgmSet(on){bgmOn=on;if(on)bgmPlay();else bgmPause();}
 
 const LS={get(k,d){try{const v=localStorage.getItem("foxrun_"+k);return v===null?d:JSON.parse(v);}catch(e){return d;}},
   set(k,v){try{localStorage.setItem("foxrun_"+k,JSON.stringify(v));}catch(e){}}};
@@ -615,6 +657,8 @@ function slide(){const pl=G.player,floor=pl.onRoof?ROOF_H:0;
   if(!pl.sliding){pl.sliding=true;pl.slideT=0.6;sfx.slide();burst(pl.x,0.1,0.4,0xB9A9E8,5,0.4);}}
 
 function startRun(){clearObjs();G=newGame();state=S.PLAY;lastT=performance.now();
+  serverRewarded=false;
+  audioInit();bgmPlay();
   inspector.visible=true;inspector.position.set(0,0,7);playAnim("Run");
   hoverboard.visible=false;magnetRing.visible=false;
   foxGroup.rotation.set(0,0,0);foxGroup.scale.set(1,1,1);foxGroup.visible=true;
@@ -647,9 +691,10 @@ function die(){
   burst(pl.x,pl.y+0.6,0,0xFF4D7D,24);
   setTimeout(()=>{if(state===S.DYING)finishRun(false);},1100);}
 function quitRun(){finishRun(true);}
-function togglePause(){if(state===S.PLAY){state=S.PAUSE;hideAll();show("pause");show("hud");}
-  else if(state===S.PAUSE){state=S.PLAY;lastT=performance.now();hideAll();show("hud");show("powers");}}
+function togglePause(){if(state===S.PLAY){state=S.PAUSE;bgmPause();hideAll();show("pause");show("hud");}
+  else if(state===S.PAUSE){state=S.PLAY;lastT=performance.now();bgmPlay();hideAll();show("hud");show("powers");}}
 function toMenu(){state=S.MENU;clearObjs();G=null;inspector.visible=false;playAnim("Survey");
+  bgmPause();
   hoverboard.visible=false;magnetRing.visible=false;
   foxGroup.rotation.set(0,0,0);foxGroup.scale.set(1,1,1);foxGroup.visible=true;
   hideAll();show("menu");fillMenu();}
@@ -658,21 +703,51 @@ const $=id=>document.getElementById(id);
 function show(id){$(id).classList.remove("hidden");}
 function hide(id){$(id).classList.add("hidden");}
 function hideAll(){["menu","pause","result","hud","powers","loading","combo","toast"].forEach(hide);}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+// ── серверный лидерборд и награда (через мост RN) ──
+let serverTop=[],serverRewardCoins=REWARD_COINS,serverRewarded=false;
+window.__onRN=function(msg){
+  if(!msg||!msg.kind)return;
+  if(msg.kind==="run_ready"){
+    if(Array.isArray(msg.leaderboard))serverTop=msg.leaderboard;
+    if(msg.reward_coins)serverRewardCoins=msg.reward_coins;
+  }else if(msg.kind==="submit_result"){
+    if(Array.isArray(msg.leaderboard))serverTop=msg.leaderboard;
+    if(msg.rewarded){serverRewarded=true;
+      if(state===S.RESULT){fillResult();}
+      toast("🎉 Сервер выдал +1 день подписки!");
+    }
+  }
+};
 function fillMenu(){
   $("mBest").textContent=best.coins+" 🪙 · "+best.dist+" м";
   $("mWallet").textContent=wallet+" 🪙";$("mRuns").textContent=runs;
   $("bSound").textContent=soundOn?"🔊":"🔇";
   let h="";
-  for(let i=0;i<bestRuns.length;i++){
-    h+='<div class="topRow"><span>'+(i+1)+'. 🪙 <b>'+bestRuns[i].coins+'</b></span><span>'+bestRuns[i].dist+' м</span></div>';
+  // глобальный топ с сервера — приоритет; локальные рекорды — фолбэк
+  if(serverTop.length){
+    const medals=["🥇","🥈","🥉"];
+    for(let i=0;i<serverTop.length&&i<10;i++){
+      const t=serverTop[i];
+      h+='<div class="topRow"><span>'+(medals[i]||((i+1)+"."))+' '+esc(t.login||"игрок")+'</span>'
+        +'<span><b>'+t.best_coins+'</b> 🪙 · '+t.best_distance+' м</span></div>';
+    }
+  }else{
+    for(let i=0;i<bestRuns.length;i++){
+      h+='<div class="topRow"><span>'+(i+1)+'. 🪙 <b>'+bestRuns[i].coins+'</b></span><span>'+bestRuns[i].dist+' м</span></div>';
+    }
+    if(!h)h='<div class="topRow" style="opacity:.6;">Пока пусто — сыграй!</div>';
   }
-  $("mTop").innerHTML=h||'<div class="topRow" style="opacity:.6;">Пока пусто — сыграй!</div>';
-  // innerHTML безопасен: шаблон из чисел bestRuns[] (свои же данные localStorage), внешнего ввода нет
+  $("mTop").innerHTML=h;
+  // innerHTML безопасен: имена игроков экранируются esc(), числа — из своих данных
 }
 function fillResult(){const r=resultInfo;$("rCoins").textContent=r.coins;$("rDist").textContent=r.dist+" м";
   $("rBest").textContent=Math.max(best.coins,r.coins)+" 🪙 / "+Math.max(best.dist,r.dist)+" м";const rw=$("rReward");
-  if(r.reward){rw.className="reward win";rw.textContent="🎉 Награда: +1 день подписки! (75+ монет)";}
-  else{rw.className="reward";rw.textContent="Ещё "+(REWARD_COINS-r.coins)+" монет до награды «+1 день»";}}
+  const target=Math.max(serverRewardCoins,REWARD_COINS);
+  if(serverRewarded&&r.coins>=target){rw.className="reward win";rw.textContent="🎉 Награда получена: +1 день подписки!";sfx.reward();}
+  else if(r.reward){rw.className="reward win";rw.textContent="🎉 Награда: +1 день подписки! ("+target+"+ монет)";sfx.reward();}
+  else{rw.className="reward";rw.textContent="Ещё "+(target-r.coins)+" монет до награды «+1 день»";}}
 let toastT=null;
 function toast(msg){const el=$("toast");el.textContent=msg;show("toast");el.style.opacity="1";
   clearTimeout(toastT);toastT=setTimeout(()=>{el.style.opacity="0";setTimeout(()=>hide("toast"),320);},1400);}
@@ -726,7 +801,7 @@ function update(dt){
       o.mesh.position.x=tx;
       o.mesh.position.y=o.y+(magnet?lerp(0,pl.y+0.6,clamp((-o.z)/9,0,1)):0);
       if(Math.abs(o.z)<1.4&&Math.abs(o.mesh.position.x-pl.x)<1.2&&Math.abs(o.mesh.position.y-(pl.y+0.8))<1.6){
-        o.collected=true;g.coins+=(g.powers.x2>0?2:1);g.combo++;g.comboT=2.6;sfx.coin();
+        o.collected=true;g.coins+=(g.powers.x2>0?2:1);g.combo++;g.comboT=2.6;sfx.coin(g.combo);
         burst(o.mesh.position.x,o.mesh.position.y,o.z,0xFFD700,6);
         scene.remove(o.mesh);activeObjs.splice(i,1);}
     }else if(o.kind==="power"){
@@ -845,7 +920,8 @@ window.addEventListener("keydown",e=>{audioInit();
   else if((state===S.MENU||state===S.RESULT)&&(e.key===" "||e.key==="Enter"))startRun();
   else if(state===S.PAUSE&&(e.key===" "||e.key==="Escape"))togglePause();});
 $("bPlay").addEventListener("click",()=>{audioInit();startRun();});
-$("bSound").addEventListener("click",()=>{soundOn=!soundOn;LS.set("sound",soundOn);$("bSound").textContent=soundOn?"🔊":"🔇";});
+$("bSound").addEventListener("click",()=>{soundOn=!soundOn;LS.set("sound",soundOn);$("bSound").textContent=soundOn?"🔊":"🔇";
+  if(soundOn){audioInit();bgmSet(bgmOn&&state===S.PLAY);}else bgmPause();});
 $("hPause").addEventListener("click",()=>togglePause());
 $("bResume").addEventListener("click",()=>togglePause());
 $("bRestart").addEventListener("click",()=>startRun());

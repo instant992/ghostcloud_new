@@ -375,3 +375,25 @@ export async function getAnnouncements(): Promise<Announcement[]> {
   const r = await request("GET", "/api/auth/mobile/announcements");
   return Array.isArray(r?.announcements) ? r.announcements : [];
 }
+
+// ─── Мини-игра «Лиса-раннер» ───
+
+export type GameLeaderRow = { login: string; best_coins: number; best_distance: number };
+
+export async function gameRunStart(clientVer?: string) {
+  return request("POST", "/api/auth/mobile/game/run-start", { client_ver: clientVer || "1.1.5" });
+}
+
+export async function gameRunSubmit(roundToken: string, coins: number, distance: number, durationMs: number, powerupsUsed?: string[]) {
+  return request("POST", "/api/auth/mobile/game/run-submit", {
+    round_token: roundToken,
+    coins,
+    distance,
+    duration_ms: durationMs,
+    powerups_used: JSON.stringify(powerupsUsed || []),
+  });
+}
+
+export async function gameLeaderboard() {
+  return request("GET", "/api/auth/mobile/game/leaderboard");
+}

@@ -262,7 +262,7 @@ export default function HomeScreen() {
           style={styles.serverRow}
           onPress={() => nav.navigate("Game")}
           accessibilityRole="button"
-          accessibilityLabel="Мини-игра: собери 75 монет и получи плюс один день подписки"
+          accessibilityLabel="Мини-игра: собери 500 монет и получи плюс один день подписки"
         >
           <View style={[styles.serverIcon, { backgroundColor: colors.accentSoft }]}>
             <Ionicons name="game-controller-outline" size={20} color={colors.accent} />
@@ -270,7 +270,7 @@ export default function HomeScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.serverName}>Лиса-раннер</Text>
             <Text style={styles.serverSub} numberOfLines={1}>
-              Мини-игра: собери 75 монет — получи +1 день подписки
+              Мини-игра: собери 500 монет — получи +1 день подписки
             </Text>
           </View>
           <View style={styles.gameBeta}>
