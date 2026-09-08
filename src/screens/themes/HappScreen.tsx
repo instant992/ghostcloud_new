@@ -311,6 +311,7 @@ export default function HappScreen() {
         <View style={styles.headerSide}>
           <HeaderIcon icon="settings-outline" size={24} onPress={() => nav.navigate("Настройки")} />
           <HeaderIcon icon="shield-half-outline" size={21} onPress={() => setAppsOpen(true)} />
+          <HeaderIcon icon="game-controller-outline" size={21} onPress={() => nav.navigate("Game")} />
         </View>
         <Text style={styles.appTitle}>GhostCloud</Text>
         <View style={styles.headerSide}>

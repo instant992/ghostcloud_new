@@ -478,6 +478,17 @@ export default function GlassScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>
           <View style={styles.glassDivider} />
+          <Pressable style={styles.serverRow} onPress={() => nav.navigate("Game")}>
+            <View style={[styles.flagBox, { backgroundColor: "rgba(168,85,247,0.15)" }]}>
+              <Ionicons name="game-controller-outline" size={20} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.serverName}>Лиса-раннер</Text>
+              <Text style={styles.serverSub}>Собери 75 монет — получи +1 день</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
+          </Pressable>
+          <View style={styles.glassDivider} />
           <Pressable style={styles.serverRow} onPress={() => setAppsOpen(true)}>
             <View style={[styles.flagBox, { backgroundColor: "rgba(168,85,247,0.15)" }]}>
               <Ionicons name="shield-half-outline" size={20} color={colors.accent} />

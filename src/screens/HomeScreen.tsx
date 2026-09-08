@@ -260,6 +260,29 @@ export default function HomeScreen() {
 
         <PressableScale
           style={styles.serverRow}
+          onPress={() => nav.navigate("Game")}
+          accessibilityRole="button"
+          accessibilityLabel="Мини-игра: собери 75 монет и получи плюс один день подписки"
+        >
+          <View style={[styles.serverIcon, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="game-controller-outline" size={20} color={colors.accent} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.serverName}>Лиса-раннер</Text>
+            <Text style={styles.serverSub} numberOfLines={1}>
+              Мини-игра: собери 75 монет — получи +1 день подписки
+            </Text>
+          </View>
+          <View style={styles.gameBeta}>
+            <Text style={styles.gameBetaText}>BETA</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.textFaint} />
+        </PressableScale>
+
+        <View style={styles.cardDivider} />
+
+        <PressableScale
+          style={styles.serverRow}
           onPress={() => setAppsOpen(true)}
           accessibilityRole="button"
           accessibilityLabel="Фильтр соединения: профили обхода и фильтр приложений"
@@ -611,6 +634,19 @@ const makeStyles = () => StyleSheet.create({
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
+  },
+  gameBeta: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    marginRight: 6,
+  },
+  gameBetaText: {
+    color: colors.accent,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   statsRow: {
     flexDirection: "row",

@@ -28,6 +28,7 @@ import SupportScreen from "./src/screens/SupportScreen";
 import SupportTicketScreen from "./src/screens/SupportTicketScreen";
 import SponsorLeaderboardScreen from "./src/screens/SponsorLeaderboardScreen";
 import AboutScreen from "./src/screens/AboutScreen";
+import GameScreen from "./src/screens/GameScreen";
 import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
@@ -268,6 +269,11 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
         name="About"
         component={AboutScreen}
         options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Game"
+        component={GameScreen}
+        options={{ headerShown: true, title: "Лиса-раннер", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
     </Stack.Navigator>
   );
@@ -527,6 +533,11 @@ function DockedThemedFlow({
         component={AboutScreen}
         options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen
+        name="Game"
+        component={GameScreen}
+        options={{ headerShown: true, title: "Лиса-раннер", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
     </Stack.Navigator>
   );
 }
@@ -602,6 +613,11 @@ function Root() {
         name="About"
         component={AboutScreen}
         options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Game"
+        component={GameScreen}
+        options={{ headerShown: true, title: "Лиса-раннер", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
         </>
       )}

@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import * as api from "./api";
-import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session } from "./storage";
+import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session, loadDismissedAlerts, addDismissedAlerts } from "./storage";
 import { VpnNode } from "./vpn/parse";
 import { isVpnRunning, onVpnStateChanged } from "./vpn/manager";
 import type { SecurityAlert } from "./components/SecurityAlertModal";
@@ -127,6 +127,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   /** Текущее уведомление безопасности (модалка «Вход по коду 2FA») */
   const [securityAlert, setSecurityAlert] = useState<SecurityAlert | null>(null);
   const [securityBusy, setSecurityBusy] = useState(false);
+  /** Полная лента непрочитанных алертов (для «Это был я» — закрыть все сразу) */
+  const securityAlertsRef = useRef<SecurityAlert[]>([]);
+  /** ID алертов, которые пользователь уже закрыл — не показывать снова */
+  const dismissedAlertsRef = useRef<number[]>([]);
   const mounted = useRef(true);
   const cleanupRef = useRef<(() => void) | null>(null);
   const selectedNodeIdRef = useRef<string | null>(null);
@@ -138,6 +142,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     selectedNodeIdRef.current = selectedNodeId;
   }, [selectedNodeId]);
+
+  // Загружаем список закрытых уведомлений безопасности (не показывать их снова)
+  useEffect(() => {
+    loadDismissedAlerts().then((ids) => {
+      dismissedAlertsRef.current = ids;
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     mounted.current = true;
@@ -325,7 +336,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMe(data as MeInfo);
     writeCacheFile(ME_CACHE_FILE, data);
     // Лента уведомлений безопасности (вход по 2FA): показать последнее, если ещё не показывали
-    const alerts: SecurityAlert[] = data.security_alerts || [];
+    const rawAlerts: SecurityAlert[] = (data.security_alerts as SecurityAlert[]) || [];
+    const alerts: SecurityAlert[] = rawAlerts.filter(
+      (a: SecurityAlert) => !dismissedAlertsRef.current.includes(a.id)
+    );
+    securityAlertsRef.current = alerts;
     if (alerts.length > 0) {
       setSecurityAlert((prev) => (prev && prev.id === alerts[0].id ? prev : alerts[0]));
     }
@@ -386,6 +401,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!mounted.current) return;
       setSession(s);
       if (s) {
+        // Сначала подгружаем список закрытых алертов, иначе refreshMe ниже
+        // может показать уже закрытое уведомление (гонка при холодном старте)
+        try {
+          dismissedAlertsRef.current = await loadDismissedAlerts();
+        } catch {}
         // Push: регистрация FCM-токена для уведомлений безопасности
         import("./push").then((p) => p.initPush()).catch(() => {});
         // Тап по security-push -> сразу подтянуть ленту (/mobile/me покажет модалку)
@@ -478,7 +498,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!securityAlert) return;
     setSecurityBusy(true);
     try {
-      await api.securityAlertRead(securityAlert.id);
+      // «Это был я» — закрываем ВСЮ накопившуюся ленту, а не только верхний алерт
+      const all = securityAlertsRef.current.length > 0
+        ? securityAlertsRef.current
+        : [securityAlert];
+      const ids = all.map((a) => a.id);
+      // Локально запоминаем как закрытые — модалка не вернётся, даже если
+      // сервер снова пришлёт эти алерты в ленте
+      dismissedAlertsRef.current = [...new Set([...dismissedAlertsRef.current, ...ids])];
+      await addDismissedAlerts(ids);
+      await Promise.all(ids.map((id) => api.securityAlertRead(id).catch(() => {})));
+      securityAlertsRef.current = [];
     } catch {}
     setSecurityAlert(null);
     setSecurityBusy(false);
@@ -490,6 +520,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const r = await api.securityDisable2fa(securityAlert.id);
       if (!r?.success) throw new Error(r?.error || "Не удалось отключить 2FA");
+      // Сервер чистит всю ленту; локально тоже запоминаем — страховка от повторов
+      const ids = (securityAlertsRef.current.length > 0
+        ? securityAlertsRef.current
+        : [securityAlert]).map((a) => a.id);
+      dismissedAlertsRef.current = [...new Set([...dismissedAlertsRef.current, ...ids])];
+      await addDismissedAlerts(ids);
+      securityAlertsRef.current = [];
       setSecurityAlert(null);
       try { await refreshMe(); } catch {}
     } finally {

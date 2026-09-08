@@ -104,3 +104,28 @@ export async function saveSelectedNodeId(id: string | null): Promise<void> {
 export async function loadSelectedNodeId(): Promise<string | null> {
   return (await SecureStore.getItemAsync(KEYS.selectedNode)) || null;
 }
+
+/** ID уведомлений безопасности, которые пользователь закрыл («Это был я»).
+ *  Хранятся локально, чтобы модалка не возвращалась, даже если сервер
+ *  продолжает присылать их в ленте (например, несколько алертов за день). */
+const DISMISSED_ALERTS_KEY = "gc_sec_alerts_dismissed_v1";
+export async function loadDismissedAlerts(): Promise<number[]> {
+  try {
+    const raw = await SecureStore.getItemAsync(DISMISSED_ALERTS_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((x) => typeof x === "number") : [];
+  } catch {
+    return [];
+  }
+}
+export async function addDismissedAlerts(ids: number[]): Promise<void> {
+  try {
+    const cur = await loadDismissedAlerts();
+    const set = new Set(cur);
+    for (const id of ids) set.add(id);
+    // держим последние 200 id, чтобы список не рос вечно
+    const arr = [...set].slice(-200);
+    await SecureStore.setItemAsync(DISMISSED_ALERTS_KEY, JSON.stringify(arr));
+  } catch {}
+}

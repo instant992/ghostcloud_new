@@ -777,6 +777,27 @@ export default function SettingsScreen() {
       <Card>
         <PressableScale
           style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
+          onPress={() => nav.navigate("Game")}
+          accessibilityRole="button"
+          accessibilityLabel="Лиса-раннер. Мини-игра"
+        >
+          <Ionicons name="game-controller-outline" size={18} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>
+              Лиса-раннер
+            </Text>
+            <Text style={{ color: colors.textFaint, fontSize: 11, marginTop: 1 }}>
+              Мини-игра: собери 75 монет — получи +1 день подписки
+            </Text>
+          </View>
+          <Text style={{ color: colors.accent, fontSize: 11, fontWeight: "700" }}>BETA</Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+        </PressableScale>
+      </Card>
+
+      <Card>
+        <PressableScale
+          style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
           onPress={() => nav.navigate("About")}
           accessibilityRole="button"
           accessibilityLabel="О программе. Проверить обновления и посмотреть версию"

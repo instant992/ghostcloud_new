@@ -442,6 +442,16 @@ export default function V2rayScreen() {
             />
             <View style={styles.drawerDivider} />
             <DrawerItem
+              icon="game-controller-outline"
+              label="Лиса-раннер"
+              chevron
+              onPress={() => {
+                setDrawerOpen(false);
+                nav.navigate("Game");
+              }}
+            />
+            <View style={styles.drawerDivider} />
+            <DrawerItem
               icon="settings-outline"
               label="Настройки"
               onPress={() => {
