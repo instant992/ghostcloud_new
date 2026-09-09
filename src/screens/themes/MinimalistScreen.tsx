@@ -397,14 +397,6 @@ export default function MinimalistScreen() {
           >
             <Ionicons name="speedometer-outline" size={22} color={colors.text} />
           </Pressable>
-          <Pressable
-            style={styles.squareIcon}
-            onPress={() => nav.navigate("Game")}
-            accessibilityRole="button"
-            accessibilityLabel="Лиса-раннер, мини-игра"
-          >
-            <Ionicons name="game-controller-outline" size={22} color={colors.text} />
-          </Pressable>
         </View>
 
         {/* Трафик за сегодня — как в основной теме: Отправлено/Получено. И дни. */}

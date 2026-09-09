@@ -499,22 +499,6 @@ export default function GlassScreen() {
           <View style={styles.glassDivider} />
           <Pressable
             style={styles.serverRow}
-            onPress={() => nav.navigate("Game")}
-            accessibilityRole="button"
-            accessibilityLabel="Лиса-раннер: мини-игра, собери 500 монет и получи плюс один день подписки"
-          >
-            <View style={[styles.flagBox, { backgroundColor: "rgba(168,85,247,0.15)" }]}>
-              <Ionicons name="game-controller-outline" size={20} color={colors.accent} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
-              <Text style={styles.serverName}>Лиса-раннер</Text>
-              <Text style={styles.serverSub}>Собери 500 монет — получи +1 день</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
-          </Pressable>
-          <View style={styles.glassDivider} />
-          <Pressable
-            style={styles.serverRow}
             onPress={() => setAppsOpen(true)}
             accessibilityRole="button"
             accessibilityLabel="Фильтр соединения: какие приложения идут через VPN"
