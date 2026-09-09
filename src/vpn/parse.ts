@@ -541,7 +541,15 @@ export function parseClashYamlProxies(text: string): any[] {
     const line = lines[i];
     if (!line.trim()) continue;
     const indent = yamlIndent(line);
-    if (indent <= baseIndent) break;
+    // Remnawave v3 (и re-dump бэкенда через yaml.dump) отдаёт элементы списка
+    // proxies БЕЗ отступа: `- name:` стоит в колонке 0, на одном уровне с самим
+    // `proxies:`. Старое условие `indent <= baseIndent` обрывало блок на ПЕРВОЙ
+    // же такой строке -> 0 прокси. Прерываемся только на реальном деденте
+    // (< baseIndent) или на соседнем ключе того же уровня (=== baseIndent, не
+    // элемент списка). Классический отступ (`  - name:`) работает как раньше.
+    const isSeqEntry = /^ *- /.test(line);
+    if (indent < baseIndent) break;
+    if (indent === baseIndent && !isSeqEntry) break;
 
     const dashIdx = line.indexOf("- ");
     if (indent <= (stack.length > 0 ? stack[stack.length - 1].indent : indent) && dashIdx !== -1 && dashIdx < indent + 4) {

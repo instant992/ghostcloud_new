@@ -219,8 +219,13 @@ export async function fetchSubscriptionText(url: string): Promise<string> {
 }
 
 function mergeNodes(a: VpnNode[], b: VpnNode[]): VpnNode[] {
-  const seen = new Set(a.map((n) => n.id));
-  return [...a, ...b.filter((n) => !seen.has(n.id))];
+  // Канонический ключ узла: один и тот же сервер может прийти из raw-подписки
+  // (share-link, id = `proto-host-port-uuid8`) и из комбинированного Clash YAML
+  // (id = `proto-host-port`) — старые id совпадали не всегда и список двоился.
+  const keyOf = (n: VpnNode) =>
+    `${n.protocol}|${n.address}|${n.port}|${(n.uuid || n.password || n.method || "").slice(0, 8)}`;
+  const seen = new Set(a.map(keyOf));
+  return [...a, ...b.filter((n) => !seen.has(keyOf(n)))];
 }
 
 /** Тянет узлы из raw Remnawave (vless/vmess/trojan/ss ссылки)
