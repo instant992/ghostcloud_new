@@ -292,6 +292,9 @@ export default function MinimalistScreen() {
                 setServerTab("regular");
                 setServerMenuOpen(false);
               }}
+              accessibilityRole="menuitem"
+              accessibilityLabel="Обычные серверы"
+              accessibilityState={{ selected: serverTab === "regular" }}
             >
               <Ionicons name="server-outline" size={15} color={serverTab === "regular" ? "#fff" : colors.textDim} />
               <Text style={[styles.serverTypeMenuText, serverTab === "regular" && { color: "#fff" }]}>
@@ -306,6 +309,9 @@ export default function MinimalistScreen() {
                 setServerMenuOpen(false);
                 if (!lteEnabled) toggleLte(true); // включаем загрузку профилей при выборе
               }}
+              accessibilityRole="menuitem"
+              accessibilityLabel="LTE OPEN"
+              accessibilityState={{ selected: serverTab === "lte" }}
             >
               <Ionicons name="cellular-outline" size={15} color={serverTab === "lte" ? "#fff" : colors.textDim} />
               <Text style={[styles.serverTypeMenuText, serverTab === "lte" && { color: "#fff" }]}>
@@ -372,7 +378,12 @@ export default function MinimalistScreen() {
 
         {/* Ряд действий */}
         <View style={styles.actionsRow}>
-          <Pressable style={styles.squareIcon} onPress={() => setAppsOpen(true)}>
+          <Pressable
+            style={styles.squareIcon}
+            onPress={() => setAppsOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Фильтр соединения: какие приложения идут через VPN"
+          >
             <Ionicons name="shield-half-outline" size={22} color={colors.text} />
           </Pressable>
           <Pressable
@@ -381,10 +392,17 @@ export default function MinimalistScreen() {
               await pingStore.pingAll(allVisible);
               showToast("Проверка задержки завершена");
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Проверить задержку всех серверов"
           >
             <Ionicons name="speedometer-outline" size={22} color={colors.text} />
           </Pressable>
-          <Pressable style={styles.squareIcon} onPress={() => nav.navigate("Game")}>
+          <Pressable
+            style={styles.squareIcon}
+            onPress={() => nav.navigate("Game")}
+            accessibilityRole="button"
+            accessibilityLabel="Лиса-раннер, мини-игра"
+          >
             <Ionicons name="game-controller-outline" size={22} color={colors.text} />
           </Pressable>
         </View>
@@ -500,7 +518,15 @@ export default function MinimalistScreen() {
             {serverTab === "lte" ? "LTE OPEN серверы" : "Другие локации"}
           </Text>
           <View style={styles.otherLine} />
-          <Pressable onPress={refreshServers} hitSlop={8} disabled={refreshing} style={styles.roundRefresh}>
+          <Pressable
+            onPress={refreshServers}
+            hitSlop={8}
+            disabled={refreshing}
+            style={styles.roundRefresh}
+            accessibilityRole="button"
+            accessibilityLabel="Обновить список серверов"
+            accessibilityState={{ busy: refreshing, disabled: refreshing }}
+          >
             {refreshing ? (
               <ActivityIndicator size="small" color={colors.accent} />
             ) : (
@@ -514,6 +540,9 @@ export default function MinimalistScreen() {
           <Pressable
             style={[styles.otherRow, autoMode && { borderColor: colors.accent }]}
             onPress={chooseAuto}
+            accessibilityRole="button"
+            accessibilityLabel={`Автовыбор: лучший сервер по пингу${autoMode ? ". Активен" : ""}`}
+            accessibilityState={{ selected: autoMode }}
           >
             <Text style={{ fontSize: 20 }}>✨</Text>
             <Text style={styles.otherName} numberOfLines={1}>
@@ -529,7 +558,13 @@ export default function MinimalistScreen() {
           const info = splitNameFlag(n.name);
           const ping = pings[n.id];
           return (
-            <Pressable key={n.id} style={styles.otherRow} onPress={() => chooseNode(n)}>
+            <Pressable
+              key={n.id}
+              style={styles.otherRow}
+              onPress={() => chooseNode(n)}
+              accessibilityRole="button"
+              accessibilityLabel={`${info.name}${ping?.status === "done" && ping.delay > 0 ? `, пинг ${ping.delay} мс` : ""}`}
+            >
               <Text style={{ fontSize: 22 }}>{info.flag}</Text>
               <Text style={styles.otherName} numberOfLines={1}>
                 {info.name}

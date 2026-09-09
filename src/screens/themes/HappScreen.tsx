@@ -309,14 +309,14 @@ export default function HappScreen() {
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
         <View style={styles.headerSide}>
-          <HeaderIcon icon="settings-outline" size={24} onPress={() => nav.navigate("Настройки")} />
-          <HeaderIcon icon="shield-half-outline" size={21} onPress={() => setAppsOpen(true)} />
-          <HeaderIcon icon="game-controller-outline" size={21} onPress={() => nav.navigate("Game")} />
+          <HeaderIcon icon="settings-outline" size={24} onPress={() => nav.navigate("Настройки")} label="Настройки" />
+          <HeaderIcon icon="shield-half-outline" size={21} onPress={() => setAppsOpen(true)} label="Фильтр соединения" />
+          <HeaderIcon icon="game-controller-outline" size={21} onPress={() => nav.navigate("Game")} label="Лиса-раннер, мини-игра" />
         </View>
         <Text style={styles.appTitle}>GhostCloud</Text>
         <View style={styles.headerSide}>
-          <HeaderIcon icon="headset-outline" size={22} onPress={() => nav.navigate("Support")} />
-          <HeaderIcon icon="add" size={28} onPress={() => nav.navigate("Тарифы")} />
+          <HeaderIcon icon="headset-outline" size={22} onPress={() => nav.navigate("Support")} label="Поддержка" />
+          <HeaderIcon icon="add" size={28} onPress={() => nav.navigate("Тарифы")} label="Тарифы, пополнить" />
         </View>
       </View>
 
@@ -423,6 +423,8 @@ export default function HappScreen() {
               style={styles.lteRefreshBtn}
               onPress={() => toggleLte(true)}
               hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Обновить серверы LTE OPEN"
             >
               {lteBusy ? (
                 <ActivityIndicator size="small" color={PURPLE} />
@@ -461,12 +463,18 @@ export default function HappScreen() {
               icon={syncBusy ? "hourglass-outline" : "refresh"}
               size={20}
               onPress={syncAll}
+              label="Обновить список серверов"
             />
-            <HeaderIcon icon="speedometer-outline" size={20} onPress={testDelays} />
-            <HeaderIcon icon="pencil" size={19} onPress={() => setProfileOpen(true)} />
+            <HeaderIcon icon="speedometer-outline" size={20} onPress={testDelays} label="Проверить задержку" />
+            <HeaderIcon icon="pencil" size={19} onPress={() => setProfileOpen(true)} label="Изменить имя профиля" />
           </View>
 
-          <Pressable style={styles.trafficStrip} onPress={() => nav.navigate("Статистика")}>
+          <Pressable
+            style={styles.trafficStrip}
+            onPress={() => nav.navigate("Статистика")}
+            accessibilityRole="button"
+            accessibilityLabel="Статистика трафика"
+          >
             <Ionicons name="information-circle-outline" size={18} color={colors.accent} />
             <Text style={styles.trafficText}>
               Сегодня: {formatBytes(todayStat.rx + todayStat.tx)}
@@ -485,6 +493,9 @@ export default function HappScreen() {
               <View style={{ paddingHorizontal: 8, paddingVertical: 2 }}>
                 <Pressable
                   onPress={chooseAuto}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Автовыбор: лучший сервер по пингу${autoMode ? ". Включён" : ""}`}
+                  accessibilityState={{ selected: autoMode }}
                   style={[
                     styles.tile,
                     autoMode && {
@@ -568,7 +579,7 @@ export default function HappScreen() {
 
       {/* Шторка профиля «Стандарт» */}
       <Modal visible={profileOpen} transparent animationType="slide" onRequestClose={() => setProfileOpen(false)}>
-        <Pressable style={styles.sheetBackdrop} onPress={() => setProfileOpen(false)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setProfileOpen(false)} accessibilityRole="button" accessibilityLabel="Закрыть профиль">
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Стандарт</Text>
@@ -586,7 +597,13 @@ export default function HappScreen() {
                   {displayName}
                 </Text>
                 <View style={{ flex: 1 }} />
-                <Pressable onPress={() => setEditOpen(true)} hitSlop={8} style={{ padding: 6 }}>
+                <Pressable
+                  onPress={() => setEditOpen(true)}
+                  hitSlop={8}
+                  style={{ padding: 6 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Редактировать профиль"
+                >
                   <Ionicons name="pencil" size={17} color={colors.textDim} />
                 </Pressable>
               </View>
@@ -688,14 +705,22 @@ function HeaderIcon({
   size = 22,
   onPress,
   color,
+  label,
 }: {
   icon: any;
   size?: number;
   onPress: () => void;
   color?: string;
+  label?: string;
 }) {
   return (
-    <Pressable onPress={onPress} hitSlop={8} style={makeStyles().headerIcon}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={makeStyles().headerIcon}
+      accessibilityRole="button"
+      accessibilityLabel={label || icon}
+    >
       <Ionicons name={icon} size={size} color={color || colors.text} />
     </Pressable>
   );
@@ -727,6 +752,9 @@ function HappServerTile({
       <View style={{ paddingHorizontal: 8, paddingVertical: 2 }}>
         <Pressable
           onPress={onSelect}
+          accessibilityRole="button"
+          accessibilityLabel={`${info.name}, ${transportLabel(node)}${delay != null ? `, пинг ${delay} мс` : ""}${selected ? ". Выбран" : ""}`}
+          accessibilityState={{ selected }}
           style={[
             styles.tile,
             selected && {
@@ -758,7 +786,14 @@ function HappServerTile({
               {delay} мс
             </Text>
           )}
-          <Pressable onPress={onToggleFavorite} hitSlop={8} style={{ padding: 3, marginLeft: 4 }}>
+          <Pressable
+            onPress={onToggleFavorite}
+            hitSlop={8}
+            style={{ padding: 3, marginLeft: 4 }}
+            accessibilityRole="button"
+            accessibilityLabel={favorite ? "Убрать из избранного" : "В избранное"}
+            accessibilityState={{ selected: favorite }}
+          >
             <Ionicons
               name={favorite ? "heart" : "heart-outline"}
               size={19}
@@ -796,7 +831,16 @@ function HeroRow({
     </>
   );
   if (onPress) {
-    return <Pressable style={styles.heroRow} onPress={onPress}>{inner}</Pressable>;
+    return (
+      <Pressable
+        style={styles.heroRow}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={`${label}: ${value}`}
+      >
+        {inner}
+      </Pressable>
+    );
   }
   return <View style={styles.heroRow}>{inner}</View>;
 }
@@ -804,7 +848,7 @@ function HeroRow({
 function ActionChip({ icon, label, onPress }: { icon: any; label: string; onPress: () => void }) {
   const styles = makeStyles();
   return (
-    <Pressable style={styles.chip} onPress={onPress}>
+    <Pressable style={styles.chip} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={21} color={colors.accent} />
       <Text style={styles.chipText}>{label}</Text>
     </Pressable>
@@ -828,7 +872,12 @@ function MenuRow({
 }) {
   const styles = makeStyles();
   return (
-    <Pressable style={styles.menuRow} onPress={onPress}>
+    <Pressable
+      style={styles.menuRow}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${sub}`}
+    >
       <View style={[styles.menuIconBox, { backgroundColor: `${iconColor}24` }]}>
         <Ionicons name={icon} size={21} color={iconColor} />
       </View>
@@ -907,14 +956,20 @@ function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () 
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.sheetBackdrop} onPress={onClose}>
+      <Pressable style={styles.sheetBackdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть редактирование профиля">
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.sheetHandle} />
           <Text style={[styles.sheetTitle, { fontSize: 18, textAlign: "center" }]}>
             Редактировать профиль
           </Text>
           <View style={{ alignItems: "center", marginVertical: 14 }}>
-            <Pressable onPress={pickAvatar} disabled={saving}>
+            <Pressable
+              onPress={pickAvatar}
+              disabled={saving}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Изменить аватар: выбрать фото"
+            >
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.editAvatar} />
               ) : (
@@ -956,6 +1011,9 @@ function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () 
             style={[styles.saveBtn, saving && { opacity: 0.6 }]}
             onPress={save}
             disabled={saving}
+            accessibilityRole="button"
+            accessibilityLabel="Сохранить профиль"
+            accessibilityState={{ busy: saving, disabled: saving }}
           >
             {saving ? (
               <ActivityIndicator color="#fff" />
@@ -995,7 +1053,7 @@ function PromoDialog({ visible, onClose }: { visible: boolean; onClose: () => vo
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.dialogBackdrop} onPress={onClose}>
+      <Pressable style={styles.dialogBackdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть окно промокода">
         <Pressable style={styles.dialogCard} onPress={() => {}}>
           <Text style={[styles.sheetTitle, { fontSize: 17 }]}>Промокод</Text>
           <TextInput
@@ -1008,7 +1066,12 @@ function PromoDialog({ visible, onClose }: { visible: boolean; onClose: () => vo
           />
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <Pressable style={[styles.saveBtn, { backgroundColor: colors.bgSoft }]} onPress={onClose}>
+              <Pressable
+                style={[styles.saveBtn, { backgroundColor: colors.bgSoft }]}
+                onPress={onClose}
+                accessibilityRole="button"
+                accessibilityLabel="Отмена"
+              >
                 <Text style={{ color: colors.textDim, fontWeight: "700" }}>Отмена</Text>
               </Pressable>
             </View>
@@ -1017,6 +1080,9 @@ function PromoDialog({ visible, onClose }: { visible: boolean; onClose: () => vo
                 style={[styles.saveBtn, busy && { opacity: 0.6 }]}
                 onPress={apply}
                 disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel="Активировать промокод"
+                accessibilityState={{ busy, disabled: busy }}
               >
                 {busy ? (
                   <ActivityIndicator color="#fff" />

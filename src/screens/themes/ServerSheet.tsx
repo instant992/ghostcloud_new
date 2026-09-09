@@ -33,7 +33,13 @@ export function ServerSheet({
   const shown = tab === "lte" ? lteNodes : regularNodes;
 
   const pingBtn = (
-    <Pressable onPress={() => pingStore.pingAll(shown)} hitSlop={8} style={{ padding: 6 }}>
+    <Pressable
+      onPress={() => pingStore.pingAll(shown)}
+      hitSlop={8}
+      style={{ padding: 6 }}
+      accessibilityRole="button"
+      accessibilityLabel="Пинг: проверить задержку серверов в списке"
+    >
       {pingStore.isRunning() ? (
         <ActivityIndicator size="small" color={colors.accent} />
       ) : (
@@ -42,14 +48,20 @@ export function ServerSheet({
     </Pressable>
   );
   const closeBtn = (
-    <Pressable onPress={onClose} hitSlop={8} style={{ padding: 6 }}>
+    <Pressable
+      onPress={onClose}
+      hitSlop={8}
+      style={{ padding: 6 }}
+      accessibilityRole="button"
+      accessibilityLabel="Закрыть выбор сервера"
+    >
       <Ionicons name="close" size={18} color={colors.textFaint} />
     </Pressable>
   );
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть выбор сервера">
         <Pressable style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
           <View style={styles.header}>
@@ -74,6 +86,9 @@ export function ServerSheet({
                   key={t.key}
                   style={[styles.tabBtn, tab === t.key && styles.tabBtnOn]}
                   onPress={() => setTab(t.key)}
+                  accessibilityRole="tab"
+                  accessibilityLabel={t.label}
+                  accessibilityState={{ selected: tab === t.key }}
                 >
                   <Text style={[styles.tabBtnText, tab === t.key && { color: "#fff" }]}>
                     {t.label}
@@ -95,8 +110,11 @@ export function ServerSheet({
                 <Pressable
                   style={[styles.item, selectedId === AUTO_SERVER_ID && styles.itemOn]}
                   onPress={() => onSelect(AUTO_SERVER_ID)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Автовыбор. Лучший обычный сервер по пингу, авто-переключение при обрыве${selectedId === AUTO_SERVER_ID ? ". Выбран" : ""}`}
+                  accessibilityState={{ selected: selectedId === AUTO_SERVER_ID }}
                 >
-                  <Text style={{ fontSize: 22 }}>✨</Text>
+                  <Text style={{ fontSize: 22 }} accessibilityElementsHidden>✨</Text>
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text
                       style={[styles.itemName, selectedId === AUTO_SERVER_ID && { color: colors.accent }]}
@@ -118,12 +136,23 @@ export function ServerSheet({
               const info = splitNameFlag(item.name);
               const selected = item.id === selectedId;
               const ping = pings[item.id];
+              const pingLabel =
+                ping?.status === "done"
+                  ? ping.error
+                    ? ", пинг не проверен"
+                    : ping.delay > 0
+                      ? `, пинг ${ping.delay} мс`
+                      : ""
+                  : "";
               return (
                 <Pressable
                   style={[styles.item, selected && styles.itemOn]}
                   onPress={() => onSelect(item.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${info.name}, ${transportLabel(item)}${pingLabel}${selected ? ". Выбран" : ""}`}
+                  accessibilityState={{ selected }}
                 >
-                  <Text style={{ fontSize: 22 }}>{info.flag}</Text>
+                  <Text style={{ fontSize: 22 }} accessibilityElementsHidden>{info.flag}</Text>
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={[styles.itemName, selected && { color: colors.accent }]} numberOfLines={1}>
                       {info.name}

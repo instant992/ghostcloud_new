@@ -287,10 +287,12 @@ export default function V2rayScreen() {
         <AnnouncementsArea style={{ marginTop: 8 }} />
 
         <View style={styles.balanceBar}>
-          <IconBtn icon="add-circle-outline" size={18} color={colors.accent} onPress={() => setBalanceOpen(true)} />
+          <IconBtn icon="add-circle-outline" size={18} color={colors.accent} onPress={() => setBalanceOpen(true)} label="Пополнить баланс" />
           <Pressable
             style={{ flex: 1, flexDirection: "row", alignItems: "center" }}
             onPress={() => setBalanceOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Баланс ${balance} рублей, осталось ${daysLeft} ${pluralDays(daysLeft)}. Пополнить`}
           >
             <Text style={styles.balanceText}>{balance} ₽</Text>
             <View style={{ flex: 1 }} />
@@ -299,7 +301,7 @@ export default function V2rayScreen() {
               {daysLeft} {pluralDays(daysLeft)}
             </Text>
           </Pressable>
-          <IconBtn icon="cart-outline" size={18} color={colors.green} onPress={() => setBalanceOpen(true)} />
+          <IconBtn icon="cart-outline" size={18} color={colors.green} onPress={() => setBalanceOpen(true)} label="Тарифы и пополнение" />
         </View>
 
         <ScrollView
@@ -310,6 +312,9 @@ export default function V2rayScreen() {
               key={t.key}
               onPress={() => setTab(t.key)}
               style={[styles.tabItem, tab === t.key && styles.tabItemOn]}
+              accessibilityRole="tab"
+              accessibilityLabel={`${t.label}, ${t.count}`}
+              accessibilityState={{ selected: tab === t.key }}
             >
               {t.key === "lte" ? (
                 <Text style={[styles.tabLabel, tab === t.key && { color: colors.accent }]}>
@@ -405,6 +410,8 @@ export default function V2rayScreen() {
         onPress={() => {
           if (vpnRunning && selectedNode) pingStore.pingOne(selectedNode);
         }}
+        accessibilityRole="button"
+        accessibilityLabel={`Статус: ${statusText}${vpnRunning && selectedNode ? ". Нажать, чтобы проверить пинг текущего сервера" : ""}`}
       >
         {selPing?.status === "pending" && vpnRunning ? (
           <ActivityIndicator size="small" color={colors.textDim} style={{ marginRight: 8 }} />
@@ -529,6 +536,9 @@ export default function V2rayScreen() {
                       setSetting("theme_schedule_enabled", key === "auto" ? "1" : "0");
                       switchTheme({ mode: key });
                     }}
+                    accessibilityRole="button"
+                    accessibilityLabel={autoLocked ? `${label}: преимущество спонсоров` : `Тема: ${label}`}
+                    accessibilityState={{ selected: on, disabled: autoLocked }}
                   >
                     <Ionicons name={icon} size={14} color={on ? "#fff" : autoLocked ? colors.textFaint : colors.textDim} />
                     {autoLocked && (
@@ -554,13 +564,13 @@ export default function V2rayScreen() {
               <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
             </View>
           </View>
-          <Pressable style={{ flex: 1 }} onPress={() => setDrawerOpen(false)} />
+          <Pressable style={{ flex: 1 }} onPress={() => setDrawerOpen(false)} accessibilityRole="button" accessibilityLabel="Закрыть меню" />
         </View>
       </Modal>
 
       {/* Меню ⋮ */}
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)}>
+        <Pressable style={styles.menuBackdrop} onPress={() => setMenuOpen(false)} accessibilityRole="button" accessibilityLabel="Закрыть меню">
           <View style={styles.menuCard}>
             <MenuRow icon="speedometer-outline" label="Проверить задержку профилей" onPress={checkDelays} />
             <MenuRow icon="refresh" label="Обновить подписку" onPress={updateSubscription} />
@@ -583,14 +593,22 @@ function IconBtn({
   onPress,
   size = 22,
   color,
+  label,
 }: {
   icon: any;
   onPress: () => void;
   size?: number;
   color?: string;
+  label?: string;
 }) {
   return (
-    <Pressable onPress={onPress} hitSlop={10} style={{ padding: 8, alignItems: "center", justifyContent: "center" }}>
+    <Pressable
+      onPress={onPress}
+      hitSlop={10}
+      style={{ padding: 8, alignItems: "center", justifyContent: "center" }}
+      accessibilityRole="button"
+      accessibilityLabel={label || icon}
+    >
       <Ionicons name={icon} size={size} color={color || colors.text} />
     </Pressable>
   );
@@ -610,7 +628,12 @@ function DrawerItem({
   privacy?: boolean;
 }) {
   return (
-    <Pressable style={makeStyles().drawerItem} onPress={onPress}>
+    <Pressable
+      style={makeStyles().drawerItem}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
       <Ionicons name={icon} size={21} color={colors.text} />
       {privacy ? (
         <Text style={makeStyles().drawerItemText}>{label}</Text>
@@ -625,7 +648,7 @@ function DrawerItem({
 function MenuRow({ icon, label, onPress }: { icon: any; label: string; onPress: () => void }) {
   const styles = makeStyles();
   return (
-    <Pressable style={styles.menuRow} onPress={onPress}>
+    <Pressable style={styles.menuRow} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
       <Ionicons name={icon} size={20} color={colors.accent} />
       <Text style={styles.menuRowText}>{label}</Text>
     </Pressable>
@@ -663,10 +686,16 @@ function ServerRow({
   }
 
   return (
-    <Pressable style={styles.row} onPress={onSelect}>
+    <Pressable
+      style={styles.row}
+      onPress={onSelect}
+      accessibilityRole="button"
+      accessibilityLabel={`${info.name}, ${protoLabel(node)}, пинг ${pingText}${selected ? ". Выбран" : ""}`}
+      accessibilityState={{ selected }}
+    >
       <View style={[styles.selBar, selected && styles.selBarOn]} />
       <View style={styles.rowFlag}>
-        <Text style={{ fontSize: 20 }}>{info.flag}</Text>
+        <Text style={{ fontSize: 20 }} accessibilityElementsHidden>{info.flag}</Text>
       </View>
       <View style={{ flex: 1, marginLeft: 11 }}>
         <Text style={styles.rowName} numberOfLines={2}>
@@ -676,13 +705,26 @@ function ServerRow({
         <Text style={[styles.rowPing, { color: pingColor }]}>{pingText}</Text>
       </View>
       {ping?.status === "pending" ? (
-        <ActivityIndicator size="small" color={colors.accent} style={{ width: 40 }} />
+        <ActivityIndicator size="small" color={colors.accent} style={{ width: 40 }} accessibilityLabel="Проверяем пинг" />
       ) : (
-        <Pressable onPress={onPing} hitSlop={8} style={styles.rowIconBtn}>
+        <Pressable
+          onPress={onPing}
+          hitSlop={8}
+          style={styles.rowIconBtn}
+          accessibilityRole="button"
+          accessibilityLabel={`Проверить пинг ${info.name}`}
+        >
           <Ionicons name="speedometer-outline" size={20} color={colors.text} />
         </Pressable>
       )}
-      <Pressable onPress={onTogglePin} hitSlop={8} style={styles.rowIconBtn}>
+      <Pressable
+        onPress={onTogglePin}
+        hitSlop={8}
+        style={styles.rowIconBtn}
+        accessibilityRole="button"
+        accessibilityLabel={isPinned ? "Открепить сервер" : "Закрепить сервер"}
+        accessibilityState={{ selected: isPinned }}
+      >
         <Ionicons
           name={isPinned ? "push" : "push-outline"}
           size={20}

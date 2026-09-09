@@ -54,6 +54,7 @@ export function GlassCard({
   style,
   children,
   onPress,
+  accessibilityLabel,
 }: {
   radius?: number;
   intensity?: number;
@@ -61,6 +62,7 @@ export function GlassCard({
   style?: any;
   children?: React.ReactNode;
   onPress?: () => void;
+  accessibilityLabel?: string;
 }) {
   useTheme();
   const light = isLightPalette();
@@ -85,7 +87,12 @@ export function GlassCard({
   );
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={[outer, style]}>
+      <Pressable
+        onPress={onPress}
+        style={[outer, style]}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+      >
         {body}
       </Pressable>
     );
@@ -445,7 +452,12 @@ export default function GlassScreen() {
 
         {/* Карточка сервера + фильтр соединения */}
         <GlassCard radius={20} style={{ marginTop: 8 }}>
-          <Pressable style={styles.serverRow} onPress={() => setPickerOpen(true)}>
+          <Pressable
+            style={styles.serverRow}
+            onPress={() => setPickerOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Сервер: ${autoMode ? "Автовыбор, лучший сервер по пингу" : selectedInfo?.name || "не выбран"}. Открыть выбор сервера`}
+          >
             <View style={styles.flagBox}>
               <Text style={{ fontSize: 20 }}>{selectedInfo?.flag || "🌍"}</Text>
             </View>
@@ -468,7 +480,14 @@ export default function GlassScreen() {
                   : selectedNode ? transportLabel(selectedNode) : "Выберите локацию"}
               </Text>
             </View>
-            <Pressable onPress={syncAll} hitSlop={8} style={styles.roundRefresh}>
+            <Pressable
+              onPress={syncAll}
+              hitSlop={8}
+              style={styles.roundRefresh}
+              accessibilityRole="button"
+              accessibilityLabel="Обновить список серверов"
+              accessibilityState={{ busy: syncBusy }}
+            >
               {syncBusy ? (
                 <ActivityIndicator size="small" color={colors.accent} />
               ) : (
@@ -478,7 +497,12 @@ export default function GlassScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>
           <View style={styles.glassDivider} />
-          <Pressable style={styles.serverRow} onPress={() => nav.navigate("Game")}>
+          <Pressable
+            style={styles.serverRow}
+            onPress={() => nav.navigate("Game")}
+            accessibilityRole="button"
+            accessibilityLabel="Лиса-раннер: мини-игра, собери 500 монет и получи плюс один день подписки"
+          >
             <View style={[styles.flagBox, { backgroundColor: "rgba(168,85,247,0.15)" }]}>
               <Ionicons name="game-controller-outline" size={20} color={colors.accent} />
             </View>
@@ -489,7 +513,12 @@ export default function GlassScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
           </Pressable>
           <View style={styles.glassDivider} />
-          <Pressable style={styles.serverRow} onPress={() => setAppsOpen(true)}>
+          <Pressable
+            style={styles.serverRow}
+            onPress={() => setAppsOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Фильтр соединения: какие приложения идут через VPN"
+          >
             <View style={[styles.flagBox, { backgroundColor: "rgba(168,85,247,0.15)" }]}>
               <Ionicons name="shield-half-outline" size={20} color={colors.accent} />
             </View>
