@@ -24,7 +24,7 @@ type Device = {
 export default function DevicesScreen() {
   useTheme();
   const styles = makeStyles();
-  const { me } = useApp();
+  const { me, isFoxcloud } = useApp();
   const isSponsor = me?.is_sponsor === true;
 
   const [devices, setDevices] = useState<Device[]>([]);
@@ -187,10 +187,12 @@ export default function DevicesScreen() {
           <ErrorText>{error}</ErrorText>
 
       <View style={{ flexDirection: "row", marginBottom: 12 }}>
-        <PressableScale style={styles.actionBtn} onPress={onBuy}>
-          <Text style={styles.actionBtnText}>+ устройство · 50 ₽</Text>
-        </PressableScale>
-        {!!bannedCount && (
+        {!isFoxcloud && (
+          <PressableScale style={styles.actionBtn} onPress={onBuy}>
+            <Text style={styles.actionBtnText}>+ устройство · 50 ₽</Text>
+          </PressableScale>
+        )}
+        {!isFoxcloud && !!bannedCount && (
           <PressableScale style={styles.actionBtn} onPress={() => setShowBanned(!showBanned)}>
             <Text style={[styles.actionBtnText, { color: colors.red }]}>
               Бан-лист ({bannedCount})
@@ -199,7 +201,7 @@ export default function DevicesScreen() {
         )}
       </View>
 
-      {showBanned &&
+      {!isFoxcloud && showBanned &&
         banned.map((d) => (
           <Card key={d.hwid_full} style={{ borderColor: colors.red + "44" }}>
             <Text style={{ color: colors.text, fontWeight: "700" }}>{d.model || d.os}</Text>
@@ -218,31 +220,32 @@ export default function DevicesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor={colors.accent} />}
         renderItem={({ item }) => (
           <View style={styles.item}>
-            {isSponsor ? (
-              <PressableScale
-                onPress={() => {
-                  setRenameTarget(item);
-                  setRenameValue(names[item.hwid_full] || "");
-                }}
-                style={styles.itemIconBtn}
-                accessibilityRole="button"
-                accessibilityLabel={`Переименовать устройство ${displayName(item)}`}
-              >
-                <Ionicons name="pencil-outline" size={18} color="#FF9800" />
-              </PressableScale>
-            ) : (
-              <PressableScale
-                onPress={() => setBenefitsOpen(true)}
-                style={styles.itemIconBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Подписи для устройств — преимущество спонсоров"
-              >
-                <View style={styles.lockHeartWrap}>
-                  <SponsorHeart size={11} />
-                  <Ionicons name="lock-closed" size={17} color={colors.textFaint} />
-                </View>
-              </PressableScale>
-            )}
+            {!isFoxcloud &&
+              (isSponsor ? (
+                <PressableScale
+                  onPress={() => {
+                    setRenameTarget(item);
+                    setRenameValue(names[item.hwid_full] || "");
+                  }}
+                  style={styles.itemIconBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Переименовать устройство ${displayName(item)}`}
+                >
+                  <Ionicons name="pencil-outline" size={18} color="#FF9800" />
+                </PressableScale>
+              ) : (
+                <PressableScale
+                  onPress={() => setBenefitsOpen(true)}
+                  style={styles.itemIconBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Подписи для устройств — преимущество спонсоров"
+                >
+                  <View style={styles.lockHeartWrap}>
+                    <SponsorHeart size={11} />
+                    <Ionicons name="lock-closed" size={17} color={colors.textFaint} />
+                  </View>
+                </PressableScale>
+              ))}
             <View style={styles.itemIconBox}>
               <Ionicons
                 name={item.os.toLowerCase().includes("android") ? "phone-portrait-outline" : "laptop-outline"}
@@ -269,14 +272,16 @@ export default function DevicesScreen() {
             >
               <Ionicons name="trash-outline" size={19} color={colors.textFaint} />
             </PressableScale>
-            <PressableScale
-              onPress={() => onBan(item)}
-              style={styles.itemIconBtn}
-              accessibilityRole="button"
-              accessibilityLabel={`Забанить устройство ${displayName(item)}`}
-            >
-              <Ionicons name="close-circle-outline" size={20} color={colors.red} />
-            </PressableScale>
+            {!isFoxcloud && (
+              <PressableScale
+                onPress={() => onBan(item)}
+                style={styles.itemIconBtn}
+                accessibilityRole="button"
+                accessibilityLabel={`Забанить устройство ${displayName(item)}`}
+              >
+                <Ionicons name="close-circle-outline" size={20} color={colors.red} />
+              </PressableScale>
+            )}
           </View>
         )}
         ListEmptyComponent={

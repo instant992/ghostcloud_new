@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Button, Card, ErrorText, Input, Row, Screen } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { ProviderPicker } from "../components/ProviderPicker";
+import { FoxMethodPicker } from "../components/FoxMethodPicker";
 import { createTopup, topupStatus } from "../api";
 import { useApp } from "../context";
 import { colors, useTheme } from "../theme";
@@ -24,6 +25,8 @@ export default function TopUpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<string | null>(null);
+  /** FoxCloud: выбранный способ оплаты Bedolaga (null = авто) */
+  const [foxMethod, setFoxMethod] = useState<{ method: string; option?: string } | null>(null);
 
   const minAmount = isFoxcloud ? 50 : 10;
   const presets = isFoxcloud ? FOX_PRESETS : PRESETS;
@@ -37,7 +40,9 @@ export default function TopUpScreen() {
     setLoading(true);
     setError(null);
     try {
-      const r = await createTopup(num, isFoxcloud ? undefined : provider || undefined);
+      const r = isFoxcloud
+        ? await createTopup(num, undefined, foxMethod?.method, foxMethod?.option)
+        : await createTopup(num, provider || undefined);
       if (!r?.success) throw new Error(r?.error || "Ошибка создания платежа");
       setOrderId(r.order_id || "");
       setPayUrl(r.confirmation_url || r.payment_url || "");
@@ -118,6 +123,13 @@ export default function TopUpScreen() {
           onChangeText={setAmount}
         />
         {!isFoxcloud && <ProviderPicker value={provider} onChange={setProvider} />}
+        {isFoxcloud && (
+          <FoxMethodPicker
+            value={foxMethod}
+            onChange={setFoxMethod}
+            amountKopeks={(parseInt(amount, 10) || 0) * 100}
+          />
+        )}
         <ErrorText>{error}</ErrorText>
         <Button title="Пополнить" onPress={create} loading={loading} />
         {(!!payUrl || isFoxcloud) && (

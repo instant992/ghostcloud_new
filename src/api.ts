@@ -179,8 +179,18 @@ export async function paymentStatus(paymentId: string) {
   return request("GET", `/api/payment-status?payment_id=${encodeURIComponent(paymentId)}`, undefined, { auth: false });
 }
 
-export async function createTopup(amount: number, provider?: string) {
-  return request("POST", "/api/auth/mobile/topup", { amount, provider });
+export async function createTopup(amount: number, provider?: string, foxMethod?: string, foxOption?: string) {
+  return request("POST", "/api/auth/mobile/topup", {
+    amount,
+    provider,
+    ...(foxMethod ? { method: foxMethod } : {}),
+    ...(foxOption ? { option: foxOption } : {}),
+  });
+}
+
+/** Способы оплаты FoxCloud (Bedolaga): { methods: [{id, name, requires_amount, min_amount_kopeks, options:[{id,title,icon}]}] } */
+export async function getFoxPaymentMethods() {
+  return request("GET", "/api/auth/mobile/fox/payment-methods");
 }
 
 /** Доступные платёжные системы: { providers: [{id, name, description, default, is_extra}], default } */
