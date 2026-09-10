@@ -332,6 +332,10 @@ export default function SettingsScreen() {
     <Screen style={useScreenTopPad()}>
       <Title>Настройки</Title>
 
+      {/* FoxCloud (вход через Telegram): тема закреплена — режим темы
+          (тёмная/авто/светлая), смена темы по времени и выбор стиля скрыты
+          целиком, чтобы нельзя было уйти из FoxCloud или включить авто-смену. */}
+      {!isFoxcloud && (
       <Card>
         <Text style={styles.sectionTitle}>Тема</Text>
 
@@ -611,6 +615,7 @@ export default function SettingsScreen() {
           </PressableScale>
         </Modal>}
       </Card>
+      )}
 
       {/* Иконка приложения на рабочем столе (как в старом приложении).
           Для Telegram-авторизации (FoxiCloud) спонсорские фичи скрыты. */}
@@ -749,7 +754,9 @@ export default function SettingsScreen() {
         </Text>
       </Card>
 
-      {/* ─── DNS-серверы (преимущество спонсоров) ─── */}
+      {/* ─── DNS-серверы (преимущество спонсоров) ───
+          FoxCloud (вход через Telegram): скрыто — DNS остаётся «Автоматически». */}
+      {!isFoxcloud && (
       <Card>
         <View style={styles.themeRowLine}>
           <Ionicons name="globe-outline" size={20} color={colors.accent} />
@@ -786,6 +793,7 @@ export default function SettingsScreen() {
           </Text>
         )}
       </Card>
+      )}
 
       <Card>
         <PressableScale

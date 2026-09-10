@@ -159,11 +159,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const themeCtx = useTheme();
   const switchTheme = useThemeSwitcher();
   const isFoxcloudMode = !!(session?.isFoxcloud || me?.is_foxicloud);
+  // FoxCloud (вход через Telegram): стиль закреплён на FoxCloud, режим — тёмный.
+  // Фиксируем и mode тоже: сохранённый ранее «авто»/«светлая» иначе продолжал бы
+  // переключать вариацию темы по времени, хотя контролы в настройках скрыты.
   useEffect(() => {
-    if (isFoxcloudMode && themeCtx.style !== "foxcloud") {
-      switchTheme({ style: "foxcloud" });
+    if (isFoxcloudMode && (themeCtx.style !== "foxcloud" || themeCtx.mode !== "dark")) {
+      switchTheme({ style: "foxcloud", mode: "dark" });
     }
-  }, [isFoxcloudMode, themeCtx.style, switchTheme]);
+  }, [isFoxcloudMode, themeCtx.style, themeCtx.mode, switchTheme]);
 
   // Загружаем список закрытых уведомлений безопасности (не показывать их снова)
   useEffect(() => {
