@@ -24,15 +24,28 @@ type TgAuthParams = {
   error?: string;
 };
 
-/** Разбор deep link ghostcloud://tg-auth?... / foxcloud://tg-auth?... */
-function parseTgAuthUrl(url: string): TgAuthParams | null {
+/** Разбор deep link ghostcloud://tg-auth?... / foxcloud://tg-auth?...
+ *  ВНИМАНИЕ: глобального URL в React Native нет (без полифилла) — парсим
+ *  query-строку вручную. */
+export function parseTgAuthUrl(url: string): TgAuthParams | null {
   try {
-    const u = new URL(url);
-    if (u.host !== "tg-auth" && !url.includes("://tg-auth")) return null;
+    if (!/(^|:\/\/)(ghostcloud|foxcloud):\/\/tg-auth/i.test(url) && !/^(ghostcloud|foxcloud):\/\/tg-auth/i.test(url)) {
+      // допускаем любые кастомные схемы с host tg-auth
+      if (!/^[a-z][a-z0-9+.-]*:\/\/tg-auth/i.test(url)) return null;
+    }
+    const qIdx = url.indexOf("?");
+    if (qIdx < 0) return {};
+    let qs = url.slice(qIdx + 1);
+    const hIdx = qs.indexOf("#");
+    if (hIdx >= 0) qs = qs.slice(0, hIdx);
     const params: TgAuthParams = {};
-    u.searchParams.forEach((v, k) => {
+    for (const part of qs.split("&")) {
+      const eq = part.indexOf("=");
+      if (eq < 0) continue;
+      const k = decodeURIComponent(part.slice(0, eq));
+      const v = decodeURIComponent(part.slice(eq + 1).replace(/\+/g, " "));
       (params as any)[k] = v;
-    });
+    }
     return params;
   } catch {
     return null;

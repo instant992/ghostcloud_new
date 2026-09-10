@@ -144,6 +144,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const nodesRetryRef = useRef(0);
   /** Актуальная длина списка узлов (для фоновых повторов без доступа к state) */
   const nodesLenRef = useRef(0);
+  /** Ref на signInViaToken: boot-эффект объявлен раньше самого callback,
+   *  поэтому вызываем через ref, чтобы не упереться в TDZ. */
+  const signInViaTokenRef = useRef<
+    (subscriptionUrl: string, user?: any, tgId?: string, isFoxcloud?: boolean) => Promise<void>
+  >(async () => {});
 
   useEffect(() => {
     selectedNodeIdRef.current = selectedNodeId;
@@ -464,6 +469,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (savedId) setSelectedNodeId(savedId);
         if (mounted.current) setLoading(false);
       } else {
+        // Cold-start по deep link ghostcloud://tg-auth (Android убил приложение,
+        // пока пользователь был в браузере на Telegram Login) — если сессии нет,
+        // но есть ссылка возврата, входим в FoxCloud-режим по ней.
+        try {
+          const { Linking } = await import("react-native");
+          const initial = await Linking.getInitialURL();
+          if (initial) {
+            const { parseTgAuthUrl } = await import("./screens/auth/TelegramLoginScreen");
+            const p = parseTgAuthUrl(initial);
+            if (p && p.subscription_url && !p.error) {
+              await signInViaTokenRef.current(
+                p.subscription_url,
+                { login: p.tg_id ? `tg_${p.tg_id}` : undefined },
+                p.tg_id,
+                p.source === "foxicloud" || !!p.tg_id
+              );
+              if (mounted.current) setLoading(false);
+              return;
+            }
+          }
+        } catch {}
         setLoading(false);
       }
     })();
@@ -602,6 +628,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {}
     scheduleNodesRetry();
   }, [refreshMe, reloadNodes]);
+
+  // Держим ref актуальным для boot-эффекта (объявлен раньше)
+  useEffect(() => {
+    signInViaTokenRef.current = signInViaToken;
+  }, [signInViaToken]);
 
   const signOut = useCallback(async () => {
     const mod = await import("./vpn/manager");
