@@ -48,7 +48,13 @@ export default function TelegramLoginScreen() {
           const data = await res.json();
           if (data?.success && data.subscription_url) {
             if (timer.current) clearInterval(timer.current);
-            await signInViaToken(data.subscription_url, data.user);
+            // data.user.id = telegram_id; is_foxicloud — режим Telegram-авторизации
+            await signInViaToken(
+              data.subscription_url,
+              data.user,
+              data.user?.id ? String(data.user.id) : undefined,
+              data.is_foxicloud === true
+            );
           }
         } catch {}
       }, 2500);

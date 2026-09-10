@@ -103,7 +103,7 @@ export default function SettingsScreen() {
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
   const nav = useNavigation<any>();
-  const { me, vpnRunning, setVpnRunning } = useApp();
+  const { me, vpnRunning, setVpnRunning, isFoxcloud } = useApp();
   const [style, setStyle] = useState<ThemeName>(getThemeName());
   const [mode, setMode] = useState<ThemeMode>(getThemeMode());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
@@ -270,7 +270,7 @@ export default function SettingsScreen() {
 
   /** 5 нажатий на заголовок «Стиль темы» → диалог ввода кода секретной темы */
   const handleStyleTitleTap = () => {
-    if (simpleUnlocked) return;
+    if (simpleUnlocked || isFoxcloud) return;
     clearTimeout(tapReset.current);
     const next = styleTaps + 1;
     if (next >= 5) {
@@ -510,21 +510,31 @@ export default function SettingsScreen() {
             <Text style={styles.themeRowTitle}>Стиль темы</Text>
           </Pressable>
           <View style={{ flex: 1 }} />
-          <PressableScale
-            style={styles.styleDropdownBtn}
-            onPress={() => setThemeOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`Стиль темы: ${THEME_LABELS[style]}. Нажмите, чтобы выбрать`}
-          >
-            <Ionicons name="sparkles" size={13} color={colors.accent} />
-            <Text style={styles.styleDropdownText}>{THEME_LABELS[style]}</Text>
-            <Ionicons name="chevron-down" size={14} color={colors.accent} />
-          </PressableScale>
+          {isFoxcloud ? (
+            <View style={styles.styleDropdownBtn}>
+              <Ionicons name="sparkles" size={13} color={colors.accent} />
+              <Text style={styles.styleDropdownText}>{THEME_LABELS[style]}</Text>
+              <Ionicons name="lock-closed" size={12} color={colors.textFaint} />
+            </View>
+          ) : (
+            <PressableScale
+              style={styles.styleDropdownBtn}
+              onPress={() => setThemeOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel={`Стиль темы: ${THEME_LABELS[style]}. Нажмите, чтобы выбрать`}
+            >
+              <Ionicons name="sparkles" size={13} color={colors.accent} />
+              <Text style={styles.styleDropdownText}>{THEME_LABELS[style]}</Text>
+              <Ionicons name="chevron-down" size={14} color={colors.accent} />
+            </PressableScale>
+          )}
         </View>
         <Text style={styles.hint}>
-          {mode === "auto"
-            ? "Светлая вариация включается автоматически по расписанию"
-            : "Применяется сразу, без перезагрузки"}
+          {isFoxcloud
+            ? "Вход через Telegram — тема FoxCloud закреплена"
+            : mode === "auto"
+              ? "Светлая вариация включается автоматически по расписанию"
+              : "Применяется сразу, без перезагрузки"}
         </Text>
 
         {themeOpen && <Modal visible={themeOpen} transparent animationType="fade" onRequestClose={() => setThemeOpen(false)}>
@@ -602,7 +612,9 @@ export default function SettingsScreen() {
         </Modal>}
       </Card>
 
-      {/* Иконка приложения на рабочем столе (как в старом приложении) */}
+      {/* Иконка приложения на рабочем столе (как в старом приложении).
+          Для Telegram-авторизации (FoxiCloud) спонсорские фичи скрыты. */}
+      {!isFoxcloud && (
       <Card>
         <Text style={styles.sectionTitle}>Иконка приложения</Text>
         <View style={styles.themeRowLine}>
@@ -650,6 +662,7 @@ export default function SettingsScreen() {
           На некоторых оболочках подпись под иконкой обновится после возврата на главный экран.
         </Text>
       </Card>
+      )}
 
       <Card>
         <Text style={styles.sectionTitle}>Ядро VPN</Text>

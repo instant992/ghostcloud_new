@@ -8,6 +8,8 @@ const KEYS = {
   hwid: "gc_hwid",
   login: "gc_login",
   email: "gc_email",
+  tgId: "gc_tg_id",
+  isFoxcloud: "gc_is_foxicloud",
   selectedNode: "gc_selected_node",
 };
 
@@ -62,6 +64,10 @@ export type Session = {
   hy2SubUrl?: string;
   login?: string;
   email?: string;
+  /** Telegram ID — для FoxiCloud-сессий (авторизация через бота) */
+  tgId?: string;
+  /** true = Telegram-авторизация (FoxiCloud): урезанный режим приложения */
+  isFoxcloud?: boolean;
 };
 
 export async function saveSession(s: Session): Promise<void> {
@@ -74,6 +80,10 @@ export async function saveSession(s: Session): Promise<void> {
   else await SecureStore.deleteItemAsync(KEYS.hy2SubUrl);
   if (s.login) await SecureStore.setItemAsync(KEYS.login, s.login);
   if (s.email) await SecureStore.setItemAsync(KEYS.email, s.email);
+  if (s.tgId) await SecureStore.setItemAsync(KEYS.tgId, s.tgId);
+  else await SecureStore.deleteItemAsync(KEYS.tgId);
+  if (s.isFoxcloud) await SecureStore.setItemAsync(KEYS.isFoxcloud, "1");
+  else await SecureStore.deleteItemAsync(KEYS.isFoxcloud);
 }
 
 export async function loadSession(): Promise<Session | null> {
@@ -87,6 +97,8 @@ export async function loadSession(): Promise<Session | null> {
     hy2SubUrl: (await SecureStore.getItemAsync(KEYS.hy2SubUrl)) || undefined,
     login: (await SecureStore.getItemAsync(KEYS.login)) || undefined,
     email: (await SecureStore.getItemAsync(KEYS.email)) || undefined,
+    tgId: (await SecureStore.getItemAsync(KEYS.tgId)) || undefined,
+    isFoxcloud: (await SecureStore.getItemAsync(KEYS.isFoxcloud)) === "1",
   };
 }
 

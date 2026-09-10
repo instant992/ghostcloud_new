@@ -10,6 +10,7 @@ import { ProviderPicker } from "../components/ProviderPicker";
 import { SpinnerRing } from "../components/Foundations";
 import { checkPromo, createPayment, extendFromBalance, getPrices, paymentStatus } from "../api";
 import { useApp } from "../context";
+import { FoxRenew } from "../components/FoxRenew";
 import { colors, useTheme } from "../theme";
 
 type Step = "plans" | "email" | "paying" | "waiting" | "success";
@@ -28,7 +29,7 @@ export default function PlansScreen() {
   const styles = makeStyles();
 
   const nav = useNavigation<any>();
-  const { me, refreshMe } = useApp();
+  const { me, refreshMe, isFoxcloud } = useApp();
   const topPad = useScreenTopPad();
 
   const [step, setStep] = useState<Step>("plans");
@@ -194,6 +195,19 @@ export default function PlansScreen() {
         },
       ]
     );
+
+  // ── FoxiCloud (Telegram-авторизация): тарифы и продление — через Bedolaga API ──
+  if (isFoxcloud) {
+    return (
+      <Screen style={topPad}>
+        <Title>Продлить подписку</Title>
+        <Text style={{ color: colors.textDim, fontSize: 13, marginBottom: 12 }}>
+          Подписка и баланс FoxCloud — тарифы подтягиваются из @foxicloudbot
+        </Text>
+        <FoxRenew />
+      </Screen>
+    );
+  }
 
   // ── Шаг: выбор тарифа ──
   if (step === "plans") {

@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Te
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { autoRenewGet, autoRenewSet, balanceHistory } from "../api";
+import { useApp } from "../context";
 import { colors, sheetSurfaceBg, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { showToast } from "./Toast";
@@ -53,6 +54,7 @@ export function BalanceSheet({
   useTheme();
   const styles = makeStyles();
   const nav = useNavigation<any>();
+  const { isFoxcloud } = useApp();
   const [loading, setLoading] = useState(false);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [autoRenew, setAutoRenew] = useState<AutoRenewInfo | null>(null);
@@ -63,9 +65,11 @@ export function BalanceSheet({
     let cancelled = false;
     setLoading(true);
     (async () => {
+      // FoxiCloud: баланс/автопродление живут в Bedolaga — локальная история
+      // и автопродление GhostCloud не применяются.
       const [h, ar] = await Promise.all([
-        balanceHistory().catch(() => null),
-        autoRenewGet().catch(() => null),
+        isFoxcloud ? null : balanceHistory().catch(() => null),
+        isFoxcloud ? null : autoRenewGet().catch(() => null),
       ]);
       if (cancelled) return;
       if (h?.success && Array.isArray(h.transactions)) setTxs(h.transactions);
@@ -81,7 +85,7 @@ export function BalanceSheet({
     return () => {
       cancelled = true;
     };
-  }, [visible]);
+  }, [visible, isFoxcloud]);
 
   const sumBy = (sign: 1 | -1) =>
     txs.reduce((acc, t) => {
@@ -178,6 +182,14 @@ export function BalanceSheet({
           {loading ? (
             <View style={{ paddingVertical: 26, alignItems: "center" }}>
               <ActivityIndicator color={colors.accent} />
+            </View>
+          ) : isFoxcloud ? (
+            <View style={{ alignItems: "center", paddingVertical: 22 }}>
+              <Ionicons name="wallet-outline" size={38} color={colors.accent} />
+              <Text style={{ color: colors.textDim, fontSize: 13, marginTop: 8, textAlign: "center" }}>
+                Баланс и операции — в аккаунте FoxCloud.{"\n"}
+                История доступна в @foxicloudbot.
+              </Text>
             </View>
           ) : (
             <ScrollView

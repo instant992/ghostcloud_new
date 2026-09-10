@@ -10,6 +10,8 @@ async function authHeaders(extra: Record<string, string> = {}): Promise<Record<s
   const session = await loadSession();
   const headers: Record<string, string> = { ...extra };
   if (session?.subUrl) headers["X-Sub-Url"] = session.subUrl;
+  // FoxiCloud (Telegram-авторизация): бэкенд приоритетно ищет юзера по tg_id
+  if (session?.tgId) headers["X-Tg-Id"] = session.tgId;
   return headers;
 }
 
@@ -130,6 +132,7 @@ export async function uploadAvatar(uri: string): Promise<any> {
   form.append("avatar", { uri, name: "avatar.jpg", type: "image/jpeg" } as any);
   const headers: Record<string, string> = {};
   if (session?.subUrl) headers["X-Sub-Url"] = session.subUrl;
+  if (session?.tgId) headers["X-Tg-Id"] = session.tgId;
   const res = await fetch(`${BASE_URL}/api/auth/mobile/avatar`, {
     method: "POST",
     headers,
@@ -199,6 +202,16 @@ export async function checkPromo(code: string, plan: string) {
 
 export async function extendFromBalance(plan: string) {
   return request("POST", "/api/auth/mobile/extend", { plan });
+}
+
+// ── FoxiCloud (Telegram-авторизация): продление через Bedolaga API ──
+
+export async function foxRenewalOptions() {
+  return request("GET", "/api/auth/mobile/fox/renewal-options");
+}
+
+export async function foxRenew(periodDays: number) {
+  return request("POST", "/api/auth/mobile/fox/renew", { period_days: periodDays });
 }
 
 export async function autoRenewGet() {

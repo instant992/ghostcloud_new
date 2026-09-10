@@ -12,6 +12,7 @@ import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelecte
 import { VpnNode } from "./vpn/parse";
 import { isVpnRunning, onVpnStateChanged } from "./vpn/manager";
 import type { SecurityAlert } from "./components/SecurityAlertModal";
+import { useTheme, useThemeSwitcher } from "./theme";
 import * as FileSystem from "expo-file-system/legacy";
 
 const NODES_CACHE_FILE = "nodes_cache.json";
@@ -80,6 +81,8 @@ export type MeInfo = {
   is_sponsor?: boolean;
   sponsor_device_bonus_claimed?: boolean;
   is_donor_eligible?: boolean;
+  /** true = Telegram-авторизация (FoxiCloud): урезанный режим приложения */
+  is_foxicloud?: boolean;
   nick_style?: NickStyle | null;
   badges?: UserBadge[];
   security_alerts?: SecurityAlert[];
@@ -94,9 +97,12 @@ type AppState = {
   selectedNodeId: string | null;
   vpnRunning: boolean;
   subscriptionActive: boolean;
+  /** Telegram-авторизация (FoxiCloud): урезанный режим — только тема FoxCloud,
+   *  без спонсорских/платных фич приложения, профиль/баланс из Bedolaga API. */
+  isFoxcloud: boolean;
   signIn: (loginStr: string, password?: string, totpCode?: string) => Promise<void>;
   signIn2fa: (totpCode: string) => Promise<void>;
-  signInViaToken: (subscriptionUrl: string, user?: any) => Promise<void>;
+  signInViaToken: (subscriptionUrl: string, user?: any, tgId?: string, isFoxcloud?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   refreshMe: () => Promise<void>;
   reloadNodes: () => Promise<void>;
@@ -142,6 +148,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     selectedNodeIdRef.current = selectedNodeId;
   }, [selectedNodeId]);
+
+  // ── Telegram-авторизация (FoxiCloud): приложение работает только в теме
+  // FoxCloud — стиль переключается принудительно, остальные темы недоступны.
+  const themeCtx = useTheme();
+  const switchTheme = useThemeSwitcher();
+  const isFoxcloudMode = !!(session?.isFoxcloud || me?.is_foxicloud);
+  useEffect(() => {
+    if (isFoxcloudMode && themeCtx.style !== "foxcloud") {
+      switchTheme({ style: "foxcloud" });
+    }
+  }, [isFoxcloudMode, themeCtx.style, switchTheme]);
 
   // Загружаем список закрытых уведомлений безопасности (не показывать их снова)
   useEffect(() => {
@@ -347,15 +364,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const newSession = await loadSession();
     const rw = data.subscription_url || newSession?.rwSubUrl;
     const combined = data.combined_subscription_url || undefined;
-    if (newSession && (rw !== newSession.rwSubUrl || combined !== newSession.combinedSubUrl)) {
-      const updated: Session = {
-        ...newSession,
-        subUrl: newSession.subUrl || rw || "",
-        rwSubUrl: rw,
-        combinedSubUrl: combined,
-      };
-      await saveSession(updated);
-      setSession(updated);
+    // Telegram-авторизация (FoxiCloud): держим tgId/флаг в сессии в актуальном
+    // состоянии, чтобы X-Tg-Id слался и после перезапуска.
+    if (newSession) {
+      const tgId = newSession.tgId;
+      const isFox = data.is_foxicloud === true || (newSession.isFoxcloud ?? false);
+      const changed =
+        rw !== newSession.rwSubUrl ||
+        combined !== newSession.combinedSubUrl ||
+        isFox !== newSession.isFoxcloud;
+      if (changed) {
+        const updated: Session = {
+          ...newSession,
+          subUrl: newSession.subUrl || rw || "",
+          rwSubUrl: rw,
+          combinedSubUrl: combined,
+          tgId,
+          isFoxcloud: isFox,
+        };
+        await saveSession(updated);
+        setSession(updated);
+      }
     }
   }, []);
 
@@ -555,12 +584,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [securityAlert]);
 
-  const signInViaToken = useCallback(async (subscriptionUrl: string, user?: any) => {
+  const signInViaToken = useCallback(async (subscriptionUrl: string, user?: any, tgId?: string, isFoxcloud?: boolean) => {
+    const tg = String(tgId || user?.id || "");
     await saveSession({
       subUrl: subscriptionUrl,
       combinedSubUrl: subscriptionUrl,
       login: user?.login,
       email: user?.email,
+      tgId: tg || undefined,
+      isFoxcloud: isFoxcloud ?? false,
     });
     const s = await loadSession();
     setSession(s);
@@ -603,6 +635,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       selectedNodeId,
       vpnRunning,
       subscriptionActive,
+      isFoxcloud: isFoxcloudMode,
       signIn,
       signIn2fa,
       signInViaToken,
@@ -617,7 +650,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       securityDisable2fa,
       securityKickAll,
     }),
-    [loading, session, me, nodes, unsupportedCount, selectedNodeId, vpnRunning, subscriptionActive, signIn, signIn2fa, signOut, refreshMe, reloadNodes, selectNode, securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll]
+    [loading, session, me, nodes, unsupportedCount, selectedNodeId, vpnRunning, subscriptionActive, isFoxcloudMode, signIn, signIn2fa, signInViaToken, signOut, refreshMe, reloadNodes, selectNode, securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

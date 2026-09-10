@@ -19,6 +19,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
+import { FoxRenew } from "../components/FoxRenew";
 import { BalanceSheet } from "../components/BalanceSheet";
 import { QRScannerModal } from "../components/QRScannerModal";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
@@ -58,7 +59,7 @@ export default function ProfileScreen() {
   const inTabs = useInTabArea();
 
   const nav = useNavigation<any>();
-  const { me, signOut, refreshMe, subscriptionActive } = useApp();
+  const { me, signOut, refreshMe, subscriptionActive, isFoxcloud } = useApp();
 
   const [editOpen, setEditOpen] = useState(false);
   const [nick, setNick] = useState("");
@@ -514,7 +515,7 @@ export default function ProfileScreen() {
         {/* ─── Карточка аккаунта ─── */}
         <Card>
           <View style={styles.accRow}>
-            <PressableScale onPress={openEditor} accessibilityLabel="Изменить профиль">
+            <PressableScale onPress={isFoxcloud ? undefined : openEditor} accessibilityLabel="Изменить профиль">
               {avatarUri ? (
                 <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
               ) : (
@@ -528,27 +529,39 @@ export default function ProfileScreen() {
                 <Text style={styles.name} numberOfLines={1}>
                   {me?.display_name || me?.login || "Пользователь"}
                 </Text>
-                {!!effectiveBadge && <VerifiedBadge type={effectiveBadge} size={17} />}
-                {(me?.badges || []).map((b) => (
-                  <CustomBadge key={b.id} badge={b} size={18} />
-                ))}
-                {isSponsor && <SponsorHeart size={16} />}
+                {/* FoxiCloud: профиль из Bedolaga — локальные бейджи/ник не применяются */}
+                {!isFoxcloud && (
+                  <>
+                    {!!effectiveBadge && <VerifiedBadge type={effectiveBadge} size={17} />}
+                    {(me?.badges || []).map((b) => (
+                      <CustomBadge key={b.id} badge={b} size={18} />
+                    ))}
+                    {isSponsor && <SponsorHeart size={16} />}
+                  </>
+                )}
               </View>
-              {!!me?.email && (
+              {!!me?.email && !isFoxcloud && (
                 <Text style={styles.email} numberOfLines={1}>
                   {me.email}
                 </Text>
               )}
+              {isFoxcloud && (
+                <Text style={styles.email} numberOfLines={1}>
+                  FoxCloud · вход через Telegram
+                </Text>
+              )}
             </View>
-            <Pressable
-              onPress={openEditor}
-              hitSlop={10}
-              style={styles.editBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Изменить имя"
-            >
-              <Ionicons name="pencil" size={18} color={colors.textDim} />
-            </Pressable>
+            {!isFoxcloud && (
+              <Pressable
+                onPress={openEditor}
+                hitSlop={10}
+                style={styles.editBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Изменить имя"
+              >
+                <Ionicons name="pencil" size={18} color={colors.textDim} />
+              </Pressable>
+            )}
           </View>
 
           <View style={styles.rowsBlock}>
@@ -580,52 +593,62 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* Кнопки: Продлить / Подарить (за деньги, всем) / Промокод */}
-          <View style={styles.chipsRow}>
-            <View style={{ flex: 1 }}>
-              <Button size="sm" title="Продлить" onPress={() => nav.navigate("Тарифы")} />
+          {/* Кнопки: Продлить / Подарить (за деньги, всем) / Промокод.
+              FoxiCloud: подписка продлевается через Bedolaga API — подарки и
+              промокоды (локальные фичи GhostCloud) скрыты. */}
+          {isFoxcloud ? (
+            <FoxRenew />
+          ) : (
+            <View style={styles.chipsRow}>
+              <View style={{ flex: 1 }}>
+                <Button size="sm" title="Продлить" onPress={() => nav.navigate("Тарифы")} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button size="sm" title="Подарить" variant="ghost" onPress={openPaidGift} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button size="sm" title="Промокод" variant="ghost" onPress={() => setPromoOpen(true)} />
+              </View>
             </View>
-            <View style={{ flex: 1 }}>
-              <Button size="sm" title="Подарить" variant="ghost" onPress={openPaidGift} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Button size="sm" title="Промокод" variant="ghost" onPress={() => setPromoOpen(true)} />
-            </View>
-          </View>
+          )}
         </Card>
 
         {/* ─── Меню ─── */}
         <View style={styles.menuCard}>
-          <MenuItem
-            icon="people"
-            iconColor={colors.accent}
-            title="Рефералы"
-            sub="Пригласите друзей и получайте бонусы"
-            onPress={() => nav.navigate("Referral")}
-          />
-          <View style={styles.menuDivider} />
-          <MenuItem
-            icon="trophy"
-            iconColor="#FF9800"
-            title="Топ спонсоров"
-            sub="Рейтинг по сумме пополнений · преимущества"
-            onPress={() => nav.navigate("SponsorLeaderboard")}
-          />
-          <View style={styles.menuDivider} />
-          <MenuItem
-            icon="send"
-            iconColor="#2AABEE"
-            title="Привязка Telegram"
-            sub={me?.telegram_linked ? "Telegram подключён" : "Привяжите Telegram для удобства"}
-            trailing={
-              me?.telegram_linked ? (
-                <Ionicons name="checkmark-circle" size={22} color={colors.green} />
-              ) : undefined
-            }
-            onPress={me?.telegram_linked ? unlinkTelegram : linkTelegram}
-          />
-          <View style={styles.menuDivider} />
-          {isSponsor && (
+          {!isFoxcloud && (
+            <>
+              <MenuItem
+                icon="people"
+                iconColor={colors.accent}
+                title="Рефералы"
+                sub="Пригласите друзей и получайте бонусы"
+                onPress={() => nav.navigate("Referral")}
+              />
+              <View style={styles.menuDivider} />
+              <MenuItem
+                icon="trophy"
+                iconColor="#FF9800"
+                title="Топ спонсоров"
+                sub="Рейтинг по сумме пополнений · преимущества"
+                onPress={() => nav.navigate("SponsorLeaderboard")}
+              />
+              <View style={styles.menuDivider} />
+              <MenuItem
+                icon="send"
+                iconColor="#2AABEE"
+                title="Привязка Telegram"
+                sub={me?.telegram_linked ? "Telegram подключён" : "Привяжите Telegram для удобства"}
+                trailing={
+                  me?.telegram_linked ? (
+                    <Ionicons name="checkmark-circle" size={22} color={colors.green} />
+                  ) : undefined
+                }
+                onPress={me?.telegram_linked ? unlinkTelegram : linkTelegram}
+              />
+              <View style={styles.menuDivider} />
+            </>
+          )}
+          {isSponsor && !isFoxcloud && (
             <>
               <MenuItem
                 icon="gift"
@@ -637,26 +660,40 @@ export default function ProfileScreen() {
               <View style={styles.menuDivider} />
             </>
           )}
-          <MenuItem
-            icon="shield-checkmark"
-            iconColor={colors.green}
-            title="Двухфакторная аутентификация"
-            sub={twoFaEnabled === null ? "Проверка…" : twoFaEnabled ? "Включена — защита аккаунта" : "Защитите аккаунт кодом из приложения"}
-            trailing={
-              twoFaEnabled ? (
-                <Ionicons name="checkmark-circle" size={22} color={colors.green} />
-              ) : undefined
-            }
-            onPress={openTwoFa}
-          />
-          <View style={styles.menuDivider} />
-          <MenuItem
-            icon="qr-code"
-            iconColor={colors.accent}
-            title="QR-авторизация"
-            sub="Вход на другом устройстве по QR"
-            onPress={() => setScanOpen(true)}
-          />
+          {!isFoxcloud && (
+            <>
+              <MenuItem
+                icon="shield-checkmark"
+                iconColor={colors.green}
+                title="Двухфакторная аутентификация"
+                sub={twoFaEnabled === null ? "Проверка…" : twoFaEnabled ? "Включена — защита аккаунта" : "Защитите аккаунт кодом из приложения"}
+                trailing={
+                  twoFaEnabled ? (
+                    <Ionicons name="checkmark-circle" size={22} color={colors.green} />
+                  ) : undefined
+                }
+                onPress={openTwoFa}
+              />
+              <View style={styles.menuDivider} />
+              <MenuItem
+                icon="qr-code"
+                iconColor={colors.accent}
+                title="QR-авторизация"
+                sub="Вход на другом устройстве по QR"
+                onPress={() => setScanOpen(true)}
+              />
+            </>
+          )}
+          {isFoxcloud && (
+            <MenuItem
+              icon="paper-plane"
+              iconColor="#2AABEE"
+              title="Аккаунт FoxCloud"
+              sub="Вход через Telegram · управление в @foxicloudbot"
+              trailing={<Ionicons name="checkmark-circle" size={22} color={colors.green} />}
+              onPress={() => {}}
+            />
+          )}
         </View>
 
         {/* ─── Настройки и выход ─── */}
