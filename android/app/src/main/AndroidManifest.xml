@@ -31,6 +31,16 @@
       <intent-filter>
         <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES"/>
       </intent-filter>
+      <!-- Возврат из браузера после Telegram Login (вход через @foxicloudbot):
+           ghostcloud://tg-auth?subscription_url=...&tg_id=...&source=foxicloud
+           (foxcloud:// — для совместимости со старыми ссылками сервера) -->
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+        <data android:scheme="ghostcloud" android:host="tg-auth"/>
+        <data android:scheme="foxcloud" android:host="tg-auth"/>
+      </intent-filter>
     </activity>
     <!-- Стандартная иконка-призрак (по умолчанию). Переключается нативным
          методом setLauncherIcon из модуля XrayCore (activity-alias). -->
