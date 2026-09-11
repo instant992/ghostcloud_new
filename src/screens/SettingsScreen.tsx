@@ -27,10 +27,9 @@ import {
 
 const CORES_REPO_MANIFEST = "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/manifest.json";
 
-const CORES: Array<{ key: CoreName; label: string; file: string; lib: "mihomo" | "singbox" | null; note: string; mb: number }> = [
+const CORES: Array<{ key: CoreName; label: string; file: string; lib: "singbox" | null; note: string; mb: number }> = [
   { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS", mb: 0 },
   { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "+ Hysteria2", mb: 36 },
-  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "все протоколы", mb: 53 },
 ];
 
 // Фолбэк, если манифест недоступен
@@ -50,23 +49,6 @@ const FALLBACK: Record<string, Record<string, { url: string; sha256: string; siz
       url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/sing-box-2/x86_64/libsingbox.so",
       sha256: "100ce32a90b74f98156ad3406ee099ff6359188c1042efa4917c420b385d40e3",
       size: 37628544,
-    },
-  },
-  mihomo: {
-    "arm64-v8a": {
-      url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/mihomo-2/arm64-v8a/libclash.so",
-      sha256: "1b2525cbe98835f988a1d12720662398d2e670136a449e72ce7af70cc6893609",
-      size: 53232248,
-    },
-    "armeabi-v7a": {
-      url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/mihomo-2/armeabi-v7a/libclash.so",
-      sha256: "8d4d9a0b01a208faaf4544c41967297461728723b8185b1986a2e49108eb6fd9",
-      size: 50100396,
-    },
-    x86_64: {
-      url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/mihomo-2/x86_64/libclash.so",
-      sha256: "2c43e6ee318f5e5b0ae7e253ff954764f3c58fbfceadb5c05424f73d529867d8",
-      size: 57588760,
     },
   },
 };
@@ -252,7 +234,6 @@ export default function SettingsScreen() {
   useEffect(() => {
     setXrayVersion(getXrayVersion());
     setDownloaded({
-      "libclash.so": getCoreStatus("libclash.so").downloaded,
       "libsingbox.so": getCoreStatus("libsingbox.so").downloaded,
     });
     const off = onCoreDownloadProgress((e) => {
@@ -303,7 +284,7 @@ export default function SettingsScreen() {
   };
 
   const startDownload = (c: (typeof CORES)[number]) => {
-    const lib: "mihomo" | "singbox" = c.lib as any;
+    const lib: "singbox" = c.lib as any;
     const abi = getCpuAbi();
     setConfirmCore(null);
     setProgress((p) => ({ ...p, [c.file]: 0 }));
@@ -726,7 +707,7 @@ export default function SettingsScreen() {
           );
         })}
         <Text style={styles.hint}>
-          Xray встроен в приложение. Sing-box и Mihomo докачиваются с GitLab при первом использовании.
+          Xray встроен в приложение. Sing-box докачивается с GitLab при первом использовании.
         </Text>
       </Card>
 

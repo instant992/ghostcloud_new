@@ -4,7 +4,6 @@ import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "
 import type { VpnNode } from "./parse";
 import { buildXrayConfig, buildOutbound as buildXrayOutbound } from "./xrayConfig";
 import { buildSingBoxConfig } from "./singboxConfig";
-import { buildMihomoConfig } from "./mihomoConfig";
 import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
 import { computeBypassForNetwork, loadFilterSettings, roscomRoutingForNetwork } from "./connectionFilter";
@@ -65,7 +64,6 @@ function buildConfigFor(
   try {
     const dns = selectedDnsProvider(isSponsor);
     if (core === "sing-box") return buildSingBoxConfig(node, dns, bypassDomains, roscomMode);
-    if (core === "mihomo") return buildMihomoConfig(node, dns, bypassDomains, roscomMode);
     if (!node.supportedByXray) return null;
     return buildXrayConfig(node, null, dns, bypassDomains, roscomMode);
   } catch {
@@ -374,15 +372,8 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     lastConnectedNodeId = node.id;
     return;
   }
-  if (core === "mihomo") {
-    const config = buildMihomoConfig(node, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
-    saveTileConfig(config, "mihomo");
-    await startLibCoreVpn("mihomo", config, allowed, blocked, failover);
-    lastConnectedNodeId = node.id;
-    return;
-  }
   if (!node.supportedByXray) {
-    throw new Error("Hysteria2 доступен только на ядрах sing-box и mihomo — выберите их в настройках");
+    throw new Error("Hysteria2 доступен только на ядре sing-box — выберите его в настройках");
   }
   const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
   saveTileConfig(config, "xray");

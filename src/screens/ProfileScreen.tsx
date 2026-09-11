@@ -19,7 +19,7 @@ import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
-import { FoxRenew } from "../components/FoxRenew";
+import { FoxRenew, FoxRenewSheet } from "../components/FoxRenew";
 import { BalanceSheet } from "../components/BalanceSheet";
 import { QRScannerModal } from "../components/QRScannerModal";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
@@ -594,10 +594,10 @@ export default function ProfileScreen() {
           </View>
 
           {/* Кнопки: Продлить / Подарить (за деньги, всем) / Промокод.
-              FoxiCloud: подписка продлевается через Bedolaga API — подарки и
-              промокоды (локальные фичи GhostCloud) скрыты. */}
+              FoxiCloud: баннер «Пополнить баланс / Продлить» — продление
+              открывается всплывающим окном с тарифами из Bedolaga API. */}
           {isFoxcloud ? (
-            <FoxRenew />
+            <FoxRenewSheet />
           ) : (
             <View style={styles.chipsRow}>
               <View style={{ flex: 1 }}>

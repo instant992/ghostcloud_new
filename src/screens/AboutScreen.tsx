@@ -245,7 +245,7 @@ export default function AboutScreen() {
         </View>
 
         <Text style={styles.desc}>
-          Приватный VPN-клиент на ядрах Xray, Sing-box и Mihomo: VLESS REALITY, Trojan,
+          Приватный VPN-клиент на ядрах Xray и Sing-box: VLESS REALITY, Trojan,
           VMess, Shadowsocks, Hysteria2. Простой и удобный, с автовыбором лучшего сервера.
         </Text>
 
