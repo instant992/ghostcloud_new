@@ -318,6 +318,22 @@ export async function getExtraProfiles() {
   return request("GET", "/api/extra-profiles", undefined, { auth: false });
 }
 
+/** Содержимое LTE-профиля через наш бэкенд-прокси: некоторые провайдеры
+ *  (stealthsurf) отдают пустое тело на User-Agent мобильных клиентов (okhttp),
+ *  поэтому подписку скачивает сервер, а не приложение. */
+export async function getExtraProfileContent(profileId: string): Promise<string> {
+  const r = await request(
+    "GET",
+    `/api/extra-profiles/${encodeURIComponent(profileId)}/content`,
+    undefined,
+    { auth: false }
+  );
+  if (!r?.success || typeof r.content !== "string" || !r.content) {
+    throw new Error("Профиль недоступен");
+  }
+  return r.content;
+}
+
 // ─── Спонсоры ───
 
 export async function claimSponsorDevice() {

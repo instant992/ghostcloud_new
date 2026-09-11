@@ -11,6 +11,12 @@ import { colors, typo } from "../theme";
 type FoxOption = {
   days: number;
   cost_rubles: number;
+  /** Подпись цены от Bedolaga («337 ₽») — копейки отображаются как в боте */
+  cost_label?: string;
+  /** Зачёркнутая старая цена, если есть скидка */
+  original_label?: string;
+  discount_percent?: number;
+  is_recommended?: boolean;
   label: string;
   can_afford?: boolean;
 };
@@ -37,11 +43,18 @@ export function FoxRenew() {
           .map((o: any) => ({
             days: Number(o.days) || 0,
             cost_rubles: Number(o.cost_rubles) || 0,
+            cost_label: o.cost_label ? String(o.cost_label) : undefined,
+            original_label: o.original_cost_label ? String(o.original_cost_label) : undefined,
+            discount_percent: Number(o.discount_percent) || 0,
+            is_recommended: !!o.is_recommended,
             label: String(o.label || `${o.days} дн.`),
             can_afford: !!o.can_afford,
           }));
         setOptions(opts);
-        if (opts.length && selected == null) setSelected(opts[0].days);
+        if (opts.length && selected == null) {
+          const rec = opts.find((o) => o.is_recommended);
+          setSelected((rec || opts[0]).days);
+        }
       } else {
         setError(r?.error || "Не удалось получить тарифы FoxCloud");
       }
@@ -121,10 +134,16 @@ export function FoxRenew() {
                   onPress={() => setSelected(o.days)}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: on }}
-                  accessibilityLabel={`Продление ${o.days} дней за ${o.cost_rubles} рублей`}
+                  accessibilityLabel={`Продление ${o.days} дней за ${o.cost_label || `${o.cost_rubles} ₽`}`}
                 >
                   <Text style={[styles.optDays, on && { color: colors.accent }]}>{o.days} дн.</Text>
-                  <Text style={styles.optPrice}>{o.cost_rubles} ₽</Text>
+                  {!!o.original_label && (
+                    <Text style={styles.optOldPrice}>{o.original_label}</Text>
+                  )}
+                  <Text style={styles.optPrice}>{o.cost_label || `${o.cost_rubles} ₽`}</Text>
+                  {!!o.discount_percent && (
+                    <Text style={styles.optDiscount}>−{o.discount_percent}%</Text>
+                  )}
                 </PressableScale>
               );
             })}
@@ -167,5 +186,12 @@ const styles = StyleSheet.create({
   },
   optOn: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   optDays: { color: colors.text, fontSize: 14, fontWeight: "800" },
-  optPrice: { color: colors.textDim, fontSize: 11, marginTop: 2 },
+  optOldPrice: {
+    color: colors.textFaint,
+    fontSize: 10,
+    marginTop: 2,
+    textDecorationLine: "line-through",
+  },
+  optPrice: { color: colors.textDim, fontSize: 11, marginTop: 1 },
+  optDiscount: { color: colors.green, fontSize: 10, fontWeight: "800", marginTop: 1 },
 });

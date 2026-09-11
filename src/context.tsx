@@ -403,21 +403,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const subResult = await mod.fetchNodes().catch(() => ({ nodes: [], unsupportedCount: 0 }));
     const lteNodes: VpnNode[] = [];
 
-    // Extra-профили (LTE Open): content — URL подписки или сам конфиг
+    // Extra-профили (LTE Open): содержимое берём через бэкенд-прокси —
+    // провайдер stealthsurf отдаёт пустое тело на User-Agent okhttp (RN не
+    // может его переопределить), поэтому подписку скачивает наш сервер.
+    // Ошибки изолируем на профиль: битая подписка не глушит остальные.
     try {
       const r = await api.getExtraProfiles();
       const profiles = Array.isArray(r?.profiles) ? r.profiles : [];
       for (const p of profiles) {
-        if (!p?.is_active && p.is_active !== undefined) continue;
-        let text = "";
-        if (p.profile_type === "url" && typeof p.content === "string" && p.content.startsWith("http")) {
-          text = await mod.fetchSubscriptionText(p.content);
-        } else if (typeof p.content === "string") {
-          text = p.content;
+        try {
+          if (!p?.is_active && p.is_active !== undefined) continue;
+          let text = "";
+          if (p.profile_type === "url" && typeof p.content === "string" && p.content.startsWith("http")) {
+            text = await api.getExtraProfileContent(p.id);
+          } else if (typeof p.content === "string") {
+            text = p.content;
+          }
+          if (!text) continue;
+          const { nodes: parsed } = await import("./vpn/parse").then((m) => m.parseSubscriptionText(text));
+          for (const n of parsed) lteNodes.push({ ...n, id: `lte-${n.id}`, source: "lte" });
+        } catch (e) {
+          console.warn("[reloadNodes] LTE profile failed:", p?.id, String((e as any)?.message || e).slice(0, 80));
         }
-        if (!text) continue;
-        const { nodes: parsed } = await import("./vpn/parse").then((m) => m.parseSubscriptionText(text));
-        for (const n of parsed) lteNodes.push({ ...n, id: `lte-${n.id}`, source: "lte" });
       }
     } catch {}
 
