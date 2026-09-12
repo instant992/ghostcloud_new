@@ -609,8 +609,14 @@ export function countryFromName(name: string): { name: string; flag: string } | 
   return null;
 }
 
+/** Ведущие декоративные эмодзи + разделители перед именем сервера
+ *  («🚀 Лучший сервер» → ракета и пробел). Флаги стран обрабатываются отдельно. */
+const LEADING_EMOJI_RE = /^(?:[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2190-\u2BFF\uFE0F])+[\s|·-]*/;
+
 /** Отделяет флаг-эмодзи из начала имени сервера.
- *  Возвращает флаг (или подобранный по стране) и имя без флагов/разделителей. */
+ *  Возвращает флаг (или подобранный по стране) и имя без флагов/разделителей.
+ *  Сервер «Лучший сервер» (url-test группа из подписки) помечается молнией ⚡
+ *  вместо флага — это не страна, а агрегатор лучшего узла. */
 export function splitNameFlag(raw: string): { flag: string; name: string } {
   let name = (raw || "").trim();
   let flag = "";
@@ -626,6 +632,10 @@ export function splitNameFlag(raw: string): { flag: string; name: string } {
     } else {
       break;
     }
+  }
+  if (/лучш/i.test(name)) {
+    // Убираем ведущий декоративный эмодзи (🚀/⚡/✨), чтобы он не дублировал молнию
+    return { flag: "⚡", name: name.replace(LEADING_EMOJI_RE, "").trim() };
   }
   if (!flag) {
     const c = countryFromName(name);

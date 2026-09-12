@@ -11,6 +11,7 @@ import * as api from "./api";
 import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session, loadDismissedAlerts, addDismissedAlerts } from "./storage";
 import { VpnNode } from "./vpn/parse";
 import { isVpnRunning, onVpnStateChanged } from "./vpn/manager";
+import { clearVpnConnected } from "./vpn/timer";
 import type { SecurityAlert } from "./components/SecurityAlertModal";
 import { useTheme, useThemeSwitcher } from "./theme";
 import * as FileSystem from "expo-file-system/legacy";
@@ -183,7 +184,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const off = onVpnStateChanged((running) => setVpnRunning(running));
+    const off = onVpnStateChanged((running) => {
+      setVpnRunning(running);
+      // VPN остановлен не через disconnect() (кнопка в шторке, onRevoke, сбой) —
+      // сбрасываем метку таймера, иначе после повторного включения он продолжит
+      // считать от старого момента.
+      if (!running) clearVpnConnected();
+    });
     setVpnRunning(isVpnRunning());
     return off;
   }, []);
@@ -222,16 +229,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const s = loadFilterSettings();
             if (!hasNetworkDependentProfiles(s)) return;
             const all = nodesRef.current;
-            const { AUTO_SERVER_ID } = await import("./vpn/autoSelect");
             await mgr.disconnect();
-            let node;
-            if (selectedNodeIdRef.current === AUTO_SERVER_ID) {
-              // В режиме автовыбора — настоящий тест через прокси (VPN уже выключен)
-              const best = await mgr.pickBestNode(all);
-              node = best[0];
-            } else {
-              node = all.find((n) => n.id === selectedNodeIdRef.current) || all[0];
-            }
+            // Выбранный сервер; если его нет в списке (например, пропал из
+            // подписки) — берём первый доступный.
+            const node =
+              all.find((n) => n.id === selectedNodeIdRef.current) || all[0];
             if (!node) return;
             await mgr.connect(node, { isSponsor: meRef.current?.is_sponsor === true });
           } catch {}

@@ -26,12 +26,20 @@ object VpnNotifications {
     }
   }
 
-  /** Формат таймера: до часа «ММ:СС», после часа «ЧЧ:ММ:СС» (как в старом приложении). */
+  /** Формат таймера: до часа «ММ:СС», до суток «ЧЧ:ММ:СС», затем дни и недели
+   *  («N д ЧЧ:ММ:СС», «N нед M д ЧЧ:ММ:СС») — тот же формат, что в приложении. */
   fun formatElapsed(elapsedMs: Long): String {
-    val h = elapsedMs / 3_600_000
-    val m = (elapsedMs / 60_000) % 60
-    val s = (elapsedMs / 1_000) % 60
-    return if (h >= 1) "%02d:%02d:%02d".format(h, m, s) else "%02d:%02d".format(m, s)
+    val total = elapsedMs / 1_000
+    val d = total / 86_400
+    val h = (total % 86_400) / 3_600
+    val m = (total % 3_600) / 60
+    val s = total % 60
+    return when {
+      d >= 7 -> "%d нед %d д %02d:%02d:%02d".format(d / 7, d % 7, h, m, s)
+      d >= 1 -> "%d д %02d:%02d:%02d".format(d, h, m, s)
+      h >= 1 -> "%02d:%02d:%02d".format(h, m, s)
+      else -> "%02d:%02d".format(m, s)
+    }
   }
 
   fun build(
@@ -57,7 +65,6 @@ object VpnNotifications {
       Notification.Builder(service)
     }
     builder
-      .setContentTitle("GhostCloud")
       .setSmallIcon(android.R.drawable.ic_lock_lock)
       .setOngoing(true)
       .setShowWhen(false)
@@ -65,8 +72,17 @@ object VpnNotifications {
     if (contentIntent != null) builder.setContentIntent(contentIntent)
 
     if (running) {
-      // Таймер и «Подключено» в одной строке — без лишнего разрыва
-      builder.setContentText(if (timer.isNotEmpty()) "Подключено · $timer" else "Подключено")
+      // Без «GhostCloud» в заголовке: имя приложения система и так показывает
+      // над уведомлением, получалось две одинаковые строки.
+      // Первая строка — «Подключено · таймер», вторая — «Вы под защитой».
+      val title = if (timer.isNotEmpty()) "Подключено · $timer" else "Подключено"
+      builder.setContentTitle(title)
+      builder.setContentText("Вы под защитой")
+      builder.setStyle(
+        Notification.BigTextStyle()
+          .bigText("Вы под защитой")
+          .setBigContentTitle(title)
+      )
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
         builder.addAction(Notification.Action.Builder(null, "Отключить", stopIntent).build())
       } else {
@@ -74,7 +90,7 @@ object VpnNotifications {
         builder.addAction(0, "Отключить", stopIntent)
       }
     } else {
-      builder.setContentText("Подключение…")
+      builder.setContentTitle("Подключение…")
     }
     return builder.build()
   }

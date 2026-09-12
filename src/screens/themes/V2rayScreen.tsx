@@ -21,6 +21,7 @@ import * as pingStore from "../../vpn/pingStore";
 import { pickBestNode } from "../../vpn/manager";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
+import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode, BRAND_PURPLE } from "../../theme";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -83,7 +84,9 @@ export default function V2rayScreen() {
   const [appsOpen, setAppsOpen] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  // Таймер от абсолютной метки подключения (vpn/timer): не сбрасывается при
+  // ремаунте экрана, считает дни/недели, обнуляется при отключении VPN.
+  const seconds = useVpnTimerSeconds(vpnRunning);
 
   const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
   const lteNodes = useMemo(
@@ -96,15 +99,6 @@ export default function V2rayScreen() {
     () => nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || lteNodes[0] || null,
     [nodes, selectedNodeId, mainNodes, lteNodes]
   );
-
-  useEffect(() => {
-    if (!vpnRunning) {
-      setSeconds(0);
-      return;
-    }
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [vpnRunning]);
 
   const didPing = useRef(false);
   useEffect(() => {
@@ -418,7 +412,7 @@ export default function V2rayScreen() {
         ) : null}
         <Text style={styles.statusText}>{statusText}</Text>
         {!!vpnRunning && !!selectedNode && (
-          <Text style={styles.statusTimer}>  {formatTimer(seconds)}</Text>
+          <Text style={styles.statusTimer} numberOfLines={1}>  {formatElapsed(seconds)}</Text>
         )}
       </Pressable>
 
@@ -579,13 +573,6 @@ export default function V2rayScreen() {
       </Modal>
     </View>
   );
-}
-
-function formatTimer(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 function IconBtn({

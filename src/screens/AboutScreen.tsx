@@ -246,7 +246,7 @@ export default function AboutScreen() {
 
         <Text style={styles.desc}>
           Приватный VPN-клиент на ядрах Xray и Sing-box: VLESS REALITY, Trojan,
-          VMess, Shadowsocks, Hysteria2. Простой и удобный, с автовыбором лучшего сервера.
+          VMess, Shadowsocks, Hysteria2. Простой и удобный, с автопереключением при обрыве.
         </Text>
 
         {/* Обновление приложения (APK) */}

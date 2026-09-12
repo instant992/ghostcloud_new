@@ -114,7 +114,17 @@ export async function saveSelectedNodeId(id: string | null): Promise<void> {
 }
 
 export async function loadSelectedNodeId(): Promise<string | null> {
-  return (await SecureStore.getItemAsync(KEYS.selectedNode)) || null;
+  const v = (await SecureStore.getItemAsync(KEYS.selectedNode)) || null;
+  // Режим «Автовыбор» убран из приложения: сохранённый виртуальный ID больше
+  // не существует в списке серверов, поэтому сбрасываем его (экран возьмёт
+  // первый сервер или покажет «не выбран»).
+  if (v === "__auto__") {
+    try {
+      await SecureStore.deleteItemAsync(KEYS.selectedNode);
+    } catch {}
+    return null;
+  }
+  return v;
 }
 
 /** ID уведомлений безопасности, которые пользователь закрыл («Это был я»).

@@ -21,9 +21,9 @@ import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
-import { connect, disconnect, pickBestNode } from "../../vpn/manager";
+import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
-import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, BRAND_PURPLE } from "../../theme";
@@ -46,14 +46,6 @@ import {
 const PURPLE = "#7C3AED";
 const PURPLE_BADGE = "#6C63FF";
 const TITLE_PURPLE = "#8B5CF6";
-
-function formatTimer(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
 
 /** Неоморфная карточка: фон = фону экрана, пара мягких теней + светлая обводка */
 function neu(radius: number, extra?: ViewStyle): ViewStyle {
@@ -98,7 +90,8 @@ export default function HappScreen() {
   const [favorites, setFavorites] = useState<string[]>(() => getJsonList("happ_favorite_servers"));
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  // Таймер от абсолютной метки подключения — не обнуляется при ремаунте
+  const seconds = useVpnTimerSeconds(vpnRunning);
   const [appsOpen, setAppsOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -112,20 +105,10 @@ export default function HappScreen() {
     [nodes, lteEnabled]
   );
 
-  const autoMode = selectedNodeId === AUTO_SERVER_ID;
   const selectedNode = useMemo(
-    () => (autoMode ? null : nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || null),
-    [nodes, selectedNodeId, mainNodes, autoMode]
+    () => nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    [nodes, selectedNodeId, mainNodes]
   );
-
-  useEffect(() => {
-    if (!vpnRunning) {
-      setSeconds(0);
-      return;
-    }
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [vpnRunning]);
 
   useEffect(() => {
     const load = () => stats.sumDays(1).then(setTodayStat).catch(() => {});
@@ -178,14 +161,7 @@ export default function HappScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        // Режим «Автовыбор»: настоящий тест серверов через прокси (нужен выключенный VPN)
-        let target: VpnNode | null;
-        if (autoMode) {
-          const best = await pickBestNode(nodes);
-          target = best[0] || null;
-        } else {
-          target = selectedNode;
-        }
+        const target = selectedNode;
         if (!target) {
           showToast("Нет доступных серверов");
           return;
@@ -211,34 +187,6 @@ export default function HappScreen() {
         await disconnect();
         await connect(node, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
-        setSeconds(0);
-      } catch (e: any) {
-        showToast(e?.message || "Ошибка переподключения");
-        setVpnRunning(false);
-      } finally {
-        setBusy(false);
-      }
-    }
-  };
-
-  /** Режим «Автовыбор»: тест серверов через прокси и подключение к лучшему. */
-  const chooseAuto = async () => {
-    selectNode(AUTO_SERVER_ID);
-    Haptics.selectionAsync().catch(() => {});
-    if (vpnRunning) {
-      try {
-        setBusy(true);
-        await disconnect();
-        const best = await pickBestNode(nodes);
-        const node = best[0];
-        if (!node) {
-          showToast("Нет доступных серверов");
-          setVpnRunning(false);
-          return;
-        }
-        await connect(node, { isSponsor: me?.is_sponsor === true });
-        setVpnRunning(true);
-        setSeconds(0);
       } catch (e: any) {
         showToast(e?.message || "Ошибка переподключения");
         setVpnRunning(false);
@@ -367,7 +315,7 @@ export default function HappScreen() {
                   <>
                     <Ionicons name="power" size={34} color="#fff" />
                     <Text style={styles.powerLabel}>Подключено</Text>
-                    <Text style={styles.powerTimer}>{formatTimer(seconds)}</Text>
+                    <Text style={styles.powerTimer} numberOfLines={1}>{formatElapsed(seconds)}</Text>
                   </>
                 ) : (
                   <Ionicons name="power" size={54} color={isLightPalette() ? colors.accent : "rgba(255,255,255,0.5)"} />
@@ -488,43 +436,6 @@ export default function HappScreen() {
             <Text style={styles.emptyText}>Профиль не найден</Text>
           ) : (
             <>
-              {/* Автовыбор — лучший обычный сервер по пингу (только обычные серверы) */}
-              <View style={{ paddingHorizontal: 8, paddingVertical: 2 }}>
-                <Pressable
-                  onPress={chooseAuto}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Автовыбор: лучший сервер по пингу${autoMode ? ". Включён" : ""}`}
-                  accessibilityState={{ selected: autoMode }}
-                  style={[
-                    styles.tile,
-                    autoMode && {
-                      backgroundColor: "#D9D2F5",
-                      borderColor: "rgba(139,92,246,0.42)",
-                      borderWidth: 1.35,
-                    },
-                  ]}
-                >
-                  <View style={{ width: 29, alignItems: "center" }}>
-                    <Text style={{ fontSize: 18 }}>✨</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <Text
-                      style={[styles.tileName, autoMode && { color: "#5B35C8" }]}
-                      numberOfLines={1}
-                    >
-                      Автовыбор
-                    </Text>
-                    <Text style={styles.tileSub} numberOfLines={1}>
-                      Лучший сервер по пингу · авто-переключение при обрыве
-                    </Text>
-                  </View>
-                  {autoMode && (
-                    <Text style={{ color: "#5B35C8", fontSize: 10, fontWeight: "700", marginRight: 6 }}>
-                      активен
-                    </Text>
-                  )}
-                </Pressable>
-              </View>
               {sortWithFavorites(mainNodes).map((n, i) => (
                 <HappServerTile
                   key={n.id}

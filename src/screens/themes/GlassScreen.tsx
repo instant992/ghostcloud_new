@@ -19,9 +19,9 @@ import * as Application from "expo-application";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
-import { connect, disconnect, pickBestNode } from "../../vpn/manager";
+import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
-import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor, BRAND_PURPLE } from "../../theme";
@@ -35,14 +35,6 @@ import { ServerSheet } from "./ServerSheet";
 import * as stats from "../../stats";
 
 const PURPLE = "#7C3AED";
-
-function formatTimer(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
 
 /** Стеклянная карточка в духе iOS Liquid Glass: настоящий блюр того, что под ней,
  *  полупрозрачная тонировка и светлая граница. На Android < 12 BlurView
@@ -180,7 +172,8 @@ export default function GlassScreen() {
   const [lteEnabled, setLteEnabled] = useState(() => getSetting("lte_enabled", "1") === "1");
   const [lteBusy, setLteBusy] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  // Таймер от абсолютной метки подключения — не обнуляется при ремаунте
+  const seconds = useVpnTimerSeconds(vpnRunning);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
@@ -193,23 +186,10 @@ export default function GlassScreen() {
   );
   const allVisible = useMemo(() => [...mainNodes, ...lteNodes], [mainNodes, lteNodes]);
 
-  const autoMode = selectedNodeId === AUTO_SERVER_ID;
   const selectedNode = useMemo(
-    () =>
-      autoMode
-        ? null
-        : allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
-    [allVisible, selectedNodeId, mainNodes, autoMode]
+    () => allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    [allVisible, selectedNodeId, mainNodes]
   );
-
-  useEffect(() => {
-    if (!vpnRunning) {
-      setSeconds(0);
-      return;
-    }
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [vpnRunning]);
 
   useEffect(() => {
     const load = () => stats.sumDays(1).then(setTodayStat).catch(() => {});
@@ -249,14 +229,7 @@ export default function GlassScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        // Режим «Автовыбор»: настоящий тест серверов через прокси (нужен выключенный VPN)
-        let target: VpnNode | null;
-        if (autoMode) {
-          const best = await pickBestNode(nodes);
-          target = best[0] || null;
-        } else {
-          target = selectedNode;
-        }
+        const target = selectedNode;
         if (!target) {
           showToast("Нет доступных серверов");
           return;
@@ -282,7 +255,6 @@ export default function GlassScreen() {
         await disconnect();
         await connect(node, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
-        setSeconds(0);
       } catch (e: any) {
         showToast(e?.message || "Ошибка переподключения");
         setVpnRunning(false);
@@ -378,7 +350,7 @@ export default function GlassScreen() {
           >
             <Text style={[styles.status, { color: vpnRunning ? "#22C55E" : colors.textDim }]}>
               {vpnRunning ? "Подключено" : "Не подключено"}
-              {!!vpnRunning && ` · ${formatTimer(seconds)}`}
+              {!!vpnRunning && ` · ${formatElapsed(seconds)}`}
             </Text>
           </Pressable>
           <GlassCard radius={14} style={{ padding: 10, marginLeft: 12 }} onPress={() => setBalanceOpen(true)}>
@@ -456,7 +428,7 @@ export default function GlassScreen() {
             style={styles.serverRow}
             onPress={() => setPickerOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Сервер: ${autoMode ? "Автовыбор, лучший сервер по пингу" : selectedInfo?.name || "не выбран"}. Открыть выбор сервера`}
+            accessibilityLabel={`Сервер: ${selectedInfo?.name || "не выбран"}. Открыть выбор сервера`}
           >
             <View style={styles.flagBox}>
               <Text style={{ fontSize: 20 }}>{selectedInfo?.flag || "🌍"}</Text>
@@ -472,12 +444,10 @@ export default function GlassScreen() {
                 </Text>
               ) : null}
               <Text style={styles.serverName} numberOfLines={1}>
-                {autoMode ? "Автовыбор" : selectedInfo?.name || "Сервер не выбран"}
+                {selectedInfo?.name || "Сервер не выбран"}
               </Text>
               <Text style={styles.serverSub} numberOfLines={1}>
-                {autoMode
-                  ? "Лучший сервер по пингу"
-                  : selectedNode ? transportLabel(selectedNode) : "Выберите локацию"}
+                {selectedNode ? transportLabel(selectedNode) : "Выберите локацию"}
               </Text>
             </View>
             <Pressable
@@ -556,38 +526,9 @@ export default function GlassScreen() {
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
         nodes={allVisible}
-        selectedId={autoMode ? AUTO_SERVER_ID : selectedNode?.id || null}
+        selectedId={selectedNode?.id || null}
         onSelect={(id) => {
           setPickerOpen(false);
-          if (id === AUTO_SERVER_ID) {
-            // Режим «Автовыбор»: тест серверов через прокси (нужен выключенный VPN)
-            selectNode(AUTO_SERVER_ID);
-            Haptics.selectionAsync().catch(() => {});
-            if (vpnRunning) {
-              (async () => {
-                try {
-                  setBusy(true);
-                  await disconnect();
-                  const best = await pickBestNode(nodes);
-                  const node = best[0];
-                  if (!node) {
-                    showToast("Нет доступных серверов");
-                    setVpnRunning(false);
-                    return;
-                  }
-                  await connect(node, { isSponsor: me?.is_sponsor === true });
-                  setVpnRunning(true);
-                  setSeconds(0);
-                } catch (e: any) {
-                  showToast(e?.message || "Ошибка переподключения");
-                  setVpnRunning(false);
-                } finally {
-                  setBusy(false);
-                }
-              })();
-            }
-            return;
-          }
           const node = allVisible.find((n) => n.id === id);
           if (node) chooseNode(node);
         }}

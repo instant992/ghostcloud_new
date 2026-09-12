@@ -18,9 +18,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "../context";
-import { connect, disconnect, pickBestNode } from "../vpn/manager";
+import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
-import { AUTO_SERVER_ID } from "../vpn/autoSelect";
+import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
 import * as appFilterMod from "../vpn/appFilter";
 import { computeBypassForNetwork, loadFilterSettings } from "../vpn/connectionFilter";
 import { getNetworkType } from "../vpn/native";
@@ -36,7 +36,9 @@ export default function HomeScreen() {
   const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes } = useApp();
   const [busy, setBusy] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  // Таймер считается от абсолютной метки подключения (vpn/timer) — не обнуляется
+  // при ремаунте экрана и поддерживает дни/недели.
+  const seconds = useVpnTimerSeconds(vpnRunning);
   const [error, setError] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [appsOpen, setAppsOpen] = useState(false);
@@ -87,20 +89,10 @@ export default function HomeScreen() {
     }, [vpnRunning, loadStats])
   );
 
-  const autoMode = selectedNodeId === AUTO_SERVER_ID;
   const selectedNode = useMemo(
-    () => (autoMode ? null : nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null),
-    [nodes, selectedNodeId, autoMode]
+    () => nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
+    [nodes, selectedNodeId]
   );
-
-  useEffect(() => {
-    if (!vpnRunning) {
-      setSeconds(0);
-      return;
-    }
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [vpnRunning]);
 
   // Пульсация, вращение колец и частицы — внутри общего <PowerButton />
 
@@ -125,15 +117,7 @@ export default function HomeScreen() {
         setVpnRunning(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } else {
-        // Режим «Автовыбор»: настоящий тест серверов через прокси (не TCP-пинг)
-        // и подключение к лучшему из реально рабочих
-        let target: import("../vpn/parse").VpnNode | null;
-        if (autoMode) {
-          const best = await pickBestNode(nodes);
-          target = best[0] || null;
-        } else {
-          target = selectedNode;
-        }
+        const target = selectedNode;
         if (!target) throw new Error("Нет доступных серверов");
         await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
@@ -190,8 +174,8 @@ export default function HomeScreen() {
       <View style={styles.powerArea}>
         <PowerButton connected={connected} busy={busy} onToggle={toggle} />
         {!!connected && (
-          <Text style={styles.timer}>
-            {formatTimer(seconds)}
+          <Text style={styles.timer} numberOfLines={1}>
+            {formatElapsed(seconds)}
           </Text>
         )}
         {!!error && <Text style={styles.error}>{error}</Text>}
@@ -212,14 +196,7 @@ export default function HomeScreen() {
             <Ionicons name="flash" size={20} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            {autoMode ? (
-              <>
-                <Text style={styles.serverName}>Автовыбор</Text>
-                <Text style={styles.serverSub} numberOfLines={1}>
-                  Лучший сервер по пингу · переключение при обрыве
-                </Text>
-              </>
-            ) : selectedNode && selectedInfo ? (
+            {selectedNode && selectedInfo ? (
               <>
                 <Text style={styles.serverName} numberOfLines={1}>
                   {selectedInfo.name}
@@ -235,11 +212,7 @@ export default function HomeScreen() {
               </>
             )}
           </View>
-          {autoMode ? (
-            <Ionicons name="sparkles" size={20} color={colors.accent} />
-          ) : (
-            selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>
-          )}
+          {selectedInfo && <Text style={{ fontSize: 22 }}>{selectedInfo.flag}</Text>}
           <PressableScale
             style={styles.infoBtn}
             onPress={refreshNodes}
@@ -357,23 +330,14 @@ export default function HomeScreen() {
               setBusy(true);
               setError(null);
               try {
-                // Переподключаемся. Для автовыбора сначала разъединяемся,
-                // затем тестируем серверы через прокси (нужен выключенный VPN)
                 await disconnect();
-                let node;
-                if (id === AUTO_SERVER_ID) {
-                  const best = await pickBestNode(nodes);
-                  node = best[0] || null;
-                } else {
-                  node = nodes.find((n) => n.id === id) || null;
-                }
+                const node = nodes.find((n) => n.id === id) || null;
                 if (!node) {
                   setVpnRunning(false);
                   return;
                 }
                 await connect(node, { isSponsor: me?.is_sponsor === true });
                 setVpnRunning(true);
-                setSeconds(0);
               } catch (e: any) {
                 setError(e?.message || "Ошибка переподключения");
                 setVpnRunning(false);
@@ -474,30 +438,6 @@ function ServerPicker({
             data={filtered}
             keyExtractor={(n: any) => n.id}
             style={{ maxHeight: 420 }}
-            ListHeaderComponent={
-              tab === "regular" ? (
-                <PressableScale
-                  style={[
-                    styles.sheetItem,
-                    selectedId === AUTO_SERVER_ID && { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-                  ]}
-                  onPress={() => onSelect(AUTO_SERVER_ID)}
-                >
-                  <Text style={{ fontSize: 24 }}>✨</Text>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.sheetItemName} numberOfLines={1}>
-                      Автовыбор
-                    </Text>
-                    <Text style={styles.sheetItemSub} numberOfLines={1}>
-                      Лучший обычный сервер по пингу · авто-переключение при обрыве
-                    </Text>
-                  </View>
-                  {selectedId === AUTO_SERVER_ID && (
-                    <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />
-                  )}
-                </PressableScale>
-              ) : null
-            }
             renderItem={({ item }: any) => {
               const info = splitNameFlag(item.name);
               const selected = item.id === selectedId;
@@ -558,13 +498,6 @@ function ServerPicker({
       </PressableScale>
     </Modal>
   );
-}
-
-function formatTimer(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 function pluralDays(n: number): string {

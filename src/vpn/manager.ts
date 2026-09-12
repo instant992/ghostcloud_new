@@ -1,5 +1,6 @@
 import { deviceHeaders, loadSession } from "../storage";
 import { getSelectedCore, getSetting, setSetting } from "../settings";
+import { markVpnConnected, clearVpnConnected } from "./timer";
 import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "./parse";
 import type { VpnNode } from "./parse";
 import { buildXrayConfig, buildOutbound as buildXrayOutbound } from "./xrayConfig";
@@ -9,7 +10,6 @@ import { getDnsProvider } from "./dns";
 import { computeBypassForNetwork, loadFilterSettings, roscomRoutingForNetwork } from "./connectionFilter";
 import type { RoscomMode } from "./roscomRouting";
 import {
-  AUTO_SERVER_ID,
   rankByPing,
   isNodeUsable,
   ensureFreshPings,
@@ -370,6 +370,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
+    markVpnConnected();
     return;
   }
   if (!node.supportedByXray) {
@@ -379,9 +380,11 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   saveTileConfig(config, "xray");
   await startVpn(config, allowed, blocked, failover);
   lastConnectedNodeId = node.id;
+  markVpnConnected();
 }
 
 export async function disconnect(): Promise<void> {
+  clearVpnConnected();
   await stopVpn();
 }
 

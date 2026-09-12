@@ -1,8 +1,8 @@
 import { getSnapshot, isRunning, pingAll } from "./pingStore";
 import type { VpnNode } from "./parse";
 
-/** Виртуальный ID режима «Автовыбор» — сохраняется как выбранный сервер.
- *  При подключении резолвится в лучший обычный сервер по пингу. */
+/** ID режима «Автовыбор» — оставлен только для миграции сохранённого выбора:
+ *  сам режим убран из приложения (storage.ts сбрасывает это значение). */
 export const AUTO_SERVER_ID = "__auto__";
 
 /** LTE-узлы в автовыбор не участвуют */
@@ -42,23 +42,6 @@ export function rankByPing(nodes: VpnNode[]): VpnNode[] {
     )
     .sort((a, b) => a.p.delay - b.p.delay)
     .map((x) => x.n);
-}
-
-/** Узел для подключения: в режиме авто — лучший обычный сервер по пингу
- *  (фолбэк — первый работоспособный), иначе — выбранный вручную. */
-export function resolveConnectNode(
-  nodes: VpnNode[],
-  selectedId: string | null
-): VpnNode | null {
-  if (selectedId === AUTO_SERVER_ID) {
-    // Только обычные И способные собрать рабочий конфиг (битые REALITY без pbk — мимо)
-    const regular = nodes.filter((n) => !isLte(n) && isNodeUsable(n));
-    if (regular.length === 0) return null;
-    const ranked = rankByPing(regular);
-    if (ranked.length > 0) return ranked[0];
-    return regular.find((n) => n.supportedByXray) || regular[0];
-  }
-  return nodes.find((n) => n.id === selectedId) || null;
 }
 
 /** Гарантирует свежие замеры пинга для обычных серверов перед автовыбором:

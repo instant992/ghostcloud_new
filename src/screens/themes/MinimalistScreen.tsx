@@ -15,9 +15,8 @@ import * as Application from "expo-application";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
-import { connect, disconnect, pickBestNode } from "../../vpn/manager";
+import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
-import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, BRAND_PURPLE } from "../../theme";
@@ -26,14 +25,7 @@ import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
 import * as stats from "../../stats";
-
-function formatTimer(total: number): string {
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
+import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 
 /** Главный экран темы «Минимализм»: плоский тёмный фон, сплошная кнопка сервера,
  *  док «островками», без стекла и блюра — как в Flutter-версии. */
@@ -58,7 +50,8 @@ export default function MinimalistScreen() {
   const [lteEnabled, setLteEnabled] = useState(() => getSetting("lte_enabled", "1") === "1");
   const [lteBusy, setLteBusy] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [seconds, setSeconds] = useState(0);
+  // Таймер от абсолютной метки подключения — не обнуляется при ремаунте
+  const seconds = useVpnTimerSeconds(vpnRunning);
   const [appsOpen, setAppsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
@@ -73,13 +66,9 @@ export default function MinimalistScreen() {
   );
   const allVisible = useMemo(() => [...mainNodes, ...lteNodes], [mainNodes, lteNodes]);
 
-  const autoMode = selectedNodeId === AUTO_SERVER_ID;
   const selectedNode = useMemo(
-    () =>
-      autoMode
-        ? null
-        : allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
-    [allVisible, selectedNodeId, mainNodes, autoMode]
+    () => allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    [allVisible, selectedNodeId, mainNodes]
   );
   /** Список серверов выбранного типа (обычные / LTE OPEN) */
   const tabNodes = useMemo(
@@ -95,15 +84,6 @@ export default function MinimalistScreen() {
   useEffect(() => {
     if (selectedNode?.source === "lte") setServerTab("lte");
   }, [selectedNode?.source]);
-
-  useEffect(() => {
-    if (!vpnRunning) {
-      setSeconds(0);
-      return;
-    }
-    const t = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(t);
-  }, [vpnRunning]);
 
   useEffect(() => {
     const load = () => stats.sumDays(1).then(setTodayStat).catch(() => {});
@@ -139,14 +119,7 @@ export default function MinimalistScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        // Режим «Автовыбор»: настоящий тест серверов через прокси (нужен выключенный VPN)
-        let target: VpnNode | null;
-        if (autoMode) {
-          const best = await pickBestNode(nodes);
-          target = best[0] || null;
-        } else {
-          target = selectedNode;
-        }
+        const target = selectedNode;
         if (!target) {
           showToast("Нет доступных серверов");
           return;
@@ -172,34 +145,6 @@ export default function MinimalistScreen() {
         await disconnect();
         await connect(node, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
-        setSeconds(0);
-      } catch (e: any) {
-        showToast(e?.message || "Ошибка переподключения");
-        setVpnRunning(false);
-      } finally {
-        setBusy(false);
-      }
-    }
-  };
-
-  /** Режим «Автовыбор»: тест серверов через прокси и подключение к лучшему. */
-  const chooseAuto = async () => {
-    selectNode(AUTO_SERVER_ID);
-    Haptics.selectionAsync().catch(() => {});
-    if (vpnRunning) {
-      try {
-        setBusy(true);
-        await disconnect();
-        const best = await pickBestNode(nodes);
-        const node = best[0];
-        if (!node) {
-          showToast("Нет доступных серверов");
-          setVpnRunning(false);
-          return;
-        }
-        await connect(node, { isSponsor: me?.is_sponsor === true });
-        setVpnRunning(true);
-        setSeconds(0);
       } catch (e: any) {
         showToast(e?.message || "Ошибка переподключения");
         setVpnRunning(false);
@@ -373,7 +318,7 @@ export default function MinimalistScreen() {
           <Text style={[styles.statusText, { color: vpnRunning ? "#22C55E" : colors.textDim }]}>
             {vpnRunning ? "Подключено" : "Не подключено"}
           </Text>
-          {!!vpnRunning && <Text style={styles.timerText}>{formatTimer(seconds)}</Text>}
+          {!!vpnRunning && <Text style={styles.timerText} numberOfLines={1}>{formatElapsed(seconds)}</Text>}
         </View>
 
         {/* Ряд действий */}
@@ -453,12 +398,10 @@ export default function MinimalistScreen() {
           </View>
           <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.selectedName} numberOfLines={1}>
-              {autoMode ? "Автовыбор" : selectedInfo?.name || "Сервер не выбран"}
+              {selectedInfo?.name || "Сервер не выбран"}
             </Text>
             <Text style={styles.selectedSub} numberOfLines={1}>
-              {autoMode
-                ? "Лучший сервер по пингу"
-                : selectedNode ? transportLabel(selectedNode) : "Нажмите, чтобы выбрать"}
+              {selectedNode ? transportLabel(selectedNode) : "Нажмите, чтобы выбрать"}
             </Text>
           </View>
           {selPing?.status === "pending" ? (
@@ -526,25 +469,6 @@ export default function MinimalistScreen() {
             )}
           </Pressable>
         </View>
-
-        {/* Автовыбор — лучший обычный сервер по пингу (только среди обычных) */}
-        {serverTab === "regular" && (
-          <Pressable
-            style={[styles.otherRow, autoMode && { borderColor: colors.accent }]}
-            onPress={chooseAuto}
-            accessibilityRole="button"
-            accessibilityLabel={`Автовыбор: лучший сервер по пингу${autoMode ? ". Активен" : ""}`}
-            accessibilityState={{ selected: autoMode }}
-          >
-            <Text style={{ fontSize: 20 }}>✨</Text>
-            <Text style={styles.otherName} numberOfLines={1}>
-              Автовыбор
-            </Text>
-            {autoMode && (
-              <Text style={[styles.otherPing, { color: colors.accent }]}>активен</Text>
-            )}
-          </Pressable>
-        )}
 
         {otherNodes.map((n) => {
           const info = splitNameFlag(n.name);
