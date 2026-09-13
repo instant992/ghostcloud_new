@@ -90,14 +90,22 @@ function buildFailoverInfo(
   // без пинга — исходный порядок, после пропингованных
   const rankedIds = new Set(ranked.map((n) => n.id));
   const unranked = rest.filter((n) => !rankedIds.has(n.id));
-  const candidates = [...ranked, ...unranked]
-    .slice(0, FAILOVER_MAX)
-    .map((n) => {
-      const config = buildConfigFor(core, n, bypassDomains, isSponsor, roscomMode);
-      if (!config) return null;
-      return { config, host: n.address, port: n.port };
-    })
-    .filter((c): c is { config: string; host: string; port: number } => c !== null);
+  const mk = (n: VpnNode) => {
+    const config = buildConfigFor(core, n, bypassDomains, isSponsor, roscomMode);
+    if (!config) return null;
+    return { config, host: n.address, port: n.port };
+  };
+  // Текущий (выбранный) сервер — ПЕРВЫЙ кандидат. При обрыве связи пинг не
+  // проходит ни к одному серверу, и монитор переключал ядро на «лучший по
+  // пингу» — пользователь терял выбранный сервер. Теперь монитор сначала
+  // пробует перезапустить свой же сервер (заодно перепривязывает сокеты ядра
+  // к новой сети после Wi-Fi↔LTE), а на запасные уходит только если текущий
+  // действительно недоступен (в Kotlin-мониторе кандидат перед переключением
+  // сам проверяется TCP-пингом).
+  const candidates = [
+    mk(current),
+    ...[...ranked, ...unranked].slice(0, FAILOVER_MAX).map(mk),
+  ].filter((c): c is { config: string; host: string; port: number } => c !== null);
   if (!candidates.length) return undefined;
   return { host: current.address, port: current.port, candidates };
 }

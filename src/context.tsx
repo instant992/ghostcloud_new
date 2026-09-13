@@ -229,12 +229,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             const s = loadFilterSettings();
             if (!hasNetworkDependentProfiles(s)) return;
             const all = nodesRef.current;
+            // Выбранный сервер; если его нет в списке — НЕ переподключаемся
+            // на первый попавшийся (иначе при смене сети пользователя молча
+            // перекидывало на «🚀 Лучший сервер» — первый узел подписки).
+            const sel = selectedNodeIdRef.current;
+            let node = all.find((n) => n.id === sel) || null;
+            // Вторичный матч: сохранённый id мог «осиротеть» (разные форматы id
+            // у share-link и Clash-парсера после перезагрузки подписки) —
+            // пробуем id последнего фактически подключённого узла.
+            if (!node && sel) {
+              const prev = (await import("./vpn/manager")).getLastConnectedNodeId();
+              if (prev && prev !== sel) node = all.find((n) => n.id === prev) || null;
+            }
+            if (!node) return; // нет выбранного сервера в списке — не трогаем туннель
             await mgr.disconnect();
-            // Выбранный сервер; если его нет в списке (например, пропал из
-            // подписки) — берём первый доступный.
-            const node =
-              all.find((n) => n.id === selectedNodeIdRef.current) || all[0];
-            if (!node) return;
             await mgr.connect(node, { isSponsor: meRef.current?.is_sponsor === true });
           } catch {}
         });

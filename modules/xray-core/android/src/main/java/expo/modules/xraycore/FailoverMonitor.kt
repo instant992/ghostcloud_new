@@ -142,6 +142,16 @@ class FailoverMonitor(
     for (step in 1..total) {
       val candidateIndex = (((index + step) % total) + total) % total
       val candidate = candidates[candidateIndex]
+      // Проверяем доступность кандидата ДО переключения. Если связь пропала
+      // целиком (обрыв, переключение Wi-Fi→LTE), ни один сервер не пройдёт
+      // проверку — остаёмся на текущем и продолжаем пробовать: когда связь
+      // вернётся, «свой» сервер окажется живым и никакого прыжка на «лучший»
+      // не произойдёт. Переключаемся только когда текущий действительно
+      // недоступен, а кандидат отвечает.
+      if (!tcpPing(candidate.host, candidate.port)) {
+        Log.w(TAG, "candidate ${candidate.host}:${candidate.port} unreachable — skip")
+        continue
+      }
       Log.i(TAG, "switching to ${candidate.host}:${candidate.port}")
       val ok = try {
         restart(candidate)
@@ -159,7 +169,7 @@ class FailoverMonitor(
       }
       Log.w(TAG, "candidate ${candidate.host}:${candidate.port} failed to start")
     }
-    Log.e(TAG, "all candidates failed, keep retrying current server")
+    Log.e(TAG, "no reachable candidate — stay on current server")
     failures = 0
   }
 
