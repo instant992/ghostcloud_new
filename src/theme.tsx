@@ -599,6 +599,21 @@ const COUNTRY_MAP: Record<string, { name: string; flag: string }> = {
   hongkong: { name: "Гонконг", flag: "🇭🇰" },
   сингапур: { name: "Сингапур", flag: "🇸🇬" },
   singapore: { name: "Сингапур", flag: "🇸🇬" },
+  эстония: { name: "Эстония", flag: "🇪🇪" },
+  estonia: { name: "Эстония", flag: "🇪🇪" },
+  ee: { name: "Эстония", flag: "🇪🇪" },
+  италия: { name: "Италия", flag: "🇮🇹" },
+  italy: { name: "Италия", flag: "🇮🇹" },
+  it: { name: "Италия", flag: "🇮🇹" },
+  бразилия: { name: "Бразилия", flag: "🇧🇷" },
+  brazil: { name: "Бразилия", flag: "🇧🇷" },
+  br: { name: "Бразилия", flag: "🇧🇷" },
+  испания: { name: "Испания", flag: "🇪🇸" },
+  spain: { name: "Испания", flag: "🇪🇸" },
+  es: { name: "Испания", flag: "🇪🇸" },
+  канада: { name: "Канада", flag: "🇨🇦" },
+  canada: { name: "Канада", flag: "🇨🇦" },
+  ca: { name: "Канада", flag: "🇨🇦" },
 };
 
 export function countryFromName(name: string): { name: string; flag: string } | null {

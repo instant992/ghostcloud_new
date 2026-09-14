@@ -26,7 +26,9 @@ import { computeBypassForNetwork, loadFilterSettings } from "../vpn/connectionFi
 import { getNetworkType } from "../vpn/native";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes, useTheme, pingColor, BRAND_PURPLE } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor, isLightPalette, countryFromName, BRAND_PURPLE } from "../theme";
+import { WorldMap, type MapMarker } from "../components/worldMap/WorldMap";
+import { COUNTRY_GEO } from "../components/worldMap/geo";
 
 export default function HomeScreen() {
   useTheme();
@@ -92,6 +94,70 @@ export default function HomeScreen() {
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
     [nodes, selectedNodeId]
+  );
+
+  // Маркеры стран на карте: группируем узлы подписки по стране из имени
+  const mapMarkers = useMemo<MapMarker[]>(() => {
+    const byCountry = new Map<string, MapMarker>();
+    for (const n of nodes) {
+      if (n.source === "lte") continue;
+      const c = countryFromName(splitNameFlag(n.name).name);
+      if (!c) continue;
+      const geo = COUNTRY_GEO[c.name];
+      if (!geo) continue;
+      const existing = byCountry.get(c.name);
+      if (existing) {
+        if (!existing.nodeIds.includes(n.id)) existing.nodeIds.push(n.id);
+      } else {
+        byCountry.set(c.name, {
+          country: c.name,
+          flag: c.flag,
+          city: geo.city,
+          x: geo.x,
+          y: geo.y,
+          lm: geo.lm,
+          nodeIds: [n.id],
+        });
+      }
+    }
+    return [...byCountry.values()];
+  }, [nodes]);
+
+  // Активная страна = страна выбранного узла
+  const activeMarker = useMemo<MapMarker | null>(() => {
+    if (!selectedNode) return null;
+    const c = countryFromName(splitNameFlag(selectedNode.name).name);
+    if (!c) return null;
+    return mapMarkers.find((m) => m.country === c.name) || null;
+  }, [selectedNode, mapMarkers]);
+
+  // Тап по маркеру страны: выбираем первый её узел (и переподключаемся, если VPN активен)
+  const onMarkerSelect = useCallback(
+    (m: MapMarker) => {
+      const id = m.nodeIds[0];
+      if (!id || id === selectedNodeId) return;
+      selectNode(id);
+      Haptics.selectionAsync().catch(() => {});
+      if (vpnRunning) {
+        (async () => {
+          setBusy(true);
+          setError(null);
+          try {
+            await disconnect();
+            const node = nodes.find((n) => n.id === id) || null;
+            if (!node) { setVpnRunning(false); return; }
+            await connect(node, { isSponsor: me?.is_sponsor === true });
+            setVpnRunning(true);
+          } catch (e: any) {
+            setError(e?.message || "Ошибка переподключения");
+            setVpnRunning(false);
+          } finally {
+            setBusy(false);
+          }
+        })();
+      }
+    },
+    [selectedNodeId, selectNode, vpnRunning, nodes, me, setVpnRunning]
   );
 
   // Пульсация, вращение колец и частицы — внутри общего <PowerButton />
@@ -161,15 +227,39 @@ export default function HomeScreen() {
             </Text>
           </View>
         </View>
-        <PressableScale style={styles.subPill} onPress={() => setBalanceOpen(true)}>
-          <Text style={styles.subPillDays}>
-            {daysLeft} {pluralDays(daysLeft)}
-          </Text>
-          <Text style={styles.subPillBalance}>
-            Баланс: {((me?.balance || 0) / 100).toFixed(0)} ₽
-          </Text>
+        {/* Дни подписки + баланс — без сплошного овала: два лёгких мини-блока */}
+        <PressableScale style={styles.hdrStats} onPress={() => setBalanceOpen(true)} accessibilityRole="button" accessibilityLabel={`Подписка: ${daysLeft} ${pluralDays(daysLeft)}, баланс ${((me?.balance || 0) / 100).toFixed(0)} рублей. Подробнее`}>
+          <View style={styles.miniStat}>
+            <View style={[styles.miniIcon, { backgroundColor: "rgba(52,211,153,0.12)" }]}>
+              <Ionicons name="hourglass-outline" size={12} color={colors.green} />
+            </View>
+            <View>
+              <Text style={styles.miniValue}>{daysLeft}</Text>
+              <Text style={styles.miniLabel}>{pluralDays(daysLeft)}</Text>
+            </View>
+          </View>
+          <View style={styles.miniStat}>
+            <View style={[styles.miniIcon, { backgroundColor: colors.accentSoft }]}>
+              <Text style={styles.miniRub}>₽</Text>
+            </View>
+            <View>
+              <Text style={styles.miniValue}>{((me?.balance || 0) / 100).toFixed(0)}</Text>
+              <Text style={styles.miniLabel}>баланс</Text>
+            </View>
+          </View>
         </PressableScale>
       </View>
+
+      {/* Живая карта мира: точки-страны, наезд камеры при подключении,
+          дуга перелёта и прорисовка достопримечательности выбранной страны */}
+      <WorldMap
+        markers={mapMarkers}
+        active={activeMarker}
+        connected={connected}
+        onSelect={onMarkerSelect}
+        light={isLightPalette()}
+        style={{ marginBottom: 6 }}
+      />
 
       <View style={styles.powerArea}>
         <PowerButton connected={connected} busy={busy} onToggle={toggle} />
@@ -523,15 +613,26 @@ const makeStyles = () => StyleSheet.create({
     borderRadius: 10,
   },
   clientName: { color: BRAND_PURPLE, fontSize: 15, fontWeight: "800" },
-  subPill: {
-    backgroundColor: colors.accentDeep,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+  hdrStats: {
+    flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
-  subPillDays: { color: "#fff", fontSize: 13, fontWeight: "800" },
-  subPillBalance: { color: "rgba(255,255,255,0.75)", fontSize: 10, marginTop: 1 },
+  miniStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  miniIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniRub: { color: colors.accent, fontSize: 13, fontWeight: "900" },
+  miniValue: { color: colors.text, fontSize: 12.5, fontWeight: "800", lineHeight: 14 },
+  miniLabel: { color: colors.textDim, fontSize: 9, marginTop: 1 },
   powerArea: { flex: 1, alignItems: "center", justifyContent: "center" },
   timer: { marginTop: 4, fontSize: 14, color: colors.textDim, letterSpacing: 2 },
   error: { marginTop: 8, fontSize: 12, color: colors.red, textAlign: "center", paddingHorizontal: 30 },
