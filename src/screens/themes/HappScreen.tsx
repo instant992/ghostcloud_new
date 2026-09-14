@@ -8,7 +8,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -85,7 +84,7 @@ export default function HappScreen() {
 
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
 
-  const [lteEnabled, setLteEnabled] = useState(() => getSetting("lte_enabled", "1") === "1");
+  // LTE OPEN всегда включён — переключатель убран, раздел виден постоянно
   const [lteBusy, setLteBusy] = useState(false);
   const [favorites, setFavorites] = useState<string[]>(() => getJsonList("happ_favorite_servers"));
   const [busy, setBusy] = useState(false);
@@ -101,8 +100,8 @@ export default function HappScreen() {
 
   const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
   const lteNodes = useMemo(
-    () => (lteEnabled ? nodes.filter((n) => n.source === "lte") : []),
-    [nodes, lteEnabled]
+    () => nodes.filter((n) => n.source === "lte"),
+    [nodes]
   );
 
   const selectedNode = useMemo(
@@ -224,24 +223,15 @@ export default function HappScreen() {
     showToast("Проверка задержки завершена");
   };
 
-  const toggleLte = (v: boolean) => {
-    if (v && !subscriptionActive) {
-      nav.navigate("Тарифы");
-      showToast("Для LTE OPEN нужна активная подписка");
-      return;
-    }
-    setLteEnabled(v);
-    setSetting("lte_enabled", v ? "1" : "0");
-    if (v) {
-      setLteBusy(true);
-      reloadNodes()
-        .then(() => {
-          showToast("LTE OPEN активирован");
-          pingStore.pingAll(nodes).catch(() => {});
-        })
-        .catch(() => showToast("Ошибка активации LTE OPEN"))
-        .finally(() => setLteBusy(false));
-    }
+  const refreshLte = () => {
+    setLteBusy(true);
+    reloadNodes()
+      .then(() => {
+        showToast("Серверы LTE OPEN обновлены");
+        pingStore.pingAll(nodes).catch(() => {});
+      })
+      .catch(() => showToast("Ошибка обновления LTE OPEN"))
+      .finally(() => setLteBusy(false));
   };
 
   const sortWithFavorites = (list: VpnNode[]) => {
@@ -325,19 +315,17 @@ export default function HappScreen() {
           </View>
         </View>
 
-        {/* LTE OPEN */}
+        {/* LTE OPEN — всегда включён, раздел виден постоянно */}
         <View
           style={[
             styles.lteRow,
-            lteEnabled
-              ? { backgroundColor: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.35)" }
-              : { backgroundColor: colors.bgSoft, borderColor: colors.border },
+            { backgroundColor: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.35)" },
           ]}
         >
           <View
             style={[
               styles.lteIconBox,
-              { backgroundColor: lteEnabled ? "rgba(124,58,237,0.18)" : colors.cardLight },
+              { backgroundColor: "rgba(124,58,237,0.18)" },
             ]}
           >
             {lteBusy ? (
@@ -346,7 +334,7 @@ export default function HappScreen() {
               <Ionicons
                 name="radio-button-off"
                 size={17}
-                color={lteEnabled ? PURPLE : colors.textDim}
+                color={PURPLE}
               />
             )}
           </View>
@@ -360,32 +348,22 @@ export default function HappScreen() {
             <Text style={styles.lteSub}>
               {lteBusy
                 ? "Загружаем профили..."
-                : lteEnabled
-                  ? `${lteNodes.length} серверов доступно`
-                  : "Нажмите для включения"}
+                : `${lteNodes.length} серверов доступно`}
             </Text>
           </View>
-          {lteEnabled && (
-            <Pressable
-              style={styles.lteRefreshBtn}
-              onPress={() => toggleLte(true)}
-              hitSlop={6}
-              accessibilityRole="button"
-              accessibilityLabel="Обновить серверы LTE OPEN"
-            >
-              {lteBusy ? (
-                <ActivityIndicator size="small" color={PURPLE} />
-              ) : (
-                <Ionicons name="refresh" size={17} color={PURPLE} />
-              )}
-            </Pressable>
-          )}
-          <Switch
-            value={lteEnabled}
-            onValueChange={toggleLte}
-            trackColor={{ false: colors.border, true: "rgba(124,58,237,0.45)" }}
-            thumbColor={lteEnabled ? PURPLE : "#fff"}
-          />
+          <Pressable
+            style={styles.lteRefreshBtn}
+            onPress={refreshLte}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Обновить серверы LTE OPEN"
+          >
+            {lteBusy ? (
+              <ActivityIndicator size="small" color={PURPLE} />
+            ) : (
+              <Ionicons name="refresh" size={17} color={PURPLE} />
+            )}
+          </Pressable>
         </View>
 
         {/* Панель аккаунта и серверов */}

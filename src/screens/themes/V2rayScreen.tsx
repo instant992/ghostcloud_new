@@ -67,7 +67,7 @@ export default function V2rayScreen() {
 
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
 
-  const [lteEnabled, setLteEnabled] = useState(() => getSetting("lte_enabled", "1") === "1");
+  // LTE OPEN всегда включён — переключатель убран
   const [lteBusy, setLteBusy] = useState(false);
   const [pinned, setPinned] = useState<string[]>(() => getJsonList("v2ray_pinned_proxies"));
   const [smartLocation, setSmartLocation] = useState(() => getSetting("smart_location", "0") === "1");
@@ -90,8 +90,8 @@ export default function V2rayScreen() {
 
   const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
   const lteNodes = useMemo(
-    () => (lteEnabled ? nodes.filter((n) => n.source === "lte") : []),
-    [nodes, lteEnabled]
+    () => nodes.filter((n) => n.source === "lte"),
+    [nodes]
   );
   const pinnedNodes = useMemo(() => nodes.filter((n) => pinned.includes(n.id)), [nodes, pinned]);
 
@@ -154,24 +154,12 @@ export default function V2rayScreen() {
     Haptics.selectionAsync().catch(() => {});
   };
 
-  const toggleLte = (v: boolean) => {
-    if (v && !subscriptionActive) {
-      setDrawerOpen(false);
-      nav.navigate("Тарифы");
-      showToast("Для LTE OPEN нужна активная подписка");
-      return;
-    }
-    setLteEnabled(v);
-    setSetting("lte_enabled", v ? "1" : "0");
-    if (v) {
-      setLteBusy(true);
-      reloadNodes()
-        .then(() => showToast("LTE OPEN активирован"))
-        .catch(() => showToast("Ошибка активации LTE OPEN"))
-        .finally(() => setLteBusy(false));
-    } else if (tab === "lte") {
-      setTab("main");
-    }
+  const refreshLte = () => {
+    setLteBusy(true);
+    reloadNodes()
+      .then(() => showToast("Серверы LTE OPEN обновлены"))
+      .catch(() => showToast("Ошибка обновления LTE OPEN"))
+      .finally(() => setLteBusy(false));
   };
 
   const toggleSmartLocation = async (v: boolean) => {
@@ -461,7 +449,13 @@ export default function V2rayScreen() {
               }}
             />
 
-            <View style={styles.drawerRow}>
+            {/* LTE OPEN — всегда включён, переключатель убран; тап обновляет список */}
+            <Pressable
+              style={styles.drawerRow}
+              onPress={refreshLte}
+              accessibilityRole="button"
+              accessibilityLabel="LTE OPEN. Обновить серверы"
+            >
               {lteBusy ? (
                 <ActivityIndicator size="small" color={colors.accent} style={{ width: 22 }} />
               ) : (
@@ -469,17 +463,12 @@ export default function V2rayScreen() {
               )}
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={styles.drawerRowTitle}>LTE OPEN</Text>
-                {!lteEnabled && lteBusy && (
-                  <Text style={styles.drawerRowSub}>Загружаем профили...</Text>
-                )}
+                <Text style={styles.drawerRowSub}>
+                  {lteBusy ? "Загружаем профили..." : `${lteNodes.length} серверов`}
+                </Text>
               </View>
-              <Switch
-                value={lteEnabled}
-                onValueChange={toggleLte}
-                trackColor={{ false: colors.border, true: colors.accent }}
-                thumbColor="#fff"
-              />
-            </View>
+              <Ionicons name="refresh" size={19} color={colors.accent} />
+            </Pressable>
 
             <View style={styles.drawerRow}>
               {smartBusy ? (

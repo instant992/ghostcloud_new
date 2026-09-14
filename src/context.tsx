@@ -18,6 +18,12 @@ import * as FileSystem from "expo-file-system/legacy";
 
 const NODES_CACHE_FILE = "nodes_cache.json";
 const ME_CACHE_FILE = "me_cache.json";
+/** Кэш серверов живёт в documentDirectory, а не в cacheDirectory: Android может
+ *  вычистить cacheDirectory в любой момент (и тогда без интернета список
+ *  пустой), а документная директория переживает очистку кэша ОС и удаление
+ *  обновлений — чистится только при удалении приложения. */
+const NODES_DIR = "nodes_store";
+const NODES_SEGMENTS = { sub: "sub.json", lte: "lte.json" } as const;
 
 async function readCacheFile(file: string): Promise<any | null> {
   try {
@@ -38,18 +44,86 @@ async function writeCacheFile(file: string, data: any) {
   } catch {}
 }
 
-async function readNodesCache(): Promise<{ nodes: VpnNode[]; unsupportedCount: number } | null> {
+async function readNodesStoreFile(name: string): Promise<any | null> {
   try {
-    const parsed = await readCacheFile(NODES_CACHE_FILE);
-    if (!Array.isArray(parsed?.nodes)) return null;
-    return { nodes: parsed.nodes, unsupportedCount: Number(parsed.unsupportedCount) || 0 };
+    const uri = `${FileSystem.documentDirectory}${NODES_DIR}/${name}`;
+    const info = await FileSystem.getInfoAsync(uri);
+    if (!info.exists) return null;
+    return JSON.parse(await FileSystem.readAsStringAsync(uri));
   } catch {
     return null;
   }
 }
 
-async function writeNodesCache(nodes: VpnNode[], unsupportedCount: number) {
-  await writeCacheFile(NODES_CACHE_FILE, { ts: Date.now(), nodes, unsupportedCount });
+async function writeNodesStoreFile(name: string, data: any) {
+  try {
+    const dir = `${FileSystem.documentDirectory}${NODES_DIR}`;
+    const dirInfo = await FileSystem.getInfoAsync(dir);
+    if (!dirInfo.exists) await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+    await FileSystem.writeAsStringAsync(`${dir}/${name}`, JSON.stringify(data));
+  } catch {}
+}
+
+/** Один раз переносим старый единый кэш (cacheDirectory) в сегменты,
+ *  чтобы у текущих пользователей список не пропал после обновления. */
+async function migrateLegacyNodesCache() {
+  try {
+    const [subSeg, legacy] = await Promise.all([
+      readNodesStoreFile(NODES_SEGMENTS.sub),
+      readCacheFile(NODES_CACHE_FILE),
+    ]);
+    if (subSeg || !Array.isArray(legacy?.nodes) || legacy.nodes.length === 0) return;
+    const sub: VpnNode[] = [];
+    const lte: VpnNode[] = [];
+    for (const n of legacy.nodes) {
+      (n?.source === "lte" ? lte : sub).push(n);
+    }
+    if (sub.length) {
+      await writeNodesStoreFile(NODES_SEGMENTS.sub, {
+        ts: legacy.ts || Date.now(),
+        nodes: sub,
+        unsupportedCount: Number(legacy.unsupportedCount) || 0,
+      });
+    }
+    if (lte.length) await writeNodesStoreFile(NODES_SEGMENTS.lte, { ts: legacy.ts || Date.now(), nodes: lte });
+  } catch {}
+}
+
+type NodesCache = { nodes: VpnNode[]; unsupportedCount: number };
+
+/** Сохранённые серверы по сегментам: подписка и LTE Open отдельно — сбой
+ *  скачивания одного сегмента не затирает другой (раньше общий кэш
+ *  перезаписывался половинкой, если, например, LTE не ответил). */
+async function readNodesCache(): Promise<NodesCache | null> {
+  try {
+    const [sub, lte] = await Promise.all([
+      readNodesStoreFile(NODES_SEGMENTS.sub),
+      readNodesStoreFile(NODES_SEGMENTS.lte),
+    ]);
+    const subNodes: VpnNode[] = Array.isArray(sub?.nodes) ? sub.nodes : [];
+    const lteNodes: VpnNode[] = Array.isArray(lte?.nodes) ? lte.nodes : [];
+    if (subNodes.length === 0 && lteNodes.length === 0) return null;
+    return {
+      nodes: [...subNodes, ...lteNodes],
+      unsupportedCount: Number(sub?.unsupportedCount) || 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Пишет только те сегменты, для которых есть свежие данные (fresh=true).
+ *  Нескачанные сегменты остаются на диске как есть. */
+async function writeNodesSegment(
+  seg: keyof typeof NODES_SEGMENTS,
+  nodes: VpnNode[],
+  unsupportedCount?: number
+) {
+  await writeNodesStoreFile(NODES_SEGMENTS[seg], {
+    ts: Date.now(),
+    nodes,
+    ...(unsupportedCount === undefined ? {} : { unsupportedCount }),
+  });
 }
 
 export type UserBadge = {
@@ -410,8 +484,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const mod = await import("./vpn/manager");
     const api = await import("./api");
 
-    const subResult = await mod.fetchNodes().catch(() => ({ nodes: [], unsupportedCount: 0 }));
+    // Подписка: качаем свежую; если не получилось (нет сети и т.п.) — берём
+    // сохранённую копию, чтобы список серверов никогда не пустел.
+    const subResult = await mod.fetchNodes().catch(() => null);
+    const cached = await readNodesCache();
+    const cachedSub = cached ? cached.nodes.filter((n) => n.source !== "lte") : [];
+    const cachedLte = cached ? cached.nodes.filter((n) => n.source === "lte") : [];
+
+    const subNodes: VpnNode[] = subResult && subResult.nodes.length > 0
+      ? subResult.nodes.map((n) => ({ ...n, source: "sub" as const }))
+      : cachedSub;
+    const subFresh = !!(subResult && subResult.nodes.length > 0);
+
     const lteNodes: VpnNode[] = [];
+    let lteFresh = false;
 
     // Extra-профили (LTE Open): содержимое берём через бэкенд-прокси —
     // провайдер stealthsurf отдаёт пустое тело на User-Agent okhttp (RN не
@@ -436,21 +522,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           console.warn("[reloadNodes] LTE profile failed:", p?.id, String((e as any)?.message || e).slice(0, 80));
         }
       }
+      lteFresh = lteNodes.length > 0;
     } catch {}
+    const lteFinal = lteFresh ? lteNodes : cachedLte;
 
     if (!mounted.current) return;
-    const allNodes = [...subResult.nodes.map((n) => ({ ...n, source: "sub" as const })), ...lteNodes];
-    // Если сеть недоступна и пришёл пустой список — не затираем сохранённый кэш
+    const allNodes = [...subNodes, ...lteFinal];
+    // Если сеть недоступна и пришёл пустой список — не затираем состояние
     setNodes((prev) => (allNodes.length === 0 && prev.length > 0 ? prev : allNodes));
-    if (allNodes.length > 0) {
-      setUnsupportedCount(subResult.unsupportedCount);
-      // кэш для офлайн-запуска
-      writeNodesCache(allNodes, subResult.unsupportedCount);
+    if (subFresh) {
+      setUnsupportedCount(subResult!.unsupportedCount);
+      // кэш для офлайн-запуска — только сегменты со свежими данными
+      writeNodesSegment("sub", subNodes, subResult!.unsupportedCount);
     }
+    if (lteFresh) writeNodesSegment("lte", lteFinal);
   }, []);
 
   useEffect(() => {
     (async () => {
+      // Перенос старого единого кэша узлов в сегментный (один раз)
+      await migrateLegacyNodesCache();
       const s = await loadSession();
       if (!mounted.current) return;
       setSession(s);
