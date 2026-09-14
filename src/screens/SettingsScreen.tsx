@@ -11,7 +11,7 @@ import { SponsorHeart } from "../components/Badges";
 import { showToast } from "../components/Toast";
 import { useApp } from "../context";
 import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, sheetSurfaceBg, type ThemeName } from "../theme";
-import { getSelectedCore, getSetting, getThemeName, getThemeMode, setSetting, type CoreName, type ThemeMode } from "../settings";
+import { getAntiDpi, getSelectedCore, getSetting, getThemeName, getThemeMode, setAntiDpi, setSetting, type CoreName, type ThemeMode } from "../settings";
 import { DNS_PROVIDERS, getDnsProvider } from "../vpn/dns";
 import { disconnect, isVpnRunning } from "../vpn/manager";
 import {
@@ -89,6 +89,7 @@ export default function SettingsScreen() {
   const [style, setStyle] = useState<ThemeName>(getThemeName());
   const [mode, setMode] = useState<ThemeMode>(getThemeMode());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
+  const [antiDpi, setAntiDpiState] = useState(getAntiDpi());
   const [xrayVersion, setXrayVersion] = useState("");
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
   const [versions, setVersions] = useState<Record<string, string>>({});
@@ -709,6 +710,32 @@ export default function SettingsScreen() {
         <Text style={styles.hint}>
           Xray встроен в приложение. Sing-box докачивается с GitLab при первом использовании.
         </Text>
+
+        {/* Маскировка трафика (анти-DPI) — fragment/tlshello ядра Xray */}
+        <View style={[styles.themeRowLine, { marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }]}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={core === "xray" ? colors.accent : colors.textFaint} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>Маскировка трафика</Text>
+            <Text style={styles.themeRowSub}>
+              {core === "xray"
+                ? "Дробит TLS-рукопожатие — обход блокировок по DPI"
+                : "Только на ядре Xray"}
+            </Text>
+          </View>
+          <Switch
+            value={antiDpi}
+            disabled={core !== "xray"}
+            onValueChange={(v) => {
+              setAntiDpiState(v);
+              setAntiDpi(v);
+              Haptics.selectionAsync().catch(() => {});
+              showToast(v ? "Маскировка включена — применится при подключении" : "Маскировка выключена", "top");
+            }}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor="#fff"
+            accessibilityLabel="Маскировка трафика (анти-DPI)"
+          />
+        </View>
       </Card>
 
       {/* ─── Подключение ─── */}

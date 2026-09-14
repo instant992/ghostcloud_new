@@ -82,6 +82,18 @@ export function getSelectedCore(): CoreName {
   return "xray";
 }
 
+/** Маскировка трафика (анти-DPI): фрагментация TLS ClientHello средствами
+ *  finalmask ядра Xray. По умолчанию включена — это чисто клиентская
+ *  маскировка (TCP-поток сервер собирает обратно), настройка серверов
+ *  не требуется. На ядре sing-box не применяется (нет finalmask). */
+export function getAntiDpi(): boolean {
+  return getSetting("antidpi", "1") === "1";
+}
+
+export function setAntiDpi(v: boolean) {
+  setSetting("antidpi", v ? "1" : "0");
+}
+
 /** Список строк в настройках (закреплённые серверы, избранное и т.п.) */
 export function getJsonList(key: string): string[] {
   try {

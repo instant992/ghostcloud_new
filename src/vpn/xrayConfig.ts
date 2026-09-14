@@ -1,6 +1,34 @@
 import { VpnNode } from "./parse";
 import { getDnsProvider, type DnsProvider } from "./dns";
+import { getAntiDpi } from "../settings";
 import { xrayRoscomRules, type RoscomMode } from "./roscomRouting";
+
+/** Маскировка трафика (анти-DPI) средствами finalmask ядра Xray.
+ *  Fragment «tlshello» режет TLS ClientHello на несколько TCP-пакетов со
+ *  случайными размерами/задержками — DPI-системы (ТСПУ), блокирующие по
+ *  целостному ClientHello с запрещённым SNI, перестают его распознавать.
+ *  Это ЧИСТО КЛИЕНТСКАЯ маскировка: содержимое TCP-потока не меняется,
+ *  сервер собирает его обратно — правки серверных конфигов не нужны.
+ *  Применяется только к TLS/REALITY-транспортам (без TLS маскировать нечего). */
+function antiDpiFinalMask(): Record<string, any> | null {
+  if (!getAntiDpi()) return null;
+  return {
+    tcp: [
+      {
+        type: "fragment",
+        settings: {
+          // ФОРМАТ под встроенный libXray 26.3.27: сингулярные length/delay
+          // строкой-диапазоном. Новая форма массивами (lengths/delays) в этой
+          // версии падает с «LengthMin can't be 0» — проверено бинарником 26.3.27.
+          packets: "tlshello",
+          length: "64-256",
+          delay: "1-8",
+          maxSplit: "4",
+        },
+      },
+    ],
+  };
+}
 
 export function buildStreamSettings(node: VpnNode): Record<string, any> {
   const network = node.network || "tcp";
@@ -26,6 +54,10 @@ export function buildStreamSettings(node: VpnNode): Record<string, any> {
       };
       delete stream.tlsSettings;
     }
+    // Маскировка трафика (анти-DPI) — только поверх TLS/REALITY и TCP-транспортов
+    // (для kcp/UDP фрагментация TCP-рукопожатия неприменима)
+    const fm = network === "kcp" ? null : antiDpiFinalMask();
+    if (fm) stream.finalmask = fm;
   }
 
   switch (network) {
