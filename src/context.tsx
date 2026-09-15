@@ -179,8 +179,8 @@ type AppState = {
   signIn2fa: (totpCode: string) => Promise<void>;
   signInViaToken: (subscriptionUrl: string, user?: any, tgId?: string, isFoxcloud?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
-  refreshMe: () => Promise<void>;
-  reloadNodes: () => Promise<void>;
+  refreshMe: () => Promise<MeInfo | null>;
+  reloadNodes: () => Promise<VpnNode[] | null>;
   selectNode: (id: string) => void;
   setVpnRunning: (v: boolean) => void;
   /** Уведомление безопасности (вход по 2FA) + действия из модалки */
@@ -420,12 +420,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [vpnRunning]);
 
-  const refreshMe = useCallback(async () => {
+  const refreshMe = useCallback(async (): Promise<MeInfo | null> => {
     const data = await api.getMe();
     if (!data?.success) {
       // Кик: сервер отозвал мобильную сессию — разлогиниваемся
       if (data?.session_revoked) {
-        if (!mounted.current) return;
+        if (!mounted.current) return null;
         try {
           const mod = await import("./vpn/manager");
           await mod.disconnect();
@@ -441,7 +441,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       throw new Error(data?.error || "Не удалось получить профиль");
     }
-    if (!mounted.current) return;
+    if (!mounted.current) return data as MeInfo;
     setMe(data as MeInfo);
     writeCacheFile(ME_CACHE_FILE, data);
     // Лента уведомлений безопасности (вход по 2FA): показать последнее, если ещё не показывали
@@ -478,6 +478,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSession(updated);
       }
     }
+    return data as MeInfo;
   }, []);
 
   const reloadNodes = useCallback(async () => {
@@ -526,7 +527,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {}
     const lteFinal = lteFresh ? lteNodes : cachedLte;
 
-    if (!mounted.current) return;
+    if (!mounted.current) return null;
     const allNodes = [...subNodes, ...lteFinal];
     // Если сеть недоступна и пришёл пустой список — не затираем состояние
     setNodes((prev) => (allNodes.length === 0 && prev.length > 0 ? prev : allNodes));
@@ -536,6 +537,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       writeNodesSegment("sub", subNodes, subResult!.unsupportedCount);
     }
     if (lteFresh) writeNodesSegment("lte", lteFinal);
+    return allNodes.length > 0 ? allNodes : null;
   }, []);
 
   useEffect(() => {
@@ -570,15 +572,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
           setLoading(false);
         }
+        let freshMe: MeInfo | null = null;
         try {
-          await refreshMe();
+          freshMe = await refreshMe();
         } catch {}
+        let freshNodes: VpnNode[] | null = null;
         try {
-          await reloadNodes();
+          freshNodes = await reloadNodes();
         } catch {}
         const savedId = await loadSelectedNodeId();
         if (savedId) setSelectedNodeId(savedId);
         if (mounted.current) setLoading(false);
+
+        // Автоподключение при запуске (настройка «Подключать при запуске»):
+        // только с активной подпиской, только если VPN ещё не поднят.
+        // Сервер — сохранённый выбор, иначе «Лучший сервер» (pickBestNode).
+        try {
+          const { getAutoConnect } = await import("./settings");
+          if (getAutoConnect() && mounted.current) {
+            const mgr = await import("./vpn/manager");
+            if (!(await mgr.isVpnRunning())) {
+              const meInfo = freshMe || ((cachedMe && typeof cachedMe === "object" ? (cachedMe as MeInfo) : null));
+              // подписка активна? (та же логика, что subscriptionActive)
+              const exp = meInfo?.expire_at ? new Date(String(meInfo.expire_at)).getTime() : 0;
+              const subActive = exp > Date.now();
+              const pool = freshNodes || cachedNodes?.nodes || [];
+              if (subActive && pool.length > 0) {
+                let node = pool.find((n) => n.id === savedId) || null;
+                if (!node) {
+                  try {
+                    const best = await mgr.pickBestNode(pool, { max: 1 });
+                    node = best[0] || null;
+                  } catch {
+                    node = pool.find((n) => n.source !== "lte") || null;
+                  }
+                }
+                if (node) {
+                  if (savedId && node.id !== savedId) setSelectedNodeId(node.id);
+                  await mgr.connect(node, { isSponsor: meInfo?.is_sponsor === true });
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[autoconnect] failed:", String((e as any)?.message || e).slice(0, 120));
+        }
       } else {
         // Cold-start по deep link ghostcloud://tg-auth (Android убил приложение,
         // пока пользователь был в браузере на Telegram Login) — если сессии нет,

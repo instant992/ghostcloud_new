@@ -94,6 +94,53 @@ export function setAntiDpi(v: boolean) {
   setSetting("antidpi", v ? "1" : "0");
 }
 
+/** Kill Switch: блокирующий туннель (VpnService.setBlocking(true)).
+ *  При обрыве/смерти ядра Android режет весь трафик вместо утечки напрямую.
+ *  Читается нативными сервисами прямо из gc_settings (ключ "killswitch"),
+ *  поэтому применяется ко всем путям старта: приложение, плитка, бут-ресивер.
+ *  По умолчанию выключен. */
+export function getKillSwitch(): boolean {
+  return getSetting("killswitch", "0") === "1";
+}
+
+export function setKillSwitch(v: boolean) {
+  setSetting("killswitch", v ? "1" : "0");
+}
+
+/** Автоподключение при запуске приложения (бут-эффект в context.tsx). */
+export function getAutoConnect(): boolean {
+  return getSetting("autoconnect", "0") === "1";
+}
+
+export function setAutoConnect(v: boolean) {
+  setSetting("autoconnect", v ? "1" : "0");
+}
+
+/** Автоподключение при загрузке устройства (нативный BootReceiver,
+ *  ключ "autoboot" — ресивер читает его до старта JS). */
+export function getAutoConnectBoot(): boolean {
+  return getSetting("autoboot", "0") === "1";
+}
+
+export function setAutoConnectBoot(v: boolean) {
+  setSetting("autoboot", v ? "1" : "0");
+}
+
+/** Метод проверки пинга:
+ *  - "tcp": рукопожатие TCP с портом сервера (быстро, работает всегда);
+ *  - "url": полный тест протоколом через прокси-туннель (Xray pingBatch,
+ *    HTTP 204) — точнее, но дольше и не работает при уже включённом VPN.
+ *  UDP/ICMP-пинг на Android без root невозможен (нет сырых сокетов). */
+export type PingMethod = "tcp" | "url";
+
+export function getPingMethod(): PingMethod {
+  return getSetting("ping_method", "tcp") === "url" ? "url" : "tcp";
+}
+
+export function setPingMethod(v: PingMethod) {
+  setSetting("ping_method", v);
+}
+
 /** Список строк в настройках (закреплённые серверы, избранное и т.п.) */
 export function getJsonList(key: string): string[] {
   try {

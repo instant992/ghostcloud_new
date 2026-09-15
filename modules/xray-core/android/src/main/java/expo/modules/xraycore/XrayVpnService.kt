@@ -139,7 +139,7 @@ class XrayVpnService : VpnService() {
       }
 
       val pfd = builder
-        .setBlocking(false)
+        .setBlocking(GcNativeSettings.killSwitch(this))
         .establish()
 
       if (pfd == null) {

@@ -11,7 +11,7 @@ import { SponsorHeart } from "../components/Badges";
 import { showToast } from "../components/Toast";
 import { useApp } from "../context";
 import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, sheetSurfaceBg, type ThemeName } from "../theme";
-import { getAntiDpi, getSelectedCore, getSetting, getThemeName, getThemeMode, setAntiDpi, setSetting, type CoreName, type ThemeMode } from "../settings";
+import { getAntiDpi, getAutoConnect, getAutoConnectBoot, getKillSwitch, getPingMethod, getSelectedCore, getSetting, getThemeName, getThemeMode, setAntiDpi, setAutoConnect, setAutoConnectBoot, setKillSwitch, setPingMethod, setSetting, type CoreName, type PingMethod, type ThemeMode } from "../settings";
 import { DNS_PROVIDERS, getDnsProvider } from "../vpn/dns";
 import { disconnect, isVpnRunning } from "../vpn/manager";
 import {
@@ -22,6 +22,7 @@ import {
   getXrayVersion,
   loadLibCore,
   onCoreDownloadProgress,
+  openVpnSettings,
   setLauncherIcon,
 } from "../vpn/native";
 
@@ -108,6 +109,11 @@ export default function SettingsScreen() {
   const [dnsOpen, setDnsOpen] = useState(false);
   const [dnsId, setDnsId] = useState(() => getSetting("dns_provider", "auto"));
   const [stopBusy, setStopBusy] = useState(false);
+  const [killSwitch, setKillSwitchState] = useState(getKillSwitch());
+  const [autoConnect, setAutoConnectState] = useState(getAutoConnect());
+  const [autoBoot, setAutoBootState] = useState(getAutoConnectBoot());
+  const [pingMethod, setPingMethodState] = useState<PingMethod>(getPingMethod());
+  const [pingOpen, setPingOpen] = useState(false);
 
   /** Иконка приложения на рабочем столе: "default" (призрак) / "foxcloud" (лиса) */
   const [appIcon, setAppIcon] = useState<string>(() => getLauncherIcon());
@@ -761,6 +767,162 @@ export default function SettingsScreen() {
           Выключает туннель сразу, без ожидания и подтверждения.
         </Text>
       </Card>
+
+      {/* ─── Безопасность и автоподключение ─── */}
+      <Card>
+        <Text style={styles.sectionTitle}>Безопасность и автоподключение</Text>
+
+        {/* Kill Switch */}
+        <View style={styles.themeRowLine}>
+          <Ionicons name="shield-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>Kill Switch</Text>
+            <Text style={styles.themeRowSub}>
+              {killSwitch
+                ? "При обрыве туннеля интернет блокируется — трафик не уйдёт напрямую"
+                : "При обрыве туннеля трафик пойдёт напрямую (утечка)"}
+            </Text>
+          </View>
+          <Switch
+            value={killSwitch}
+            onValueChange={(v) => {
+              setKillSwitchState(v);
+              setKillSwitch(v);
+              Haptics.selectionAsync().catch(() => {});
+              showToast(v ? "Kill Switch включён — применится при подключении" : "Kill Switch выключен", "top");
+            }}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor="#fff"
+            accessibilityLabel="Kill Switch — блокировать интернет при обрыве VPN"
+          />
+        </View>
+
+        {/* Автоподключение при запуске */}
+        <View style={[styles.themeRowLine, { marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }]}>
+          <Ionicons name="play-circle-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>Подключать при запуске</Text>
+            <Text style={styles.themeRowSub}>
+              VPN включается сам при открытии приложения
+            </Text>
+          </View>
+          <Switch
+            value={autoConnect}
+            onValueChange={(v) => {
+              setAutoConnectState(v);
+              setAutoConnect(v);
+              Haptics.selectionAsync().catch(() => {});
+              showToast(v ? "Автоподключение при запуске включено" : "Автоподключение при запуске выключено", "top");
+            }}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor="#fff"
+            accessibilityLabel="Автоподключение VPN при запуске приложения"
+          />
+        </View>
+
+        {/* Автоподключение при загрузке устройства */}
+        <View style={[styles.themeRowLine, { marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }]}>
+          <Ionicons name="power-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>Подключать при загрузке устройства</Text>
+            <Text style={styles.themeRowSub}>
+              {autoBoot
+                ? "После перезагрузки VPN поднимется сам (если разрешение сохранено)"
+                : "После перезагрузки VPN останется выключенным"}
+            </Text>
+          </View>
+          <Switch
+            value={autoBoot}
+            onValueChange={(v) => {
+              setAutoBootState(v);
+              setAutoConnectBoot(v);
+              Haptics.selectionAsync().catch(() => {});
+              showToast(v ? "Автоподключение при загрузке включено" : "Автоподключение при загрузке выключено", "top");
+            }}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor="#fff"
+            accessibilityLabel="Автоподключение VPN при загрузке устройства"
+          />
+        </View>
+        <PressableScale
+          style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8, paddingVertical: 6 }}
+          onPress={() => openVpnSettings()}
+          accessibilityRole="button"
+          accessibilityLabel="Открыть системные настройки VPN для включения постоянной VPN"
+        >
+          <Ionicons name="settings-outline" size={15} color={colors.accent} />
+          <Text style={{ color: colors.accent, fontSize: 12.5, fontWeight: "600", flex: 1 }}>
+            Полная автоматика: включите «Постоянная VPN» в системных настройках — Android будет сам поднимать GhostCloud при загрузке и обрыве, без единого окна
+          </Text>
+          <Ionicons name="open-outline" size={14} color={colors.accent} />
+        </PressableScale>
+
+        {/* Метод проверки пинга */}
+        <View style={[styles.themeRowLine, { marginTop: 4, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }]}>
+          <Ionicons name="speedometer-outline" size={20} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>Метод проверки пинга</Text>
+            <Text style={styles.themeRowSub}>
+              {pingMethod === "url"
+                ? "URL-тест: полный протокол через прокси — точнее, но дольше и не работает при включённом VPN"
+                : "TCP: рукопожатие с сервером — быстро, работает всегда"}
+            </Text>
+          </View>
+          <PressableScale
+            style={styles.styleDropdownBtn}
+            onPress={() => setPingOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel={`Метод проверки пинга: ${pingMethod === "url" ? "URL-тест" : "TCP"}. Нажмите, чтобы выбрать`}
+          >
+            <Text style={styles.styleDropdownText}>{pingMethod === "url" ? "URL-тест" : "TCP"}</Text>
+            <Ionicons name="chevron-down" size={14} color={colors.accent} />
+          </PressableScale>
+        </View>
+        <Text style={styles.hint}>
+          UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и URL-тест.
+        </Text>
+      </Card>
+
+      {/* Модал выбора метода пинга */}
+      {pingOpen && <Modal visible={pingOpen} transparent animationType="fade" onRequestClose={() => setPingOpen(false)}>
+        <PressableScale style={styles.modalBackdrop} onPress={() => setPingOpen(false)}>
+          <PressableScale style={styles.stylePanel} onPress={() => {}}>
+            <Text style={styles.themeSheetTitle}>Метод проверки пинга</Text>
+            {([
+              { key: "tcp" as PingMethod, title: "TCP", sub: "Рукопожатие с портом сервера. Быстро, работает при включённом VPN." },
+              { key: "url" as PingMethod, title: "URL-тест", sub: "Полный тест протоколом через прокси (VLESS/REALITY + HTTP 204). Точнее, но дольше; при включённом VPN автоматически используется TCP." },
+            ]).map((o) => (
+              <PressableScale
+                key={o.key}
+                style={[styles.styleItem, pingMethod === o.key && styles.styleItemOn]}
+                onPress={() => {
+                  setPingMethodState(o.key);
+                  setPingMethod(o.key);
+                  setPingOpen(false);
+                  Haptics.selectionAsync().catch(() => {});
+                  showToast(o.key === "url" ? "Метод: URL-тест" : "Метод: TCP", "top");
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${o.title}: ${o.sub}`}
+              >
+                <View style={[styles.stylePreviewBox, pingMethod === o.key && styles.stylePreviewBoxOn]}>
+                  <Ionicons name={o.key === "url" ? "globe-outline" : "swap-vertical-outline"} size={16} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.styleItemText, pingMethod === o.key && { color: colors.accent, fontWeight: "700" }]}>
+                    {o.title}
+                  </Text>
+                  <Text style={styles.dnsBenefit}>{o.sub}</Text>
+                </View>
+                {pingMethod === o.key && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+              </PressableScale>
+            ))}
+            <Text style={styles.hint}>
+              UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и URL-тест.
+            </Text>
+          </PressableScale>
+        </PressableScale>
+      </Modal>}
 
       {/* ─── DNS-серверы (преимущество спонсоров) ───
           FoxCloud (вход через Telegram): скрыто — DNS остаётся «Автоматически». */}

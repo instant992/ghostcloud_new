@@ -1,5 +1,5 @@
 import { deviceHeaders, loadSession } from "../storage";
-import { getSelectedCore, getSetting, setSetting } from "../settings";
+import { getSelectedCore, getSetting, setSetting, getPingMethod } from "../settings";
 import { markVpnConnected, clearVpnConnected } from "./timer";
 import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "./parse";
 import type { VpnNode } from "./parse";
@@ -138,8 +138,12 @@ export async function pickBestNode(
   );
   if (candidates.length === 0) return [];
 
-  // Для ядра xray — настоящий URL-тест через прокси
-  if (core === "xray") {
+  // Метод проверки — из настроек: "url" (по умолчанию для выбора лучшего —
+  // полный тест протоколом) или "tcp" (быстрое рукопожатие)
+  const method = getPingMethod();
+
+  // Для ядра xray и метода url — настоящий URL-тест через прокси
+  if (core === "xray" && method === "url") {
     // pingBatch не работает, пока в процессе поднят Xray-инстанс (VPN-сервис
     // останавливается асинхронно через intent) — ждём остановки
     for (let waited = 0; waited < 3000 && (await isVpnRunning()); waited += 200) {

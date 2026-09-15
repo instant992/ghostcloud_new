@@ -176,6 +176,13 @@ export function openUsageAccessSettings(): void {
   } catch {}
 }
 
+/** Открывает системные настройки VPN (для «Постоянная VPN» / Always-on) */
+export function openVpnSettings(): void {
+  try {
+    XrayNative?.openVpnSettings?.();
+  } catch {}
+}
+
 /** События смены типа сети (Wi-Fi ↔ LTE) — для фильтра соединения */
 export function onNetworkTypeChanged(cb: (type: string) => void): () => void {
   if (!emitter) return () => {};

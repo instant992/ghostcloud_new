@@ -125,7 +125,7 @@ class LibCoreVpnService : VpnService() {
         }
       }
 
-      val pfd = builder.setBlocking(false).establish()
+      val pfd = builder.setBlocking(GcNativeSettings.killSwitch(this)).establish()
       if (pfd == null) {
         throw IllegalStateException("Не удалось создать TUN-интерфейс")
       }

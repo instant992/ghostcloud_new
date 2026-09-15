@@ -696,6 +696,18 @@ class XrayCoreModule : Module() {
       }
     }
 
+    /** Открывает системные настройки VPN (для включения «Постоянная VPN» /
+     *  Always-on — полная автоматика автоподключения при загрузке устройства). */
+    Function("openVpnSettings") {
+      try {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+      } catch (e: Throwable) {
+        android.util.Log.e("GhostCloud", "openVpnSettings failed", e)
+      }
+    }
+
     AsyncFunction("isPrepared") { promise: Promise ->
       val activity = appContext.currentActivity ?: context
       promise.resolve(VpnService.prepare(activity) == null)
