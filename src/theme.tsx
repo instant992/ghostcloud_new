@@ -618,10 +618,38 @@ const COUNTRY_MAP: Record<string, { name: string; flag: string }> = {
 
 export function countryFromName(name: string): { name: string; flag: string } | null {
   const lower = (name || "").toLowerCase();
-  for (const key of Object.keys(COUNTRY_MAP)) {
-    if (lower.includes(key)) return COUNTRY_MAP[key];
+  // Сначала длинные ключи: иначе «sweden» матчится по «de» (Германия),
+  // «finland» — по «fi»/«nl» и т.п. — страна определяется неверно.
+  const keys = Object.keys(COUNTRY_MAP).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (key.length <= 2) {
+      // Короткие коды — только отдельным токеном: иначе «сервер» содержит
+      // «се» (Швеция), «тест» — «es» (Испания) и т.п.
+      const re = new RegExp(`(^|[^a-zа-яё0-9])${key}([^a-zа-яё0-9]|$)`);
+      if (re.test(lower)) return COUNTRY_MAP[key];
+    } else if (lower.includes(key)) {
+      return COUNTRY_MAP[key];
+    }
   }
   return null;
+}
+
+/** Обратный индекс: эмодзи флага → страна. Флаг — первый символ имени сервера
+ *  в подписке, это самый надёжный источник страны (текст имени может быть
+ *  на любом языке и с номерами: «🇸🇪 Швеция | HY2», «🇩🇪 LTE 2»). */
+const FLAG_TO_COUNTRY: Record<string, { name: string; flag: string }> = (() => {
+  const m: Record<string, { name: string; flag: string }> = {};
+  for (const key of Object.keys(COUNTRY_MAP)) {
+    const v = COUNTRY_MAP[key];
+    if (v?.flag && !m[v.flag]) m[v.flag] = v;
+  }
+  return m;
+})();
+
+/** Страна по эмодзи флага (🇸🇪 → Швеция). */
+export function countryFromFlag(flag: string): { name: string; flag: string } | null {
+  if (!flag) return null;
+  return FLAG_TO_COUNTRY[flag] || null;
 }
 
 /** Ведущие декоративные эмодзи + разделители перед именем сервера

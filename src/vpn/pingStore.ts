@@ -90,27 +90,35 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
   const method = getPingMethod();
   const vpnUp = await isVpnRunning();
   if (method === "url" && !vpnUp) {
-    // URL-тест: порции по 5 обрабатывает сам pingNodesBatch
+    // URL-тест: сам pingNodesBatch режет на порции по 5, но отдаёт всё в конце —
+    // при 20 узлах это ~40 с сплошного спиннера («не работает»). Поэтому режем
+    // на порции здесь и публикуем результаты после каждой.
     try {
       const withOb = targets
         .map((n) => ({ n, ob: buildOutbound(n) }))
         .filter((x): x is { n: VpnNode; ob: Record<string, any> } => !!x.ob);
-      const results = await pingNodesBatch(
-        withOb.map((x) => ({ xrayJson: JSON.stringify({ outbounds: [x.ob] }) }))
-      );
-      for (let i = 0; i < withOb.length; i++) {
-        const r = results[i];
-        map[withOb[i].n.id] =
-          r?.success && r.delay >= 0
-            ? { status: "done", delay: r.delay }
-            : { status: "done", delay: -1, error: r?.error || "недоступен" };
-        emit();
+      const doneIds = new Set<string>();
+      for (let i = 0; i < withOb.length; i += 5) {
+        const chunk = withOb.slice(i, i + 5);
+        const results = await pingNodesBatch(
+          chunk.map((x) => ({ xrayJson: JSON.stringify({ outbounds: [x.ob] }) }))
+        );
+        for (let j = 0; j < chunk.length; j++) {
+          const r = results[j];
+          map[chunk[j].n.id] =
+            r?.success && r.delay >= 0
+              ? { status: "done", delay: r.delay }
+              : { status: "done", delay: -1, error: r?.error || "недоступен" };
+          doneIds.add(chunk[j].n.id);
+        }
+        emit(); // результаты этой порции — сразу в UI
       }
-      // узлы без outbound (не собрались) — TCP-фолбэк
-      const failedOb = targets.filter((n) => !withOb.some((x) => x.n.id === n.id));
+      // узлы, где outbound не собрался или URL-тест не вернул результат, — TCP-фолбэк
+      const failedOb = targets.filter((n) => !doneIds.has(n.id));
       await tcpWave(failedOb);
     } catch (e: any) {
       // URL-тест не смог стартовать (изолированный процесс и т.п.) — TCP-фолбэк
+      console.warn("[pingAll] url-test failed, fallback to TCP:", String(e?.message || e).slice(0, 100));
       await tcpWave(targets);
     }
   } else {

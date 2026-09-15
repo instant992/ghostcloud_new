@@ -584,12 +584,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (savedId) setSelectedNodeId(savedId);
         if (mounted.current) setLoading(false);
 
-        // Автоподключение при запуске (настройка «Подключать при запуске»):
-        // только с активной подпиской, только если VPN ещё не поднят.
+        // Автоподключение при запуске (настройка «Подключать при запуске»)
+        // и при загрузке устройства («Подключать при загрузке»): бут-ресивер
+        // поднимает VPN без приложения, когда разрешение сохранено; если нет —
+        // он открывает приложение, и этот же код подключает VPN автоматически.
+        // Только с активной подпиской и только если VPN ещё не поднят.
         // Сервер — сохранённый выбор, иначе «Лучший сервер» (pickBestNode).
         try {
-          const { getAutoConnect } = await import("./settings");
-          if (getAutoConnect() && mounted.current) {
+          const { getAutoConnect, getAutoConnectBoot } = await import("./settings");
+          if ((getAutoConnect() || getAutoConnectBoot()) && mounted.current) {
             const mgr = await import("./vpn/manager");
             if (!(await mgr.isVpnRunning())) {
               const meInfo = freshMe || ((cachedMe && typeof cachedMe === "object" ? (cachedMe as MeInfo) : null));

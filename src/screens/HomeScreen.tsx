@@ -24,9 +24,10 @@ import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
 import * as appFilterMod from "../vpn/appFilter";
 import { computeBypassForNetwork, loadFilterSettings } from "../vpn/connectionFilter";
 import { getNetworkType } from "../vpn/native";
+import { resolveNodeCountry } from "../vpn/geoIp";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes, useTheme, pingColor, isLightPalette, countryFromName, BRAND_PURPLE } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor, isLightPalette, countryFromName, countryFromFlag, BRAND_PURPLE } from "../theme";
 import { WorldMap, type MapMarker } from "../components/worldMap/WorldMap";
 import { COUNTRY_GEO } from "../components/worldMap/geo";
 
@@ -96,12 +97,20 @@ export default function HomeScreen() {
     [nodes, selectedNodeId]
   );
 
-  // Маркеры стран на карте: группируем узлы подписки по стране из имени
+  // Маркеры стран на карте: страну берём из ФЛАГА — первого символа имени
+  // сервера (🇸🇪 Швеция | HY2). Фолбэк — поиск по тексту имени (для имён без
+  // флага). «Лучший сервер» (⚡, флаг отсутствует) — страна определяется по
+  // IP его сервера (resolveNodeCountry) асинхронно ниже.
   const mapMarkers = useMemo<MapMarker[]>(() => {
     const byCountry = new Map<string, MapMarker>();
     for (const n of nodes) {
       if (n.source === "lte") continue;
-      const c = countryFromName(splitNameFlag(n.name).name);
+      // «Лучший сервер» — агрегатор без флага: его страну определяем по IP
+      // (bestCountry ниже), в маркеры по тексту не добавляем — иначе «сервер»
+      // матчится по «се» и узел приписывается Швеции.
+      if (/лучш/i.test(n.name)) continue;
+      const info = splitNameFlag(n.name);
+      const c = countryFromFlag(info.flag) || countryFromName(info.name);
       if (!c) continue;
       const geo = COUNTRY_GEO[c.name];
       if (!geo) continue;
@@ -123,13 +132,36 @@ export default function HomeScreen() {
     return [...byCountry.values()];
   }, [nodes]);
 
-  // Активная страна = страна выбранного узла
+  // Страна «Лучшего сервера» (⚡) по IP его адреса: резолвим домен и спрашиваем
+  // geo-IP API. Результат кэшируется в ref на время жизни экрана.
+  const [bestCountry, setBestCountry] = useState<{ name: string; flag: string } | null>(null);
+  useEffect(() => {
+    const best = nodes.find((n) => /лучш/i.test(n.name) && n.source !== "lte");
+    if (!best) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const c = await resolveNodeCountry(best.address);
+        if (!cancelled && c) setBestCountry(c);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [nodes]);
+
+  // Активная страна = страна выбранного узла: флаг из имени → текст имени →
+  // (для «Лучшего сервера») страна по IP.
   const activeMarker = useMemo<MapMarker | null>(() => {
     if (!selectedNode) return null;
-    const c = countryFromName(splitNameFlag(selectedNode.name).name);
+    const info = splitNameFlag(selectedNode.name);
+    if (/лучш/i.test(info.name)) {
+      // «Лучший сервер» — агрегатор; показываем страну его фактического адреса
+      if (!bestCountry) return null;
+      return mapMarkers.find((m) => m.country === bestCountry.name) || null;
+    }
+    const c = countryFromFlag(info.flag) || countryFromName(info.name);
     if (!c) return null;
     return mapMarkers.find((m) => m.country === c.name) || null;
-  }, [selectedNode, mapMarkers]);
+  }, [selectedNode, mapMarkers, bestCountry]);
 
   // Тап по маркеру страны: выбираем первый её узел (и переподключаемся, если VPN активен)
   const onMarkerSelect = useCallback(

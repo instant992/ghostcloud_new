@@ -827,8 +827,8 @@ export default function SettingsScreen() {
             <Text style={styles.themeRowTitle}>Подключать при загрузке устройства</Text>
             <Text style={styles.themeRowSub}>
               {autoBoot
-                ? "После перезагрузки VPN поднимется сам (если разрешение сохранено)"
-                : "После перезагрузки VPN останется выключенным"}
+                ? "После включения телефона VPN поднимется автоматически"
+                : "После включения телефона VPN нужно включить вручную"}
             </Text>
           </View>
           <Switch
