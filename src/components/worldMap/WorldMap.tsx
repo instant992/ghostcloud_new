@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect } from "react";
-import { View, StyleSheet, LayoutChangeEvent, Text } from "react-native";
+import { View, StyleSheet, LayoutChangeEvent, Text, Image } from "react-native";
 import Svg, { G, Circle, Path } from "react-native-svg";
 import Animated, {
   useSharedValue,
@@ -16,6 +16,7 @@ import Animated, {
 import { colors } from "../../theme";
 import { DOTS, MAP_W, MAP_H } from "./dots";
 import { LANDMARKS } from "./landmarks";
+import { LANDMARK_PHOTOS } from "./landmarkPhotos";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -45,6 +46,12 @@ function buildDotsPath(r: number): string {
 }
 
 const HOME = { x: 604, y: 76 }; // Москва — точка «откуда» для дуги перелёта
+
+/** Размер фото-карточки достопримечательности. Пиксели задаём явно: проценты
+ *  внутри Animated.View с transform на Fabric могут не разрешиться → картинка
+ *  получает нулевой размер и не рисуется. */
+const LM_W = 132;
+const LM_H = 88;
 
 /** Живая карта мира: точечная суша, маркеры стран, плавный наезд камеры на
  *  выбранную страну, светящийся маркер с кольцами-пингами, дуга перелёта с
@@ -160,17 +167,26 @@ export function WorldMap({
     opacity: interpolate(ping2.value, [0, 1], [0.8, 0]),
   }) as any);
 
-  // Прорисовка достопримечательности
+  // Достопримечательность: живое фото (Wikimedia Commons, CC0/PD) с анимацией
+  // появления; если фото нет — прежняя векторная прорисовка.
   const draw = useSharedValue(0);
   const lmKey = connected && active?.lm ? active.lm : null;
   useEffect(() => {
     if (lmKey) {
       draw.value = 0;
-      draw.value = withTiming(1, { duration: 1900, easing: Easing.inOut(Easing.quad) });
+      draw.value = withTiming(1, { duration: 1100, easing: Easing.out(Easing.cubic) });
     } else { cancelAnimation(draw); draw.value = 0; }
   }, [lmKey]);
   const lmProps = useAnimatedProps(() => ({ strokeDashoffset: (1 - draw.value) * 900 }) as any);
   const lmPath = lmKey ? LANDMARKS[lmKey] : null;
+  const lmPhoto = lmKey ? LANDMARK_PHOTOS[lmKey] : null;
+  const lmPhotoStyle = useAnimatedStyle(() => ({
+    opacity: draw.value,
+    transform: [
+      { scale: interpolate(draw.value, [0, 1], [0.82, 1]) },
+      { translateY: interpolate(draw.value, [0, 1], [14, 0]) },
+    ],
+  }));
 
   // Маркеры стран должны читаться поверх тусклых точек суши (#4a3a6e) —
   // поэтому заметно светлее их и с плотным ореолом.
@@ -227,8 +243,20 @@ export function WorldMap({
           </Svg>
         </Animated.View>
 
-        {/* достопримечательность — прорисовка линии по центру ленты */}
-        {lmPath && (
+        {/* достопримечательность — живое фото по центру ленты (фолбэк: вектор) */}
+        {lmPhoto ? (
+          <View style={styles.lmWrap} pointerEvents="none">
+            <Animated.View style={lmPhotoStyle}>
+              <View style={[styles.lmCard, { borderColor: light ? "rgba(124,45,214,0.55)" : "rgba(200,170,255,0.5)" }]}>
+                <Image
+                  source={lmPhoto}
+                  style={styles.lmImg}
+                  resizeMode="cover"
+                />
+              </View>
+            </Animated.View>
+          </View>
+        ) : lmPath ? (
           <View style={styles.lmWrap} pointerEvents="none">
             <Svg width={116} height={116} viewBox="0 0 100 100">
               <AnimatedPath
@@ -243,7 +271,7 @@ export function WorldMap({
               />
             </Svg>
           </View>
-        )}
+        ) : null}
       </View>
 
       {/* подпись активной страны под картой */}
@@ -263,6 +291,13 @@ const styles = StyleSheet.create({
   band: { width: "100%", aspectRatio: MAP_W / MAP_H, overflow: "hidden" },
   cam: { width: "100%", height: "100%" },
   lmWrap: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
+  lmCard: {
+    width: LM_W, height: LM_H, borderRadius: 14, borderWidth: 2, padding: 2,
+    backgroundColor: "#120c1c",
+    shadowColor: "#a855f7", shadowOpacity: 0.45, shadowRadius: 14, shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+  },
+  lmImg: { width: LM_W - 8, height: LM_H - 8, borderRadius: 11 },
   caption: { flexDirection: "row", alignItems: "center", marginTop: 10 },
   capFlag: { fontSize: 18, marginRight: 6 },
   capName: { fontSize: 18, fontWeight: "900", letterSpacing: -0.4 },
