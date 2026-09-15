@@ -104,11 +104,13 @@ export default function HomeScreen() {
   const mapMarkers = useMemo<MapMarker[]>(() => {
     const byCountry = new Map<string, MapMarker>();
     for (const n of nodes) {
-      if (n.source === "lte") continue;
       // «Лучший сервер» — агрегатор без флага: его страну определяем по IP
       // (bestCountry ниже), в маркеры по тексту не добавляем — иначе «сервер»
       // матчится по «се» и узел приписывается Швеции.
       if (/лучш/i.test(n.name)) continue;
+      // LTE-узлы тоже участвуют: «🇷🇺 Белый интернет» — единственные
+      // российские серверы в подписке, без них Россия не появляется на карте
+      // и у выбранного LTE-сервера нет флага/подписи страны.
       const info = splitNameFlag(n.name);
       const c = countryFromFlag(info.flag) || countryFromName(info.name);
       if (!c) continue;
@@ -128,6 +130,11 @@ export default function HomeScreen() {
           nodeIds: [n.id],
         });
       }
+    }
+    // Обычные серверы — первыми: тап по маркеру страны выбирает обычный узел,
+    // LTE — только если обычных узлов страны нет (Россия).
+    for (const m of byCountry.values()) {
+      m.nodeIds.sort((a, b) => Number(a.startsWith("lte-")) - Number(b.startsWith("lte-")));
     }
     return [...byCountry.values()];
   }, [nodes]);
