@@ -11,7 +11,6 @@ import Animated, {
   Easing,
   interpolate,
   cancelAnimation,
-  runOnJS,
 } from "react-native-reanimated";
 import { colors } from "../../theme";
 import { DOTS, MAP_W, MAP_H } from "./dots";
@@ -62,14 +61,12 @@ export function WorldMap({
   markers,
   active,
   connected,
-  onSelect,
   light,
   style,
 }: {
   markers: MapMarker[];
   active: MapMarker | null;
   connected: boolean;
-  onSelect: (m: MapMarker) => void;
   light: boolean;
   style?: any;
 }) {
@@ -217,8 +214,7 @@ export function WorldMap({
               const activeColor = connected ? colors.green : colors.accent;
               const activeHalo = connected ? "rgba(52,211,153,0.28)" : "rgba(168,85,247,0.35)";
               return (
-                <G key={m.country} onPress={() => runOnJS(onSelect)(m)}>
-                  <Circle cx={m.x} cy={m.y} r={16} fill="transparent" />
+                <G key={m.country}>
                   <Circle cx={m.x} cy={m.y} r={isActive ? 12 : 7.5} fill={isActive ? activeHalo : markerHalo} />
                   <Circle cx={m.x} cy={m.y} r={isActive ? 4.2 : 3.4} fill={isActive ? activeColor : markerColor} />
                 </G>

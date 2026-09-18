@@ -170,35 +170,6 @@ export default function HomeScreen() {
     return mapMarkers.find((m) => m.country === c.name) || null;
   }, [selectedNode, mapMarkers, bestCountry]);
 
-  // Тап по маркеру страны: выбираем первый её узел (и переподключаемся, если VPN активен)
-  const onMarkerSelect = useCallback(
-    (m: MapMarker) => {
-      const id = m.nodeIds[0];
-      if (!id || id === selectedNodeId) return;
-      selectNode(id);
-      Haptics.selectionAsync().catch(() => {});
-      if (vpnRunning) {
-        (async () => {
-          setBusy(true);
-          setError(null);
-          try {
-            await disconnect();
-            const node = nodes.find((n) => n.id === id) || null;
-            if (!node) { setVpnRunning(false); return; }
-            await connect(node, { isSponsor: me?.is_sponsor === true });
-            setVpnRunning(true);
-          } catch (e: any) {
-            setError(e?.message || "Ошибка переподключения");
-            setVpnRunning(false);
-          } finally {
-            setBusy(false);
-          }
-        })();
-      }
-    },
-    [selectedNodeId, selectNode, vpnRunning, nodes, me, setVpnRunning]
-  );
-
   // Пульсация, вращение колец и частицы — внутри общего <PowerButton />
 
   useFocusEffect(
@@ -295,7 +266,6 @@ export default function HomeScreen() {
         markers={mapMarkers}
         active={activeMarker}
         connected={connected}
-        onSelect={onMarkerSelect}
         light={isLightPalette()}
         style={{ marginBottom: 6 }}
       />

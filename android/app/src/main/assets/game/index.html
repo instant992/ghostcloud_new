@@ -611,7 +611,7 @@ let state=S.MENU,G=null,activeObjs=[],lastT=0,runPhase=0,menuT=0,camShake=0;
 function newGame(){return{dist:0,coins:0,combo:0,comboT:0,speed:BASE_SPEED,
   player:{lane:1,x:0,y:0,vy:0,sliding:false,slideT:0,onRoof:null,dead:false,invuln:0,squash:0},
   powers:{magnet:0,jetpack:0,x2:0,skate:0,sneak:0,sneakers:0},shield:0,powerupsUsed:[],
-  inspector:{z:6.5,lunge:0},nextChunk:14,startedAt:Date.now(),time:0,deathT:0,speedT:0};}
+  inspector:{z:6.5,lunge:0},nextChunk:14,startedAt:Date.now(),time:0,deathT:0,speedT:0,jetCoinT:0};}
 
 function spawnChunk(){
   const g=G,diff=Math.min(1,g.dist/4500),z=SPAWN_Z,lane3=[0,1,2],pick=()=>lane3[(Math.random()*3)|0],r=Math.random();
@@ -780,7 +780,13 @@ function update(dt){
   if(pl.squash!==0)pl.squash=lerp(pl.squash,0,dt*9);
   if(g.comboT>0){g.comboT-=dt;if(g.comboT<=0)g.combo=0;}
   if(jet&&!pl.dead){pl.onRoof=null;pl.vy=lerp(pl.vy,0,dt*4);pl.y=lerp(pl.y,JET_Y,clamp(dt*6,0,1));
-    g.speedT-=dt;if(g.speedT<=0){g.speedT=0.07;burst(pl.x+(Math.random()-0.5)*0.8,pl.y+0.2,0.6,0x4DD2FF,2,0.2);}}
+    g.speedT-=dt;if(g.speedT<=0){g.speedT=0.07;burst(pl.x+(Math.random()-0.5)*0.8,pl.y+0.2,0.6,0x4DD2FF,2,0.2);}
+    // Монеты в небе: пока работает джетпак, сверху в случайных дорожках
+    // появляются монеты на высоте полёта — есть что собирать в воздухе.
+    g.jetCoinT-=dt;
+    if(g.jetCoinT<=0){g.jetCoinT=0.2+Math.random()*0.22;
+      const jl=(Math.random()*3)|0;
+      addObj({kind:"coin",lane:jl,z:-(25+Math.random()*60),y:JET_Y+(Math.random()-0.5)*0.9});}}
   else if(pl.onRoof){pl.y=ROOF_H;pl.vy=0;if(!roofUnder(pl))pl.onRoof=null;}
   else{pl.vy-=GRAV*dt;pl.y+=pl.vy*dt;
     if(pl.y<=0){if(pl.vy<-6){sfx.land();pl.squash=0.35;burst(pl.x,0.1,0,NIGHT?0x6A5ACD:0x8A7FA8,6,0.5);}pl.y=0;pl.vy=0;}}
@@ -797,9 +803,17 @@ function update(dt){
     if(o.kind==="coin"){
       o.rot+=dt*4;o.mesh.rotation.y=o.rot;o.mesh.position.z=o.z;
       let tx=LANE_X[o.lane];
-      if(magnet&&o.z>-10&&o.z<4)tx=lerp(LANE_X[o.lane],pl.x,clamp((10+o.z)/14,0,1)*0.9);
+      // Магнит тянет только монеты в окне притяжения (z от -10 до 4): и по X, и по Y.
+      // Раньше вертикаль поднимала ВСЕ монеты к pl.y — при прыжке подпрыгивала
+      // вся лента монет на экране.
+      if(magnet&&o.z>-10&&o.z<4){
+        const t=clamp((10+o.z)/14,0,1);
+        tx=lerp(LANE_X[o.lane],pl.x,t*0.9);
+        o.mesh.position.y=o.y+lerp(0,pl.y+0.6-o.y,clamp(t*1.2,0,1));
+      }else{
+        o.mesh.position.y=o.y;
+      }
       o.mesh.position.x=tx;
-      o.mesh.position.y=o.y+(magnet?lerp(0,pl.y+0.6,clamp((-o.z)/9,0,1)):0);
       if(Math.abs(o.z)<1.4&&Math.abs(o.mesh.position.x-pl.x)<1.2&&Math.abs(o.mesh.position.y-(pl.y+0.8))<1.6){
         o.collected=true;g.coins+=(g.powers.x2>0?2:1);g.combo++;g.comboT=2.6;sfx.coin(g.combo);
         burst(o.mesh.position.x,o.mesh.position.y,o.z,0xFFD700,6);
