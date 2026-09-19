@@ -332,49 +332,124 @@ function onResize(){if(!renderer)return;const w=window.innerWidth,h=window.inner
 
 // ── процедурная граффити-текстура ──
 function graffitiTexture(){
-  const cv=document.createElement("canvas");cv.width=256;cv.height=128;
+  const cv=document.createElement("canvas");cv.width=512;cv.height=256;
   const x=cv.getContext("2d");
-  x.fillStyle=NIGHT?"#241B3D":"#B9AED0";x.fillRect(0,0,256,128);
-  x.strokeStyle=NIGHT?"rgba(255,255,255,0.05)":"rgba(0,0,0,0.07)";x.lineWidth=1;
-  for(let i=1;i<8;i++){x.beginPath();x.moveTo(0,i*16);x.lineTo(256,i*16);x.stroke();}
-  for(let i=1;i<16;i++){x.beginPath();x.moveTo(i*16+((i%2)?8:0),0);x.lineTo(i*16+((i%2)?8:0),128);x.stroke();}
-  const cols=["#A855F7","#e0306e","#4DD2FF","#FFD23F","#6CFF8A","#FF8A4D"];
-  for(let i=0;i<5;i++){
-    x.fillStyle=cols[(Math.random()*cols.length)|0];x.globalAlpha=0.5;
-    const gx=20+Math.random()*210,gy=22+Math.random()*84,gw=18+Math.random()*55;
-    x.beginPath();x.ellipse(gx,gy,gw,gw*0.42,Math.random()*3,0,7);x.fill();
+  const W=512,H=256;
+  // ── кирпичная кладка (база, как в Subway) ──
+  const base=NIGHT?"#3A2E5C":"#A79BC4";
+  const mortar=NIGHT?"#241B3D":"#8E82AE";
+  x.fillStyle=base;x.fillRect(0,0,W,H);
+  const bh=26,bw=64;
+  for(let row=0;row<H/bh;row++){
+    const off=(row%2)?bw/2:0;
+    for(let col=-1;col<W/bw+1;col++){
+      // лёгкая вариация тона кирпича
+      const v=((row*7+col*13)%5)*((NIGHT?6:8));
+      x.fillStyle=NIGHT?`rgb(${70+v},${55+v},${102+v})`:`rgb(${180+v},${168+v},${206+v})`;
+      x.fillRect(col*bw+off+2,row*bh+2,bw-4,bh-4);
+    }
   }
-  if(Math.random()<0.5){
-    x.globalAlpha=0.85;x.fillStyle=cols[(Math.random()*cols.length)|0];
-    x.font="bold "+(20+((Math.random()*14)|0))+"px sans-serif";
-    const words=["GHOST","ЛИСА","VPN","FAST","CLOUD","RUN"];
-    x.fillText(words[(Math.random()*words.length)|0],16+Math.random()*90,50+Math.random()*40);
-  }
+  x.strokeStyle=mortar;x.lineWidth=1;x.globalAlpha=0.5;
+  for(let row=0;row<=H/bh;row++){x.beginPath();x.moveTo(0,row*bh);x.lineTo(W,row*bh);x.stroke();}
   x.globalAlpha=1;
-  return new THREE.CanvasTexture(cv);
+  const cols=["#FF2E88","#00E5FF","#FFD23F","#6CFF8A","#FF8A4D","#C77DFF","#FFFFFF"];
+  const pick=()=>cols[(Math.random()*cols.length)|0];
+  // ── крупный тег-«пузырь» (толстая кривая с чёрной обводкой) ──
+  if(Math.random()<0.9){
+    const col=pick(),y0=70+Math.random()*80,x0=40+Math.random()*120;
+    x.lineCap="round";x.lineJoin="round";
+    const pts=[[x0,y0],[x0+60+Math.random()*40,y0-36-Math.random()*24],
+      [x0+130+Math.random()*50,y0+16+Math.random()*20],[x0+210+Math.random()*60,y0-24-Math.random()*20]];
+    const stroke=(w,c)=>{x.strokeStyle=c;x.lineWidth=w;x.beginPath();x.moveTo(pts[0][0],pts[0][1]);
+      x.bezierCurveTo(pts[1][0],pts[1][1],pts[2][0],pts[2][1],pts[3][0],pts[3][1]);x.stroke();};
+    stroke(30,"rgba(10,5,20,0.9)");stroke(22,col);stroke(8,"rgba(255,255,255,0.55)");
+    // потёки краски вниз
+    for(let d=0;d<5;d++){
+      const t=Math.random(),px=x0+t*(pts[3][0]-x0),py=y0+Math.sin(t*3)*20;
+      x.fillStyle=col;x.globalAlpha=0.85;
+      const dl=8+Math.random()*26;
+      x.fillRect(px-2,py,4,dl);
+      x.beginPath();x.arc(px,py+dl,2.6,0,7);x.fill();
+      x.globalAlpha=1;
+    }
+  }
+  // ── мелкие элементы: короны, звёзды, стрелки, «облачка» ──
+  const doodle=(cx2,cy,r,col)=>{
+    const kind=(Math.random()*4)|0;
+    x.fillStyle=col;x.strokeStyle="rgba(10,5,20,0.85)";x.lineWidth=3;
+    if(kind===0){ // корона (мотив Subway Surfers)
+      x.beginPath();x.moveTo(cx2-r,cy+r*0.7);x.lineTo(cx2-r,cy-r*0.4);x.lineTo(cx2-r*0.5,cy+r*0.1);
+      x.lineTo(cx2,cy-r*0.8);x.lineTo(cx2+r*0.5,cy+r*0.1);x.lineTo(cx2+r,cy-r*0.4);x.lineTo(cx2+r,cy+r*0.7);
+      x.closePath();x.fill();x.stroke();
+    }else if(kind===1){ // звезда
+      x.beginPath();
+      for(let i=0;i<10;i++){const a=Math.PI/5*i-Math.PI/2,rr=i%2?r*0.45:r;
+        x[i?"lineTo":"moveTo"](cx2+Math.cos(a)*rr,cy+Math.sin(a)*rr);}
+      x.closePath();x.fill();x.stroke();
+    }else if(kind===2){ // стрелка
+      x.beginPath();x.moveTo(cx2-r,cy);x.lineTo(cx2+r*0.3,cy);x.lineTo(cx2+r*0.3,cy-r*0.5);
+      x.lineTo(cx2+r,cy+r*0.15);x.lineTo(cx2+r*0.3,cy+r*0.8);x.lineTo(cx2+r*0.3,cy+r*0.3);
+      x.lineTo(cx2-r,cy+r*0.3);x.closePath();x.fill();x.stroke();
+    }else{ // облачко-сплеш
+      x.beginPath();x.arc(cx2,cy,r*0.6,0,7);x.arc(cx2+r*0.5,cy-r*0.2,r*0.45,0,7);
+      x.arc(cx2-r*0.5,cy+r*0.1,r*0.4,0,7);x.fill();x.stroke();
+    }
+  };
+  const n=2+((Math.random()*3)|0);
+  for(let i=0;i<n;i++)doodle(40+Math.random()*(W-80),30+Math.random()*(H-60),14+Math.random()*16,pick());
+  // ── иногда короткое слово ──
+  if(Math.random()<0.45){
+    x.globalAlpha=0.9;x.fillStyle=pick();
+    x.font="bold "+(30+((Math.random()*18)|0))+"px sans-serif";
+    const words=["GHOST","ЛИСА","FAST","RUN","FOX","VPN","CLOUD","SUBWAY"];
+    const w=words[(Math.random()*words.length)|0];
+    x.save();x.translate(30+Math.random()*(W-180),60+Math.random()*(H-90));
+    x.rotate((Math.random()-0.5)*0.18);
+    x.strokeStyle="rgba(10,5,20,0.9)";x.lineWidth=5;x.strokeText(w,0,0);
+    x.fillText(w,0,0);x.restore();
+    x.globalAlpha=1;
+  }
+  // потёртости/царапины
+  x.globalAlpha=0.12;x.strokeStyle=NIGHT?"#000":"#4A3A6A";
+  for(let i=0;i<10;i++){x.lineWidth=1+Math.random()*2;x.beginPath();
+    const sx=Math.random()*W,sy=Math.random()*H;
+    x.moveTo(sx,sy);x.lineTo(sx+(Math.random()-0.5)*70,sy+(Math.random()-0.5)*16);x.stroke();}
+  x.globalAlpha=1;
+  const t=new THREE.CanvasTexture(cv);
+  t.wrapS=THREE.RepeatWrapping;t.wrapT=THREE.ClampToEdgeWrapping;
+  if(THREE.sRGBEncoding)t.encoding=THREE.sRGBEncoding;
+  return t;
 }
 
-// ── окружение: земля, рельсы, шпалы, стены-граффити, арки, город, луна, звёзды ──
+// ── окружение: земля, путь (Meshy-текстура), стены-граффити, арки, город, луна, звёзды ──
+// Текстура пути запечена сверху с Meshy-модели rails_seg (рельсы+шпалы+крепления),
+// повёрнута так, что рельсы идут вдоль V (направление бега), края обрезаны.
+// TILE_LEN=5.25 сохраняет пропорции тайла (исходный сегмент 1.899×0.98).
+const TILE_LEN=5.25;
+let trackTex=null,trackMat=null;
+function trackMaterial(){
+  if(trackMat)return trackMat; // один материал на все 3 полосы (общий скролл offset)
+  trackTex=new THREE.TextureLoader().load("tex/track.png");
+  trackTex.wrapS=THREE.RepeatWrapping;trackTex.wrapT=THREE.RepeatWrapping;
+  if(THREE.sRGBEncoding)trackTex.encoding=THREE.sRGBEncoding;
+  if(renderer&&renderer.capabilities)trackTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  trackTex.repeat.set(1,360/TILE_LEN);
+  // ночной тинт: color умножается на map
+  trackMat=new THREE.MeshStandardMaterial({map:trackTex,color:NIGHT?0x8F83C4:0xFFFFFF,roughness:0.95,metalness:0});
+  return trackMat;
+}
 function buildEnvironment(){
   ground=new THREE.Mesh(new THREE.PlaneGeometry(400,400),
     new THREE.MeshStandardMaterial({color:GROUND,roughness:1,metalness:0}));
   ground.rotation.x=-Math.PI/2;ground.position.y=-0.03;ground.receiveShadow=true;scene.add(ground);
 
   trackGroup=new THREE.Group();scene.add(trackGroup);
-  const ballastMat=new THREE.MeshStandardMaterial({color:NIGHT?0x2E2547:0x9C92AE,roughness:1});
+  // Три полосы пути — запечённая Meshy-текстура (рельсы/шпалы/балласт внутри тайла).
+  // Скролл — через trackTex.offset.y (дешевле, чем двигать 44 меша шпал).
   for(let li=0;li<3;li++){
-    const b=new THREE.Mesh(new THREE.BoxGeometry(2.7,0.18,360),ballastMat);
+    const b=new THREE.Mesh(new THREE.BoxGeometry(2.7,0.18,360),trackMaterial());
     b.position.set(LANE_X[li],0.03,-140);b.receiveShadow=true;trackGroup.add(b);
   }
-  const railMat=new THREE.MeshStandardMaterial({color:NIGHT?0xB6A6E8:0xC9C2D8,metalness:0.9,roughness:0.28});
-  for(let li=0;li<3;li++)for(let s=-1;s<=1;s+=2){
-    const r=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.22,360),railMat);
-    r.position.set(LANE_X[li]+s*0.66,0.2,-140);r.castShadow=true;r.receiveShadow=true;trackGroup.add(r);
-  }
-  const tieMat=new THREE.MeshStandardMaterial({color:NIGHT?0x4A3A28:0x6B5236,roughness:0.95});
-  const tieGeo=new THREE.BoxGeometry(10.6,0.14,0.6);
-  for(let i=0;i<44;i++){const t=new THREE.Mesh(tieGeo,tieMat);
-    t.position.set(0,0.1,-i*6.6);t.receiveShadow=true;trackGroup.add(t);ties.push(t);}
 
   // граффити-стены вдоль путей (едут вместе с миром)
   const wallGeo=new THREE.BoxGeometry(0.4,4.6,WALL_SPAN-0.4);
@@ -1043,7 +1118,7 @@ function update(dt){
   else{pl.vy-=GRAV*dt;pl.y+=pl.vy*dt;
     if(pl.y<=0){if(pl.vy<-6){sfx.land();pl.squash=0.35;burst(pl.x,0.1,0,NIGHT?0x6A5ACD:0x8A7FA8,6,0.5);}pl.y=0;pl.vy=0;}}
   if(pl.sliding){pl.slideT-=dt;if(pl.slideT<=0)pl.sliding=false;}
-  for(const t of ties){t.position.z+=dz;if(t.position.z>CULL_Z)t.position.z-=290;}
+  if(trackTex)trackTex.offset.y=(trackTex.offset.y-dz/TILE_LEN)%1;
   for(const w of walls){w.position.z+=dz;if(w.position.z>CULL_Z)w.position.z-=WALL_N*WALL_SPAN;}
   for(const a of arches){a.position.z+=dz;if(a.position.z>CULL_Z)a.position.z-=ARCH_N*ARCH_SPAN;}
 
@@ -1180,7 +1255,7 @@ function animateInspector(dt){
   if(inspParts.arm)inspParts.arm.forEach((a,i)=>{a.rotation.x=Math.sin(ph+(i?0:Math.PI))*0.5;});}
 
 function scrollWorld(dt,dz){
-  for(const t of ties){t.position.z+=dz;if(t.position.z>CULL_Z)t.position.z-=290;}
+  if(trackTex)trackTex.offset.y=(trackTex.offset.y-dz/TILE_LEN)%1;
   for(const w of walls){w.position.z+=dz;if(w.position.z>CULL_Z)w.position.z-=WALL_N*WALL_SPAN;}
   for(const a of arches){a.position.z+=dz;if(a.position.z>CULL_Z)a.position.z-=ARCH_N*ARCH_SPAN;}
 }
