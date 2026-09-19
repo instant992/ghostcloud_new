@@ -695,11 +695,15 @@ function preloadModels(done){
             step();},step);}catch(e){step();}
         }else step();
       };
-      xhr.onerror=step;xhr.ontimeout=step;xhr.timeout=15000;
+      xhr.onerror=step;xhr.ontimeout=step;xhr.timeout=25000;
       xhr.send();
     }catch(e){step();}
   });
-  setTimeout(fin,20000); // Meshy-модели ~7 МБ: на медленном устройстве/file:// нужно больше времени
+  // Watchdog: на медленных устройствах (эмулятор/SwiftShader, file://) парсинг
+  // GLB может занять 30+ с — короткий watchdog обрывал загрузку и игра падала
+  // в процедурные плейсхолдеры (кубики вместо лисы). Ждём щедро: экран загрузки
+  // всё равно показывается, а модели важнее.
+  setTimeout(fin,45000);
 }
 
 // ── лиса ──
@@ -723,14 +727,21 @@ function buildFox(){
     mixer=new THREE.AnimationMixer(model);actions={};
     (src.animations||[]).forEach(clip=>{actions[clip.name]=mixer.clipAction(clip);});
     foxSingleAction=(src.animations&&src.animations.length)?mixer.clipAction(src.animations[0]):null;
-    foxIsModel=true;playAnim(isMeshy?"Run":"Survey");
+    foxIsModel=true;
+    if(isMeshy){
+      // Родной клип Meshy — walk (бег платный). Не играем его: процедурный галоп
+      // крутит те же кости, микшер бы их перезатирал.
+      foxProcedural=captureFoxRig(model);
+      if(foxProcedural)foxSingleAction=null;
+    }
+    playAnim(isMeshy?"Run":"Survey");
   }else{
     foxModel=proceduralFox();foxGroup.add(foxModel);foxIsModel=false;
   }
   scene.add(foxGroup);
 }
 function playAnim(name){
-  if(!foxIsModel)return;
+  if(!foxIsModel||foxProcedural)return;
   // Meshy-лиса: единственный клип (бег) — играем его на любое имя, если точного нет
   if(!actions[name]&&foxSingleAction){
     for(const k in actions)actions[k].fadeOut(0.15);
@@ -738,6 +749,63 @@ function playAnim(name){
     return;
   }
   for(const k in actions){if(k===name){actions[k].reset().fadeIn(0.15).play();}else{actions[k].fadeOut(0.15);}}
+}
+// ── процедурный галоп Meshy-лисы ──
+// Родной клип Meshy — только walk (run в Meshy платный), поэтому бежим сами:
+// напрямую крутим кости скелета (27 шт: 4 ноги hip+knee, хвост, грудь, голова).
+// Знаки осей замерены на модели: hip.rotation.x + → лапа назад/вверх (толчок),
+// − → вперёд (мах); knee.rotation.x − → сгибание (поджатие на махе).
+// Диагональные пары (рысь): ПП+ЛЗ и ЛП+ПЗ в противофазе + микро-сдвиг галопа.
+let foxRig=null,foxPhase=0,foxProcedural=false;
+function captureFoxRig(model){
+  const B={};model.traverse(o=>{if(o.isBone)B[o.name]=o;});
+  const rest=b=>b?{b,rx:b.rotation.x,ry:b.rotation.y,rz:b.rotation.z,
+    px:b.position.x,py:b.position.y,pz:b.position.z}:null;
+  const legs=[];
+  // нога = hip(верх) + knee(сгиб) + shin(предплечье, следует за коленом) + off(фаза)
+  const leg=(h,k,s,off)=>{if(B[h]&&B[k])legs.push({hip:rest(B[h]),knee:rest(B[k]),shin:rest(B[s]),off});};
+  leg("frontleg","frontleg0","frontleg1",0);        // левая передняя
+  leg("R_backleg","R_backleg0","R_backleg1",0.04);  // правая задняя (диагональ)
+  leg("R_frontleg","R_frontleg0","R_frontleg1",0.5);// правая передняя
+  leg("backleg","backleg0","backleg1",0.54);        // левая задняя (диагональ)
+  if(legs.length<4||!B["Hips"])return false;
+  foxRig={hips:rest(B["Hips"]),legs,
+    chest:rest(B["chest"]),head:rest(B["head"]),
+    tail:["tail","tailstart","tail1","tail2"].map(n=>rest(B[n])).filter(Boolean)};
+  return true;
+}
+function foxGallop(dt,speedMul,idle){
+  if(!foxRig)return;
+  const R=foxRig,TWO=Math.PI*2;
+  foxPhase+=dt*(idle?0.7:2.9*speedMul);
+  const p=foxPhase,A=idle?0.10:1;         // общая амплитуда
+  const swing=0.85*A;                     // мах бедра (рад)
+  // подскок корпуса: «вверх» в Armature-пространстве = −Z (экспорт Blender, +90° по X)
+  const bounce=idle?0.005+Math.sin(TWO*p*0.5)*0.005:Math.abs(Math.sin(TWO*p))*0.055*A;
+  R.hips.b.position.z=R.hips.pz-bounce;
+  // лёгкий наклон корпуса в такт (грудь вниз на толчке)
+  if(R.chest)R.chest.b.rotation.x=R.chest.rx+(idle?Math.sin(TWO*p*0.5)*0.03:Math.sin(TWO*p+0.6)*0.13*A);
+  if(R.head)R.head.b.rotation.x=R.head.rx+(idle?Math.sin(TWO*p*0.5+2)*0.025:-Math.sin(TWO*p+0.6)*0.07*A);
+  for(const L of R.legs){
+    const s=Math.sin(TWO*(p+L.off));       // + = толчок (лапа назад), − = мах (лапа вперёд)
+    // бедро: полный мах вперёд-назад
+    L.hip.b.rotation.x=L.hip.rx+s*swing;
+    // колено: умеренный сгиб — на выносе вперёд нога почти прямая (не «крюк»),
+    // слегка поджата под конец толчка. Малые амплитуды, чтобы суставы читались.
+    const kneeF=s<0 ? s*0.55*A : s*0.35*A;
+    L.knee.b.rotation.x=L.knee.rx+kneeF;
+    // предплечье/кисть: лёгкое следование за коленом — сохраняет «прямую» лапу
+    if(L.shin){
+      const shinF=s<0 ? -s*0.28*A : s*0.22*A;
+      L.shin.b.rotation.x=L.shin.rx+shinF;
+    }
+  }
+  // хвост: волна по сегментам, приподнят на бегу
+  R.tail.forEach((t,i)=>{
+    const ph=TWO*(p*(idle?0.9:1.6))-i*0.6;
+    t.b.rotation.x=t.rx+(idle?Math.sin(ph)*0.1:Math.sin(ph)*0.16*A-(i===0?0.18*A:0));
+    t.b.rotation.z=t.rz+Math.sin(ph*0.9+1)*(idle?0.14:0.24*A);
+  });
 }
 function proceduralFox(){
   const g=new THREE.Group();
@@ -819,7 +887,8 @@ function makeCoin(){
   if(proto){
     const g=new THREE.Group();
     const m=proto.obj.clone(true);
-    m.position.y=-proto.dims.height/2; // fitModel ставит min.y=0 → центр в origin
+    m.position.y-=proto.dims.height/2; // -= а не =: fitModel уже выставил min.y=0,
+                                       // присваивание ломало центрирование и топило монету
     g.add(m);
     return g;
   }
@@ -1131,7 +1200,9 @@ function update(dt){
   else{pl.vy-=GRAV*dt;pl.y+=pl.vy*dt;
     if(pl.y<=0){if(pl.vy<-6){sfx.land();pl.squash=0.35;burst(pl.x,0.1,0,NIGHT?0x6A5ACD:0x8A7FA8,6,0.5);}pl.y=0;pl.vy=0;}}
   if(pl.sliding){pl.slideT-=dt;if(pl.slideT<=0)pl.sliding=false;}
-  if(trackTex)trackTex.offset.y=(trackTex.offset.y-dz/TILE_LEN)%1;
+  // Скролл пути: рост offset.y двигает шпалы К камере (проверено strip-тестом) —
+  // знак «+», иначе рельсы едут назад относительно стен и объектов.
+  if(trackTex)trackTex.offset.y=(trackTex.offset.y+dz/TILE_LEN)%1;
   for(const w of walls){w.position.z+=dz;if(w.position.z>CULL_Z)w.position.z-=WALL_N*WALL_SPAN;}
   for(const a of arches){a.position.z+=dz;if(a.position.z>CULL_Z)a.position.z-=ARCH_N*ARCH_SPAN;}
 
@@ -1259,8 +1330,12 @@ function animateFox(dt,pl,g){
   foxGroup.scale.x=lerp(foxGroup.scale.x,clamp(sxz,0.8,1.3),dt*14);
   foxGroup.scale.z=foxGroup.scale.x;
   if(!foxIsModel&&foxModel.userData){runPhase+=dt*14;foxModel.userData.tail.rotation.y=Math.sin(runPhase)*0.3;}
-  const runAct=actions.Run||foxSingleAction;
-  if(foxIsModel&&runAct)runAct.timeScale=clamp(g.speed/BASE_SPEED,0.8,2.4);
+  if(foxProcedural){
+    foxGallop(dt,clamp(g.speed/BASE_SPEED,0.8,2.4),false);
+  }else{
+    const runAct=actions.Run||foxSingleAction;
+    if(foxIsModel&&runAct)runAct.timeScale=clamp(g.speed/BASE_SPEED,0.8,2.4);
+  }
 }
 function animateInspector(dt){
   if(inspMixer)inspMixer.update(dt);
@@ -1276,7 +1351,9 @@ function animateInspector(dt){
   if(inspParts.arm)inspParts.arm.forEach((a,i)=>{a.rotation.x=Math.sin(ph+(i?0:Math.PI))*0.5;});}
 
 function scrollWorld(dt,dz){
-  if(trackTex)trackTex.offset.y=(trackTex.offset.y-dz/TILE_LEN)%1;
+  // Скролл пути: рост offset.y двигает шпалы К камере (проверено strip-тестом) —
+  // знак «+», иначе рельсы едут назад относительно стен и объектов.
+  if(trackTex)trackTex.offset.y=(trackTex.offset.y+dz/TILE_LEN)%1;
   for(const w of walls){w.position.z+=dz;if(w.position.z>CULL_Z)w.position.z-=WALL_N*WALL_SPAN;}
   for(const a of arches){a.position.z+=dz;if(a.position.z>CULL_Z)a.position.z-=ARCH_N*ARCH_SPAN;}
 }
@@ -1285,7 +1362,7 @@ function updateMenu(dt){
   foxGroup.visible=true;
   foxGroup.position.set(Math.sin(menuT*0.6)*0.3,0,0);foxGroup.rotation.set(0,0,0);
   foxGroup.scale.set(1,1,1);
-  if(mixer)mixer.update(dt);
+  if(foxProcedural)foxGallop(dt,1,true); else if(mixer)mixer.update(dt);
   scrollWorld(dt,dt*10);
   updateParticles(dt);
   const a=menuT*0.16;camera.position.set(Math.sin(a)*7.5,4.6,Math.cos(a)*7.5+2);camera.lookAt(0,1.1,0);
