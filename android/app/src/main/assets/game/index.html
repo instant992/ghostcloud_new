@@ -29,6 +29,13 @@
   .iconBtn{width:44px;height:44px;border-radius:14px;background:rgba(18,12,34,.55);
     border:1px solid rgba(168,85,247,.4);display:grid;place-items:center;color:#fff;
     font-size:18px;pointer-events:auto;backdrop-filter:blur(6px);}
+  /* Пауза — две CSS-полоски: символ ❚ (U+275A) отсутствует в шрифтах Android
+     и рендерился «квадратом с вопросом». */
+  .pauseIco{position:relative;display:inline-block;width:16px;height:18px;}
+  .pauseIco::before,.pauseIco::after{content:"";position:absolute;top:0;width:5px;height:100%;
+    background:#fff;border-radius:2px;}
+  .pauseIco::before{left:0;}
+  .pauseIco::after{right:0;}
   .iconBtn:active{transform:scale(.92);}
   .dist{display:flex;align-items:center;gap:6px;background:rgba(18,12,34,.55);
     border:1px solid rgba(168,85,247,.3);border-radius:999px;padding:5px 12px;color:#E7DCFF;font-size:14px;font-variant-numeric:lining-nums;}
@@ -104,7 +111,7 @@
     <div class="lifeTag" id="hLife">⭐</div>
   </div>
   <div class="hudRight">
-    <div class="iconBtn" id="hPause">❚❚</div>
+    <div class="iconBtn" id="hPause"><span class="pauseIco"></span></div>
     <div class="dist">🌙 <span id="hDist">0</span> м</div>
   </div>
 </div>
@@ -132,7 +139,7 @@
   </div>
   <div class="iconBtn soundTag" id="bSound">🔊</div>
   <div class="badge3d">3D · WebGL</div>
-  <p class="hint">Свайп ← → полоса · ↑ прыжок · ↓ подкат<br>⭐ Первый удар прощается — бежишь дальше · 🛹 Ховерборд спасёт от удара<br>Собери 500 монет — «+1 день»</p>
+  <p class="hint">Свайп ← → полоса · ↑ прыжок · ↓ подкат<br>👟 Прыжок на поезд — только в супер-кроссовках, иначе — по трамплину<br>⭐ Первый удар прощается — бежишь дальше · 🛹 Ховерборд спасёт от удара<br>Собери 500 монет — «+1 день»</p>
 </div>
 
 <div class="overlay hidden" id="pause">
@@ -142,7 +149,7 @@
   <div style="height:12px;"></div>
   <button class="btn ghost" id="bRestart">↻&nbsp; Заново</button>
   <div style="height:12px;"></div>
-  <button class="btn ghost" id="bQuit">⏻&nbsp; В меню</button>
+  <button class="btn ghost" id="bQuit">←&nbsp; В меню</button>
 </div>
 
 <div class="overlay hidden" id="result">
@@ -191,19 +198,24 @@ const SKY=NIGHT?0x140E2C:0xBFE3FF, FOGC=NIGHT?0x1A1130:0xDCEBFF, GROUND=NIGHT?0x
 
 // ── константы мира ──
 const LANE_X=[-3.0,0,3.0];
-const ROOF_H=2.3;
+// Крыша поезда ВЫШЕ обычного прыжка (апекс ~3.58 < ROOF_H-0.3=3.7): запрыгнуть
+// на поезд можно только в супер-кроссовках 👟 (×1.45 → апекс ~7.5) или забежать
+// по трамплину стоячего поезда. Как в Subway: поезда высокие.
+const ROOF_H=4.0;
 const PLAYER_H=1.55, SLIDE_H=0.75;
 const BARRIER_TOP=1.0, GATE_BAR=1.45;
 const BASE_SPEED=24, MAX_SPEED=52;
 const JUMP_V=15.6, GRAV=34;
 const SNEAKER_MUL=1.45;               // супер-кроссовки: прыжок выше
-const JET_Y=4.3;                      // высота полёта джетпака
+const JET_Y=5.6;                      // высота полёта джетпака (выше крыш поездов)
 const SPAWN_Z=-108, CULL_Z=24;
 const REWARD_COINS=500;
 const FOX_H=1.55;
+const INSPECTOR_H=1.9;                // инспектор-погоня (KayKit Rogue, rigged)
 const WALL_N=12, WALL_SPAN=16;        // граффити-стены
 const ARCH_N=4, ARCH_SPAN=64;         // арки-тоннели
-const RAMP_LEN=4.6;                   // длина трамплина к стоячему поезду
+const RAMP_LEN=5.4;                   // длина трамплина к стоячему поезду (под высоту 4.0)
+const CAR_W=2.5;                      // ширина вагона по полосе (полоса 3.0)
 const MAX_CARS=5;                     // максимум вагонов в поезде
 const SECOND_CHANCE_INVULN=1.7;       // неуязвимость после «второго шанса»
 const MAX_LIVES=1;                    // запас вторых шансов: 1 удар прощаем, 2-й убивает
@@ -280,7 +292,7 @@ function lerp(a,b,t){return a+(b-a)*t;}
 let renderer,scene,camera,dirLight,hemi,rim;
 let foxGroup=null,foxModel=null,mixer=null,actions={},foxIsModel=false;
 let hoverboard=null,magnetRing=null;
-let inspector,inspParts={};
+let inspector,inspParts={},inspMixer=null,inspActions={},inspIsModel=false,inspCurAnim=null;
 let ground,trackGroup,ties=[],cityGroup,stars,moon,walls=[],arches=[];
 let sceneReady=false,modelsReady=false;
 const canvas=document.getElementById("gl");
@@ -307,7 +319,7 @@ function initThree(){
   rim=new THREE.DirectionalLight(0xA855F7,NIGHT?0.6:0.3);rim.position.set(-6,5,-12);scene.add(rim);
   buildEnvironment();
   initParticles();
-  inspector=buildInspector();inspector.visible=false;scene.add(inspector);
+  // инспектор собирается в boot() ПОСЛЕ preloadModels — иначе rigged-модель ещё не загружена
   hoverboard=buildHoverboard();scene.add(hoverboard);
   magnetRing=new THREE.Mesh(new THREE.TorusGeometry(1.05,0.05,8,28),
     new THREE.MeshBasicMaterial({color:0xFF4D6D,transparent:true,opacity:0.75}));
@@ -469,24 +481,93 @@ function fitModel(obj,targetH){
   return {height:size.y*s,width:size.x*s,length:size.z*s};
 }
 function enableShadow(obj){obj.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});}
+// Вагон поезда: подгоняем ШИРИНУ под полосу (иначе при высоком кузове состав
+// полез бы на соседние полосы), а высоту тянем отдельно — поезда как в Subway.
+function fitCar(obj,targetW,targetH){
+  obj.scale.setScalar(1);obj.position.set(0,0,0);obj.updateMatrixWorld(true);
+  let box=new THREE.Box3().setFromObject(obj);
+  const s=targetW/Math.max(box.getSize(new THREE.Vector3()).x,1e-4);
+  obj.scale.setScalar(s);obj.updateMatrixWorld(true);
+  box=new THREE.Box3().setFromObject(obj);
+  const h=box.getSize(new THREE.Vector3()).y;
+  obj.scale.y=s*(targetH/Math.max(h,1e-4));obj.updateMatrixWorld(true);
+  box=new THREE.Box3().setFromObject(obj);
+  const c=box.getCenter(new THREE.Vector3());
+  obj.position.set(-c.x,-box.min.y,-c.z);obj.updateMatrixWorld(true);
+  const fs=new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+  return {height:fs.y,width:fs.x,length:fs.z};
+}
+// Прототип статичной модели: один раз подгоняем размер, дальше дешёвые clone(true)
+// (геометрия/материалы в three.js при клоне разделяются, не дублируются).
+// opts: {h,w,l,rotY} — h обязательна; w+l = точный бокс (fitBox), только w = fitCar,
+// иначе равномерный фитинг по высоте (fitModel). rotY — доворот вокруг Y (Meshy-поезда
+// моделируются вдоль X, игре нужно вдоль Z).
+const PROTO={};
+function protoModel(key,opts){
+  const pk=key+"|"+(opts?JSON.stringify(opts):"");
+  if(pk in PROTO)return PROTO[pk];
+  if(!MODEL[key]){PROTO[pk]=null;return null;}
+  const p=MODEL[key].scene.clone(true);
+  let root=p,dims;
+  if(opts&&opts.rotY){root=new THREE.Group();const inner=new THREE.Group();inner.rotation.y=opts.rotY;inner.add(p);root.add(inner);}
+  if(opts&&opts.w&&opts.l)dims=fitBox(root,opts.w,opts.h,opts.l);
+  else if(opts&&opts.w)dims=fitCar(root,opts.w,opts.h);
+  else dims=fitModel(root,opts?opts.h:1);
+  enableShadow(root);
+  PROTO[pk]={obj:root,dims};
+  return PROTO[pk];
+}
+// Точная подгонка под бокс w×h×l (независимо по осям) — для вагонов Meshy:
+// ширина в полосу, высота = крыша ROOF_H, длина = единый CAR_LEN у всех вагонов.
+function fitBox(obj,tw,th,tl){
+  obj.scale.setScalar(1);obj.position.set(0,0,0);obj.updateMatrixWorld(true);
+  const size=new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+  obj.scale.set(tw/Math.max(size.x,1e-4),th/Math.max(size.y,1e-4),tl/Math.max(size.z,1e-4));
+  obj.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(obj);
+  const c=box.getCenter(new THREE.Vector3());
+  obj.position.set(-c.x,-box.min.y,-c.z);obj.updateMatrixWorld(true);
+  return {height:th,width:tw,length:tl};
+}
+// Равномерный фитинг по МАКСИМАЛЬНОМУ размеру (бонусы: ховерборд плоский,
+// fitModel по высоте растянул бы его в 4 метра шириной).
+function fitMax(obj,targetMax){
+  obj.scale.setScalar(1);obj.position.set(0,0,0);obj.updateMatrixWorld(true);
+  const size=new THREE.Box3().setFromObject(obj).getSize(new THREE.Vector3());
+  const s=targetMax/Math.max(size.x,size.y,size.z,1e-4);
+  obj.scale.setScalar(s);obj.updateMatrixWorld(true);
+  const box=new THREE.Box3().setFromObject(obj);
+  const c=box.getCenter(new THREE.Vector3());
+  obj.position.set(-c.x,-c.y,-c.z);obj.updateMatrixWorld(true);
+  return {height:size.y*s,width:size.x*s,length:size.z*s};
+}
 
 // ── загрузка GLB ──
+// Персонажи: CC0 Fox.glb (PixelMannen, rigged+анимации) и KayKit Rogue (rigged) —
+// Meshy-персонажи пока без скелета (image-to-3d экспорт), подключим после Animate.
+// Реквизит: Meshy AI (сгенерировано пользователем, оптимизировано до ~7 МБ).
+// CC0-лицензии — в workspace/assets/endless_runner_3d/LICENSES.md
 const LOAD_LIST=[
   ["fox","models/Fox.glb"],
-  ["subwayA","models/train-electric-subway-a.glb"],
-  ["subwayB","models/train-electric-subway-b.glb"],
-  ["subwayC","models/train-electric-subway-c.glb"],
-  ["locoA","models/train-locomotive-a.glb"],
-  ["dieselA","models/train-diesel-a.glb"],
-  ["cityA","models/train-electric-city-a.glb"],
-  ["boxCar","models/train-carriage-box.glb"],
-  ["contRed","models/train-carriage-container-red.glb"],
-  ["contBlue","models/train-carriage-container-blue.glb"],
-  ["contGreen","models/train-carriage-container-green.glb"],
-  ["coal","models/train-carriage-coal.glb"],
-  ["tank","models/train-carriage-tank.glb"],
+  ["rogue","models/rogue.glb"],
+  ["mLoco","models/loco_metro.glb"],
+  ["mCarriage","models/carriage.glb"],
+  ["mCoin","models/coin_meshy.glb"],
+  ["mBarrier","models/barrier_road.glb"],
+  ["mCone","models/cone.glb"],
+  ["mGate","models/gantry_gate.glb"],
+  ["mCrate","models/crate_wood.glb"],
+  ["mMagnet","models/magnet_meshy.glb"],
+  ["mJetpack","models/jetpack_meshy.glb"],
+  ["mGem","models/gem_meshy.glb"],
+  ["mHover","models/hover_meshy.glb"],
+  ["mSneaker","models/sneaker_meshy.glb"],
+  ["mGhost","models/ghost_meshy.glb"],
 ];
-const TRAIN_POOL=["subwayA","subwayB","subwayC","locoA","dieselA","cityA","boxCar","contRed","contBlue","contGreen","coal","tank"];
+const TRAIN_POOL=["mLoco","mCarriage"];
+// Единая длина вагона: Meshy-модели разной длины (локо 0.84 vs вагон 0.54 в
+// нормированных единицах) — в составе вагоны должны стыковаться без щелей.
+const CAR_LEN=5.4;
 function preloadModels(done){
   let finished=false;
   const fin=()=>{if(finished)return;finished=true;done();};
@@ -504,11 +585,11 @@ function preloadModels(done){
             step();},step);}catch(e){step();}
         }else step();
       };
-      xhr.onerror=step;xhr.ontimeout=step;xhr.timeout=6000;
+      xhr.onerror=step;xhr.ontimeout=step;xhr.timeout=15000;
       xhr.send();
     }catch(e){step();}
   });
-  setTimeout(fin,9000);
+  setTimeout(fin,20000); // Meshy-модели ~7 МБ: на медленном устройстве/file:// нужно больше времени
 }
 
 // ── лиса ──
@@ -556,6 +637,17 @@ function buildHoverboard(){
 }
 function buildInspector(){
   const g=new THREE.Group();
+  // Rigged-персонаж KayKit Rogue (CC0) — бегущая анимация вместо процедурной.
+  if(MODEL.rogue){
+    const model=MODEL.rogue.scene; // единственный экземпляр — без clone (SkinnedMesh)
+    fitModel(model,INSPECTOR_H);enableShadow(model);
+    const pivot=new THREE.Group();pivot.rotation.y=Math.PI;pivot.add(model);g.add(pivot);
+    inspMixer=new THREE.AnimationMixer(model);inspActions={};
+    (MODEL.rogue.animations||[]).forEach(clip=>{inspActions[clip.name]=inspMixer.clipAction(clip);});
+    inspIsModel=true;playInspAnim("Running_A");
+    inspParts={};
+    return g;
+  }
   const coat=new THREE.MeshStandardMaterial({color:0x2B3566,roughness:0.8});
   const skin=new THREE.MeshStandardMaterial({color:0xE8B98A,roughness:0.85});
   const cap=new THREE.MeshStandardMaterial({color:0x1E2748,roughness:0.8});
@@ -565,6 +657,10 @@ function buildInspector(){
   const arm=[];for(const s of[-1,1]){const a=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.8,0.22),coat);a.position.set(s*0.53,1.1,0);a.castShadow=true;g.add(a);arm.push(a);}
   const legs=[];for(const s of[-1,1]){const l=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.72,0.26),cap);l.position.set(s*0.22,0.36,0);l.castShadow=true;g.add(l);legs.push(l);}
   inspParts={body,head,arm,legs};return g;
+}
+function playInspAnim(name){
+  if(!inspIsModel)return;
+  for(const k in inspActions){if(k===name){inspActions[k].reset().fadeIn(0.2).play();}else{inspActions[k].fadeOut(0.2);}}
 }
 
 // ── материалы/геометрия объектов ──
@@ -589,18 +685,29 @@ function mats(){if(MAT.coin)return;
   MAT.rampStripe=new THREE.MeshStandardMaterial({color:0x2A1A0A,roughness:0.7});
 }
 const coinGeo=new THREE.CylinderGeometry(0.42,0.42,0.1,18);
-function makeCoin(){const m=new THREE.Mesh(coinGeo,MAT.coin);m.rotation.z=Math.PI/2;
+// Монета: Meshy GLB (диск стоя, нормаль к камере), фолбэк — процедурный цилиндр.
+// Игра крутит rotation.y → «вертушка» лицом к камере, как в Subway.
+function makeCoin(){
+  const proto=protoModel("mCoin",{h:0.84});
+  if(proto){
+    const g=new THREE.Group();
+    const m=proto.obj.clone(true);
+    m.position.y=-proto.dims.height/2; // fitModel ставит min.y=0 → центр в origin
+    g.add(m);
+    return g;
+  }
+  const m=new THREE.Mesh(coinGeo,MAT.coin);m.rotation.z=Math.PI/2;
   const inner=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.12,12),MAT.coinFace);inner.rotation.z=Math.PI/2;m.add(inner);return m;}
 function makeTrain(cars,colorIdx,withRamp){
-  mats();const g=new THREE.Group();let carLen=2.6,carHalf=1.25;
+  mats();const g=new THREE.Group();let carLen=CAR_LEN,carHalf=CAR_LEN/2;
   for(let c=0;c<cars;c++){
     const key=TRAIN_KEYS.length?TRAIN_KEYS[(colorIdx+c*3)%TRAIN_KEYS.length]:null;
     let car;
-    if(key&&MODEL[key]){
-      const clone=MODEL[key].scene.clone(true);
-      const dims=fitModel(clone,ROOF_H);enableShadow(clone);
-      car=new THREE.Group();car.add(clone);
-      if(c===0){carLen=dims.length+0.3;carHalf=dims.length/2;}
+    // Meshy-поезда моделируются вдоль X — доворот на 90°, точный бокс:
+    // ширина в полосу, высота = крыша ROOF_H, длина = единый CAR_LEN.
+    const proto=key?protoModel(key,{h:ROOF_H,w:CAR_W,l:CAR_LEN,rotY:Math.PI/2}):null;
+    if(proto){
+      car=proto.obj.clone(true);
     }else{car=proceduralCar(colorIdx);if(c===0){carLen=6;carHalf=3;}}
     car.position.z=-c*carLen;g.add(car);
   }
@@ -638,18 +745,53 @@ function proceduralCar(colorIdx){
     win.position.set(s*1.11,ROOF_H*0.6,-1+w*2);win.rotation.y=s>0?Math.PI/2:-Math.PI/2;g.add(win);}
   return g;
 }
-function makeBarrier(){const g=new THREE.Group();
+// Барьеры: Meshy GLB (барьер/конус/ящик), случайный вариант на спавн.
+// Высота подгоняется под BARRIER_TOP — коллизия (перепрыгнуть) не меняется.
+const BARRIER_KEYS=["mBarrier","mCone","mCrate"];
+function makeBarrier(){
+  const avail=BARRIER_KEYS.filter(k=>protoModel(k,{h:BARRIER_TOP}));
+  if(avail.length){
+    const k=avail[(Math.random()*avail.length)|0];
+    const g=new THREE.Group();g.add(protoModel(k,{h:BARRIER_TOP}).obj.clone(true));return g;
+  }
+  const g=new THREE.Group();
   const bar=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.5,0.3),MAT.barrier);bar.position.y=0.75;bar.castShadow=true;g.add(bar);
   for(let i=-1;i<=1;i++){const st=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.32),MAT.barrierStripe);st.position.set(i*0.8,0.75,0.02);g.add(st);}
   for(const s of[-1,1]){const leg=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.75,0.16),MAT.barrier);leg.position.set(s*1.1,0.37,0);leg.castShadow=true;g.add(leg);}
   return g;}
-function makeGate(){const g=new THREE.Group();
+// Ворота для подката: Meshy-гантри (столбы + перекладина сверху). Масштабируем
+// так, чтобы зазор под перекладиной был меньше PLAYER_H=1.55 (стоя не пройти —
+// честно против коллизии GATE_BAR=1.45) и больше SLIDE_H=0.75 (подкат проходит).
+function makeGate(){
+  const proto=protoModel("mGate",{h:1.8});
+  if(proto){
+    const g=new THREE.Group();
+    g.add(proto.obj.clone(true));
+    return g;
+  }
+  const g=new THREE.Group();
   for(const s of[-1,1]){const post=new THREE.Mesh(new THREE.BoxGeometry(0.22,3.0,0.22),MAT.gate);post.position.set(s*1.25,1.5,0);post.castShadow=true;g.add(post);}
   const bar=new THREE.Mesh(new THREE.BoxGeometry(2.7,0.6,0.26),MAT.gate);bar.position.y=GATE_BAR;bar.castShadow=true;g.add(bar);
   const sign=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.44,0.1),MAT.gateSign);sign.position.set(0,GATE_BAR+0.55,0.1);g.add(sign);
   return g;}
+// Бонусы: Meshy GLB (у каждого свой узнаваемый вид), фолбэк — процедурные фигуры.
+// fitMax: равномерный фитинг по максимальному размеру (ховерборд плоский —
+// фитинг по высоте растянул бы его на всю полосу).
+const POWER_GLB={magnet:["mMagnet",1.0],jetpack:["mJetpack",1.1],x2:["mGem",0.95],
+  skate:["mHover",1.35],sneakers:["mSneaker",0.95],sneak:["mGhost",1.0]};
 function makePower(kind){mats();const g=new THREE.Group();const mat=MAT[kind];let core;
-  if(kind==="magnet")core=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.15,8,16,Math.PI*1.45),mat);
+  const glb=POWER_GLB[kind];
+  const proto=glb?protoModel(glb[0],{h:1}):null;
+  if(proto){
+    const p=proto.obj.clone(true);
+    const size=new THREE.Box3().setFromObject(p).getSize(new THREE.Vector3());
+    const s=glb[1]/Math.max(size.x,size.y,size.z,1e-4);
+    p.scale.multiplyScalar(s);
+    p.position.y=-proto.dims.height*s/2; // центр модели в origin группы (как у процедурных)
+    p.updateMatrixWorld(true);
+    core=p;
+  }
+  else if(kind==="magnet")core=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.15,8,16,Math.PI*1.45),mat);
   else if(kind==="jetpack")core=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.32,0.72,10),mat);
   else if(kind==="x2")core=new THREE.Mesh(new THREE.OctahedronGeometry(0.46),mat);
   else if(kind==="skate")core=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.14,1.25),mat);
@@ -984,7 +1126,16 @@ function animateFox(dt,pl,g){
   if(!foxIsModel&&foxModel.userData){runPhase+=dt*14;foxModel.userData.tail.rotation.y=Math.sin(runPhase)*0.3;}
   if(foxIsModel&&actions.Run)actions.Run.timeScale=clamp(g.speed/BASE_SPEED,0.8,2.4);
 }
-function animateInspector(dt){if(!inspector.visible)return;const ph=performance.now()*0.012;
+function animateInspector(dt){
+  if(inspMixer)inspMixer.update(dt);
+  if(!inspector||!inspector.visible)return;
+  // Rigged KayKit: анимация бега; при поимке (lunge) — выпад вперёд.
+  if(inspIsModel){
+    const want=(G&&G.inspector.lunge>0.25)?"1H_Melee_Attack_Stab":"Running_A";
+    if(want!==inspCurAnim){inspCurAnim=want;playInspAnim(want);}
+    return;
+  }
+  const ph=performance.now()*0.012;
   if(inspParts.legs)inspParts.legs.forEach((l,i)=>{l.rotation.x=Math.sin(ph+(i?Math.PI:0))*0.6;});
   if(inspParts.arm)inspParts.arm.forEach((a,i)=>{a.rotation.x=Math.sin(ph+(i?0:Math.PI))*0.5;});}
 
@@ -1045,7 +1196,9 @@ function boot(){
   if(!hasWebGL()){hide("loading");show("webglFail");rn({type:"ready",webgl:false});return;}
   try{initThree();}catch(e){hide("loading");show("webglFail");rn({type:"ready",webgl:false,error:String(e)});return;}
   preloadModels(()=>{
-    modelsReady=true;buildFox();fillMenu();
+    modelsReady=true;buildFox();
+    inspector=buildInspector();inspector.visible=false;scene.add(inspector);
+    fillMenu();
     hide("loading");show("menu");lastT=performance.now();requestAnimationFrame(frame);
     rn({type:"ready",webgl:true,models:!!MODEL.fox,trains:TRAIN_KEYS.length});
   });
