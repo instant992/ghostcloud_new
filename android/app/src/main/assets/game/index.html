@@ -290,7 +290,7 @@ function lerp(a,b,t){return a+(b-a)*t;}
 
 // ═══════════════════ THREE.JS СЦЕНА ═══════════════════
 let renderer,scene,camera,dirLight,hemi,rim;
-let foxGroup=null,foxModel=null,mixer=null,actions={},foxIsModel=false;
+let foxGroup=null,foxModel=null,mixer=null,actions={},foxIsModel=false,foxSingleAction=null;
 let hoverboard=null,magnetRing=null;
 let inspector,inspParts={},inspMixer=null,inspActions={},inspIsModel=false,inspCurAnim=null;
 let ground,trackGroup,ties=[],cityGroup,stars,moon,walls=[],arches=[];
@@ -481,6 +481,27 @@ function fitModel(obj,targetH){
   return {height:size.y*s,width:size.x*s,length:size.z*s};
 }
 function enableShadow(obj){obj.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});}
+// Подгонка SKINNED-модели (персонажи с костями) по bbox КОСТЕЙ, а не меша:
+// three.js r137 Box3.setFromObject для SkinnedMesh считает bind-pose и даёт
+// размер в ~46 раз меньше реального → обычный fitModel задрал бы масштаб до
+// ~9000 и персонаж стал невидим (камера внутри него). Кости дают корректную
+// меру. targetBoneH подобран калибровкой под размер CC0-лисы (FOX_H).
+function fitSkinned(obj,targetBoneH){
+  const boneBox=()=>{obj.updateMatrixWorld(true);
+    const mn=[1e9,1e9,1e9],mx=[-1e9,-1e9,-1e9];let any=false;
+    obj.traverse(b=>{if(b.isBone){any=true;const e=b.matrixWorld.elements;
+      const p=[e[12],e[13],e[14]];for(let i=0;i<3;i++){if(p[i]<mn[i])mn[i]=p[i];if(p[i]>mx[i])mx[i]=p[i];}}});
+    return any?{min:mn,max:mx,size:[mx[0]-mn[0],mx[1]-mn[1],mx[2]-mn[2]]}:null;};
+  obj.scale.setScalar(1);obj.position.set(0,0,0);
+  const b0=boneBox();
+  if(!b0)return null; // нет костей — не skinned
+  const s=targetBoneH/Math.max(b0.size[1],1e-6);
+  obj.scale.setScalar(s);
+  const b1=boneBox();
+  obj.position.set(-(b1.min[0]+b1.max[0])/2, -b1.min[1], -(b1.min[2]+b1.max[2])/2);
+  obj.updateMatrixWorld(true);
+  return {scale:s,height:targetBoneH,width:b1.size[0],length:b1.size[2]};
+}
 // Вагон поезда: подгоняем ШИРИНУ под полосу (иначе при высоком кузове состав
 // полез бы на соседние полосы), а высоту тянем отдельно — поезда как в Subway.
 function fitCar(obj,targetW,targetH){
@@ -549,6 +570,7 @@ function fitMax(obj,targetMax){
 // CC0-лицензии — в workspace/assets/endless_runner_3d/LICENSES.md
 const LOAD_LIST=[
   ["fox","models/Fox.glb"],
+  ["foxM","models/fox_meshy.glb"],
   ["rogue","models/rogue.glb"],
   ["mLoco","models/loco_metro.glb"],
   ["mCarriage","models/carriage.glb"],
@@ -595,14 +617,25 @@ function preloadModels(done){
 // ── лиса ──
 function buildFox(){
   foxGroup=new THREE.Group();
-  if(MODEL.fox){
-    const model=MODEL.fox.scene; // без clone — клон SkinnedMesh ломает анимации
-    fitModel(model,FOX_H);enableShadow(model);
-    foxModel=new THREE.Group();foxModel.rotation.y=Math.PI;
+  // Приоритет: Meshy-лиса (quadruped, беговой клип, морда смотрит в -Z — доворот не нужен).
+  // Фолбэк: CC0 Fox.glb (rigged Survey/Walk/Run, морда в +Z → разворот на PI).
+  const src=MODEL.foxM||MODEL.fox, isMeshy=!!MODEL.foxM;
+  if(src){
+    const model=src.scene; // без clone — клон SkinnedMesh ломает анимации
+    // Meshy-лиса — skinned, Box3 по мешу врёт (см. fitSkinned), подгоняем по костям.
+    // targetBoneH=2.0 откалиброван под экранный размер CC0-лисы (FOX_H).
+    if(isMeshy)fitSkinned(model,2.0); else fitModel(model,FOX_H);
+    enableShadow(model);
+    foxModel=new THREE.Group();
+    // Обе лисы (Meshy и CC0) по умолчанию смотрят в +Z (на камеру) — разворот
+    // на 180°, чтобы бежали ОТ камеры (в -Z), как в Subway. Проверено рендером:
+    // без разворота игрок видит морду, с разворотом — спину/хвост.
+    foxModel.rotation.y=Math.PI;
     foxModel.add(model);foxGroup.add(foxModel);
     mixer=new THREE.AnimationMixer(model);actions={};
-    (MODEL.fox.animations||[]).forEach(clip=>{actions[clip.name]=mixer.clipAction(clip);});
-    foxIsModel=true;playAnim("Survey");
+    (src.animations||[]).forEach(clip=>{actions[clip.name]=mixer.clipAction(clip);});
+    foxSingleAction=(src.animations&&src.animations.length)?mixer.clipAction(src.animations[0]):null;
+    foxIsModel=true;playAnim(isMeshy?"Run":"Survey");
   }else{
     foxModel=proceduralFox();foxGroup.add(foxModel);foxIsModel=false;
   }
@@ -610,6 +643,12 @@ function buildFox(){
 }
 function playAnim(name){
   if(!foxIsModel)return;
+  // Meshy-лиса: единственный клип (бег) — играем его на любое имя, если точного нет
+  if(!actions[name]&&foxSingleAction){
+    for(const k in actions)actions[k].fadeOut(0.15);
+    if(!foxSingleAction.isRunning())foxSingleAction.reset().fadeIn(0.2).play();
+    return;
+  }
   for(const k in actions){if(k===name){actions[k].reset().fadeIn(0.15).play();}else{actions[k].fadeOut(0.15);}}
 }
 function proceduralFox(){
@@ -1124,7 +1163,8 @@ function animateFox(dt,pl,g){
   foxGroup.scale.x=lerp(foxGroup.scale.x,clamp(sxz,0.8,1.3),dt*14);
   foxGroup.scale.z=foxGroup.scale.x;
   if(!foxIsModel&&foxModel.userData){runPhase+=dt*14;foxModel.userData.tail.rotation.y=Math.sin(runPhase)*0.3;}
-  if(foxIsModel&&actions.Run)actions.Run.timeScale=clamp(g.speed/BASE_SPEED,0.8,2.4);
+  const runAct=actions.Run||foxSingleAction;
+  if(foxIsModel&&runAct)runAct.timeScale=clamp(g.speed/BASE_SPEED,0.8,2.4);
 }
 function animateInspector(dt){
   if(inspMixer)inspMixer.update(dt);
