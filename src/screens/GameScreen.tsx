@@ -7,7 +7,7 @@ import { useTheme, isLightPalette } from "../theme";
 import { gameRunStart, gameRunSubmit } from "../api";
 
 /**
- * Экран мини-игры «Лиса-раннер».
+ * Экран мини-игры «GhostCloud Run».
  * Загружает HTML5-игру из assets (offline) через WebView.
  * Мост с сервером (лидерборд + награда +1 день за 500 монет):
  *  - игра шлёт {type:"run_start"} → RN берёт round_token и топ, передаёт обратно;

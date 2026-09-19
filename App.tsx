@@ -273,7 +273,7 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
       <Stack.Screen
         name="Game"
         component={GameScreen}
-        options={{ headerShown: true, title: "Лиса-раннер", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
     </Stack.Navigator>
   );
@@ -536,7 +536,7 @@ function DockedThemedFlow({
       <Stack.Screen
         name="Game"
         component={GameScreen}
-        options={{ headerShown: true, title: "Лиса-раннер", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
     </Stack.Navigator>
   );
@@ -617,7 +617,7 @@ function Root() {
       <Stack.Screen
         name="Game"
         component={GameScreen}
-        options={{ headerShown: true, title: "Лиса-раннер", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
         </>
       )}

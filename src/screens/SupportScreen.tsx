@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import * as WebBrowser from "expo-web-browser";
 import { PressableScale } from "../components/PressableScale";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -63,6 +64,49 @@ function formatDate(iso: string): string {
     return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
   } catch {
     return "";
+  }
+}
+
+/** Режет текст на сегменты: обычный текст / ссылка / email.
+ *  Для кликабельных ссылок в чате поддержки (раньше URL были просто текстом). */
+export type LinkPart = { kind: "text" | "url" | "email"; text: string; href?: string };
+
+export function linkParts(s: string): LinkPart[] {
+  if (!s) return [];
+  const re = /(https?:\/\/[^\s<>"'`\u0000-\u001f]+|www\.[^\s<>"'`\u0000-\u001f]+|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/g;
+  const parts: LinkPart[] = [];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    if (m.index > last) parts.push({ kind: "text", text: s.slice(last, m.index) });
+    // не приклеиваем концевую пунктуацию к ссылке
+    const raw = m[0].replace(/[.,;:!?)\]\u00bb]+$/, "");
+    const trail = m[0].slice(raw.length);
+    let href: string;
+    let kind: "url" | "email";
+    if (/^[A-Za-z0-9._%+-]+@/.test(raw)) {
+      href = "mailto:" + raw;
+      kind = "email";
+    } else if (/^www\./i.test(raw)) {
+      href = "https://" + raw;
+      kind = "url";
+    } else {
+      href = raw;
+      kind = "url";
+    }
+    parts.push({ kind, text: raw, href });
+    if (trail) parts.push({ kind: "text", text: trail });
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) parts.push({ kind: "text", text: s.slice(last) });
+  return parts;
+}
+
+/** Открыть ссылку из чата: http(s) — во встроенном браузере, mailto — системой. */
+export function openSupportLink(href: string) {
+  if (!href) return;
+  if (/^(https?:\/\/|mailto:)/i.test(href)) {
+    WebBrowser.openBrowserAsync(href).catch(() => {});
   }
 }
 
@@ -126,7 +170,25 @@ export function MessageBubble({ msg, adminAvatarUrl, onImageTap }: { msg: Msg; a
             </PressableScale>
           )}
           {!!msg.text && (
-            <Text style={{ color: isUser ? "#fff" : colors.text, fontSize: 14 }}>{msg.text}</Text>
+            <Text style={{ color: isUser ? "#fff" : colors.text, fontSize: 14 }}>
+              {linkParts(msg.text).map((p, i) =>
+                p.kind === "text" ? (
+                  <Text key={i}>{p.text}</Text>
+                ) : (
+                  <Text
+                    key={i}
+                    style={{
+                      color: isUser ? "#fff" : colors.accent,
+                      textDecorationLine: "underline",
+                      fontWeight: "600",
+                    }}
+                    onPress={() => openSupportLink(p.href!)}
+                  >
+                    {p.text}
+                  </Text>
+                )
+              )}
+            </Text>
           )}
           <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
             <Text

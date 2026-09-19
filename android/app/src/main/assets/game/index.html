@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Лиса-раннер 3D</title>
+<title>GhostCloud Run 3D</title>
 <style>
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0F0B1E;
@@ -91,7 +91,7 @@
   .dead{font-size:46px;font-weight:900;color:#FF4D7D;letter-spacing:2px;margin:0 0 6px;filter:drop-shadow(0 3px 16px rgba(255,77,125,.55));}
   .soundTag{position:absolute;top:16px;right:16px;}
   /* Кнопка звука — absolute в углу оверлея; у меню резервируем сверху место,
-     чтобы заголовок «ЛИСА-РАННЕР» никогда не наезжал на неё на узких экранах. */
+     чтобы заголовок «GHOSTCLOUD RUN» никогда не наезжал на неё на узких экранах. */
   #menu{padding-top:68px;}
   .badge3d{display:inline-block;margin-top:10px;padding:5px 14px;border-radius:999px;background:rgba(168,85,247,.15);
     border:1px solid rgba(168,85,247,.4);color:#C7A6FF;font-size:12px;font-weight:700;letter-spacing:1px;}
@@ -120,13 +120,13 @@
 <div class="toast hidden" id="toast"></div>
 
 <div class="overlay" id="loading">
-  <h1 class="title" style="font-size:32px;">ЛИСА-РАННЕР</h1>
+  <h1 class="title" style="font-size:32px;">GHOSTCLOUD RUN</h1>
   <div class="spinner"></div>
   <div class="loadTxt">Загружаем 3D-модели…</div>
 </div>
 
 <div class="overlay hidden" id="menu">
-  <h1 class="title">ЛИСА-РАННЕР</h1>
+  <h1 class="title">GHOSTCLOUD RUN</h1>
   <p class="subtitle">GhostCloud · 3D</p>
   <button class="btn" id="bPlay">▶&nbsp; ИГРАТЬ</button>
   <div class="stats" style="margin-top:20px;">
@@ -168,7 +168,7 @@
 
 <div class="overlay hidden" id="webglFail">
   <h1 class="title" style="font-size:30px;">3D недоступен</h1>
-  <p class="webglErr">Устройство не поддерживает WebGL — игра «Лиса-раннер» не может запуститься. Попробуй обновить System WebView или открыть на другом устройстве.</p>
+  <p class="webglErr">Устройство не поддерживает WebGL — игра «GhostCloud Run» не может запуститься. Попробуй обновить System WebView или открыть на другом устройстве.</p>
 </div>
 
 <script src="three.min.js"></script>
@@ -176,7 +176,7 @@
 <script>
 "use strict";
 /* ══════════════════════════════════════════════════════════════════
-   ЛИСА-РАННЕР 3D — бесконечный раннер на three.js (WebGL)
+   GHOSTCLOUD RUN — бесконечный раннер на three.js (WebGL)
    Модели: лиса — Fox.glb (CC0 PixelMannen, риг+анимации);
    поезда/рельсы — Kenney Train Kit (CC0, текстуры встроены в GLB).
    Бонусы: магнит, джетпак, ×2, ховерборд (щит), кроссовки, невидимость.
@@ -306,7 +306,10 @@ function initThree(){
   renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   if("outputEncoding" in renderer) renderer.outputEncoding=THREE.sRGBEncoding;
   scene=new THREE.Scene();scene.background=new THREE.Color(SKY);
-  scene.fog=new THREE.Fog(FOGC,NIGHT?30:44,NIGHT?155:170);
+  // Туман: дальняя граница должна перекрывать дистанцию спавна (~117), иначе
+  // объекты «выплывают» из тумана прямо перед игроком вместо того чтобы лежать
+  // вдали и приближаться (ощущение скорости, как в Subway).
+  scene.fog=new THREE.Fog(FOGC,NIGHT?42:55,NIGHT?175:190);
   camera=new THREE.PerspectiveCamera(62,window.innerWidth/window.innerHeight,0.1,400);
   camera.position.set(0,5.4,9.5);camera.lookAt(0,1.4,-4);
   hemi=new THREE.HemisphereLight(NIGHT?0x7A6AD8:0xCFE6FF,NIGHT?0x2A2044:0x8A7FA8,NIGHT?1.0:1.05);scene.add(hemi);
@@ -454,6 +457,16 @@ function buildEnvironment(){
   // граффити-стены вдоль путей (едут вместе с миром)
   const wallGeo=new THREE.BoxGeometry(0.4,4.6,WALL_SPAN-0.4);
   const neonMat=new THREE.MeshBasicMaterial({color:0xA855F7});
+  // Неоновые полосы-«отбивка» под стеной: сильный маркер движения у земли.
+  const stripeMat=new THREE.MeshStandardMaterial({color:NIGHT?0xD6C4FF:0xF2ECFF,roughness:0.6,
+    emissive:0xA855F7,emissiveIntensity:NIGHT?0.55:0.3});
+  const stripeGeo=new THREE.BoxGeometry(0.5,0.35,4.6);
+  for(let s=-1;s<=1;s+=2){
+    for(let i=0;i<WALL_N*2;i++){
+      const st=new THREE.Mesh(stripeGeo,stripeMat);
+      st.position.set(s*9.0,0.18,-i*WALL_SPAN/2);scene.add(st);walls.push(st);
+    }
+  }
   for(let s=-1;s<=1;s+=2){
     for(let i=0;i<WALL_N;i++){
       const w=new THREE.Mesh(wallGeo,new THREE.MeshStandardMaterial({map:graffitiTexture(),roughness:0.92}));
@@ -1214,6 +1227,14 @@ function updateCamera(dt,pl){
   camera.position.y=lerp(camera.position.y,ty,clamp(dt*4,0,1));camera.position.z=9.5;
   let sx=0,sy=0;if(camShake>0){camShake=Math.max(0,camShake-dt*2.2);sx=(Math.random()-0.5)*camShake*0.6;sy=(Math.random()-0.5)*camShake*0.6;}
   camera.position.x+=sx;camera.position.y+=sy;camera.lookAt(pl.x*0.4,1.5+pl.y*0.4,-5);
+  // FOV растёт со скоростью (как в Subway Surfers) — усиливает чувство разгона:
+  // 62° на BASE_SPEED → ~70° на MAX_SPEED.
+  const sp=G?G.speed:BASE_SPEED;
+  const wantFov=62+clamp((sp-BASE_SPEED)/(MAX_SPEED-BASE_SPEED),0,1)*8;
+  if(Math.abs(camera.fov-wantFov)>0.01){
+    camera.fov=lerp(camera.fov,wantFov,clamp(dt*2.5,0,1));
+    camera.updateProjectionMatrix();
+  }
   dirLight.position.set(pl.x+7,20,9);dirLight.target.position.set(pl.x,0,-4);dirLight.target.updateMatrixWorld();
 }
 function animateFox(dt,pl,g){

@@ -415,7 +415,7 @@ export async function getAnnouncements(): Promise<Announcement[]> {
   return Array.isArray(r?.announcements) ? r.announcements : [];
 }
 
-// ─── Мини-игра «Лиса-раннер» ───
+// ─── Мини-игра «GhostCloud Run» ───
 
 export type GameLeaderRow = { login: string; best_coins: number; best_distance: number };
 

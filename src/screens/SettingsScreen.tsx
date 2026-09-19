@@ -970,12 +970,12 @@ export default function SettingsScreen() {
           style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
           onPress={() => nav.navigate("Game")}
           accessibilityRole="button"
-          accessibilityLabel="Лиса-раннер. Мини-игра"
+          accessibilityLabel="GhostCloud Run. Мини-игра"
         >
           <Ionicons name="game-controller-outline" size={18} color={colors.accent} />
           <View style={{ flex: 1 }}>
             <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>
-              Лиса-раннер
+              GhostCloud Run
             </Text>
             <Text style={{ color: colors.textFaint, fontSize: 11, marginTop: 1 }}>
               Мини-игра: собери 500 монет — получи +1 день подписки

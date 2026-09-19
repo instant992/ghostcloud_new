@@ -432,7 +432,7 @@ export default function V2rayScreen() {
             <View style={styles.drawerDivider} />
             <DrawerItem
               icon="game-controller-outline"
-              label="Лиса-раннер"
+              label="GhostCloud Run"
               chevron
               onPress={() => {
                 setDrawerOpen(false);
