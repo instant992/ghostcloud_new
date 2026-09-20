@@ -179,7 +179,7 @@
    GHOSTCLOUD RUN — бесконечный раннер на three.js (WebGL)
    Модели: лиса — Fox.glb (CC0 PixelMannen, риг+анимации);
    поезда/рельсы — Kenney Train Kit (CC0, текстуры встроены в GLB).
-   Бонусы: магнит, джетпак, ×2, ховерборд (щит), кроссовки, невидимость.
+   Бонусы: магнит, джетпак, ×2, ховерборд (щит), кроссовки.
    Мост в RN: window.ReactNativeWebView.postMessage(JSON)
    ══════════════════════════════════════════════════════════════════ */
 
@@ -205,6 +205,8 @@ const ROOF_H=4.0;
 const PLAYER_H=1.55, SLIDE_H=0.75;
 const BARRIER_TOP=1.0, GATE_BAR=1.45;
 const BASE_SPEED=24, MAX_SPEED=52;
+// Встречный поезд: мчится на игрока по рельсам (vz добавляется к скроллу мира).
+const ONCOMING_VZ=24;
 const JUMP_V=15.6, GRAV=34;
 const SNEAKER_MUL=1.45;               // супер-кроссовки: прыжок выше
 const JET_Y=5.6;                      // высота полёта джетпака (выше крыш поездов)
@@ -256,6 +258,10 @@ const sfx={
   land(){blip(150,90,0.07,"triangle",0.06);},swipe(){blip(420,720,0.05,"sine",0.05);},
   roof(){blip(200,320,0.09,"square",0.06);},save(){blip(660,1320,0.2,"square",0.1);blip(990,1980,0.25,"sine",0.08);},
   ramp(){blip(320,680,0.16,"triangle",0.09);},          // подброс на трамплине
+  // гудок встречного поезда: два низких тона квинтой (как настоящий тепловоз)
+  horn(){if(!AC||!soundOn)return;blip(196,196,0.55,"sawtooth",0.10);blip(294,294,0.55,"sawtooth",0.07);
+    setTimeout(()=>{blip(196,196,0.35,"sawtooth",0.08);blip(294,294,0.35,"sawtooth",0.06);},420);},
+  whoosh(){blip(1000,110,0.34,"triangle",0.09);},        // встречный проносится мимо
   secondChance(){blip(520,300,0.16,"sawtooth",0.12);setTimeout(()=>blip(700,1100,0.2,"triangle",0.1),130);},
   reward(){ // фанфары награды
     [523,659,784,1046].forEach((f,i)=>setTimeout(()=>blip(f,f*2,0.22,"triangle",0.1),i*110));},
@@ -672,7 +678,6 @@ const LOAD_LIST=[
   ["mGem","models/gem_meshy.glb"],
   ["mHover","models/hover_meshy.glb"],
   ["mSneaker","models/sneaker_meshy.glb"],
-  ["mGhost","models/ghost_meshy.glb"],
 ];
 const TRAIN_POOL=["mLoco","mCarriage"];
 // Единая длина вагона: Meshy-модели разной длины (локо 0.84 vs вагон 0.54 в
@@ -871,9 +876,11 @@ function mats(){if(MAT.coin)return;
   MAT.jetpack=new THREE.MeshStandardMaterial({color:0x4DD2FF,roughness:0.4,emissive:0x003A5A,emissiveIntensity:0.6,metalness:0.3});
   MAT.x2=new THREE.MeshStandardMaterial({color:0xFFD23F,roughness:0.3,emissive:0x5A4400,emissiveIntensity:0.6,metalness:0.5});
   MAT.skate=new THREE.MeshStandardMaterial({color:0x6CFF8A,roughness:0.35,emissive:0x005A18,emissiveIntensity:0.7});
-  MAT.sneak=new THREE.MeshStandardMaterial({color:0xC7A6FF,roughness:0.4,emissive:0x3A1B6A,emissiveIntensity:0.6,transparent:true,opacity:0.9});
   MAT.sneakers=new THREE.MeshStandardMaterial({color:0xFF8A4D,roughness:0.4,emissive:0x5A2200,emissiveIntensity:0.6});
   MAT.trainA=new THREE.MeshStandardMaterial({color:0x7C4DBE,metalness:0.4,roughness:0.5});
+  // фары встречного поезда: яркий тёплый свет, пробивающий туман
+  MAT.headlight=new THREE.MeshBasicMaterial({color:0xFFF6C8,fog:false});
+  MAT.headlightGlow=new THREE.MeshBasicMaterial({color:0xFFE9A0,transparent:true,opacity:0.35,fog:false,depthWrite:false});
   MAT.window=new THREE.MeshStandardMaterial({color:0xBFE6FF,emissive:0x6FA8D8,emissiveIntensity:NIGHT?0.7:0.25});
   // трамплин к стоячему поезду — жёлтая «строительная» рампа
   MAT.ramp=new THREE.MeshStandardMaterial({color:0xFFC24D,metalness:0.2,roughness:0.55,emissive:0x5A3A00,emissiveIntensity:0.35});
@@ -894,8 +901,8 @@ function makeCoin(){
   }
   const m=new THREE.Mesh(coinGeo,MAT.coin);m.rotation.z=Math.PI/2;
   const inner=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.12,12),MAT.coinFace);inner.rotation.z=Math.PI/2;m.add(inner);return m;}
-function makeTrain(cars,colorIdx,withRamp){
-  mats();const g=new THREE.Group();let carLen=CAR_LEN,carHalf=CAR_LEN/2;
+function makeTrain(cars,colorIdx,withRamp,withHeadlight){
+  mats();const g=new THREE.Group();let carLen=CAR_LEN,carHalf=CAR_LEN/2,glowMesh=null;
   for(let c=0;c<cars;c++){
     const key=TRAIN_KEYS.length?TRAIN_KEYS[(colorIdx+c*3)%TRAIN_KEYS.length]:null;
     let car;
@@ -931,7 +938,21 @@ function makeTrain(cars,colorIdx,withRamp){
       g.add(side);
     }
   }
-  return {group:g,carLen,carHalf};
+  // Фары встречного поезда: на морде локомотива (передний вагон, лицо +Z —
+  // к игроку). MeshBasicMaterial с fog:false — свет виден сквозь туман издалека,
+  // как фары настоящего поезда. Плюс мягкое «свечение» — большой полупрозрачный круг.
+  if(withHeadlight){
+    for(const sx of[-1,1]){
+      const hl=new THREE.Mesh(new THREE.CircleGeometry(0.24,14),MAT.headlight);
+      hl.position.set(sx*0.78,1.55,carHalf+0.03);g.add(hl);
+    }
+    glowMesh=new THREE.Mesh(new THREE.CircleGeometry(1.15,20),MAT.headlightGlow.clone());
+    glowMesh.position.set(0,1.55,carHalf+0.02);g.add(glowMesh);
+    // «огонь» на крыше — габаритный фонарь
+    const top=new THREE.Mesh(new THREE.CircleGeometry(0.14,10),MAT.headlight);
+    top.position.set(0,ROOF_H-0.35,carHalf+0.03);g.add(top);
+  }
+  return {group:g,carLen,carHalf,glow:glowMesh};
 }
 function proceduralCar(colorIdx){
   const g=new THREE.Group();const mat=[MAT.trainA,MAT.barrier,MAT.gate][colorIdx%3];
@@ -974,7 +995,7 @@ function makeGate(){
 // fitMax: равномерный фитинг по максимальному размеру (ховерборд плоский —
 // фитинг по высоте растянул бы его на всю полосу).
 const POWER_GLB={magnet:["mMagnet",1.0],jetpack:["mJetpack",1.1],x2:["mGem",0.95],
-  skate:["mHover",1.35],sneakers:["mSneaker",0.95],sneak:["mGhost",1.0]};
+  skate:["mHover",1.35],sneakers:["mSneaker",0.95]};
 function makePower(kind){mats();const g=new THREE.Group();const mat=MAT[kind];let core;
   const glb=POWER_GLB[kind];
   const proto=glb?protoModel(glb[0],{h:1}):null;
@@ -1003,17 +1024,21 @@ const S={MENU:0,PLAY:1,PAUSE:2,DYING:3,RESULT:4};
 let state=S.MENU,G=null,activeObjs=[],lastT=0,runPhase=0,menuT=0,camShake=0;
 function newGame(){return{dist:0,coins:0,combo:0,comboT:0,speed:BASE_SPEED,
   player:{lane:1,x:0,y:0,vy:0,sliding:false,slideT:0,onRoof:null,dead:false,invuln:0,squash:0},
-  powers:{magnet:0,jetpack:0,x2:0,skate:0,sneak:0,sneakers:0},shield:0,powerupsUsed:[],
+  powers:{magnet:0,jetpack:0,x2:0,skate:0,sneakers:0},shield:0,powerupsUsed:[],
   lives:MAX_LIVES,secondChanceUsed:false,
   inspector:{z:6.5,lunge:0},nextChunk:14,startedAt:Date.now(),time:0,deathT:0,speedT:0,jetCoinT:0};}
 
 function spawnChunk(){
   const g=G,diff=Math.min(1,g.dist/4500),z=SPAWN_Z,lane3=[0,1,2],pick=()=>lane3[(Math.random()*3)|0],r=Math.random();
-  if(r<0.26){const lane=pick(),cars=1+((Math.random()*MAX_CARS)|0),moving=Math.random()<0.2+diff*0.15;
-    // Стоячий поезд — с трамплином, чтобы забежать на крышу; движущийся — без него.
-    const ramp=!moving&&cars>=2&&Math.random()<0.75;
-    addObj({kind:"train",lane,z,cars,vz:moving?(Math.random()<0.5?4.5:-3.0):0,ramp,colorIdx:(Math.random()*12)|0});
-    if(Math.random()<0.7)for(let i=0;i<cars*2;i++)addObj({kind:"coin",lane,z:z-1-i*2.4,y:ROOF_H+0.7});
+  if(r<0.26){const lane=pick(),cars=1+((Math.random()*MAX_CARS)|0);
+    // Типы поездов: ВСТРЕЧНЫЙ — локомотив мчится по рельсам прямо на игрока
+    // (фары сквозь туман, гудок, тряска при пролёте); попутный — катится чуть
+    // быстрее/медленнее мира; стоячий — с трамплином, чтобы забежать на крышу.
+    const oncoming=Math.random()<0.18+diff*0.22;
+    const moving=!oncoming&&Math.random()<0.2+diff*0.15;
+    const ramp=!moving&&!oncoming&&cars>=2&&Math.random()<0.75;
+    addObj({kind:"train",lane,z,cars,oncoming,vz:oncoming?ONCOMING_VZ:moving?(Math.random()<0.5?4.5:-3.0):0,ramp,colorIdx:(Math.random()*12)|0,phase:Math.random()*6.28});
+    if(!oncoming&&Math.random()<0.7)for(let i=0;i<cars*2;i++)addObj({kind:"coin",lane,z:z-1-i*2.4,y:ROOF_H+0.7});
   }else if(r<0.44){const n=Math.random()<0.3+diff*0.3?2:1,lanes=shuffle(lane3).slice(0,n);
     for(const l of lanes)addObj({kind:"barrier",lane:l,z});
     const cl=lanes[0];for(let i=0;i<5;i++)addObj({kind:"coin",lane:cl,z:z+2+i*2.0,y:1.1+Math.sin(i/4*Math.PI)*1.5});
@@ -1021,7 +1046,7 @@ function spawnChunk(){
     for(let i=0;i<4;i++)addObj({kind:"coin",lane:l,z:z+1+i*2.0,y:0.5});
   }else if(r<0.78){let l=pick();const n=6+((Math.random()*6)|0);
     for(let i=0;i<n;i++){if(i%3===0&&Math.random()<0.4)l=clamp(l+(Math.random()<0.5?-1:1),0,2);addObj({kind:"coin",lane:l,z:z+i*2.2,y:1.1});}
-  }else if(r<0.86){const kinds=["magnet","jetpack","x2","skate","sneak","sneakers"],k=kinds[(Math.random()*kinds.length)|0],l=pick();
+  }else if(r<0.86){const kinds=["magnet","jetpack","x2","skate","sneakers"],k=kinds[(Math.random()*kinds.length)|0],l=pick();
     addObj({kind:"power",power:k,lane:l,z,y:1.5});for(let i=0;i<3;i++)addObj({kind:"coin",lane:l,z:z+2+i*2.2,y:1.1});
   }else{const l1=pick();let l2=clamp(l1+(Math.random()<0.5?-1:1)*(Math.random()<0.5?1:2),0,2);if(l2===l1)l2=clamp(l1+1,0,2);
     const cars2=1+((Math.random()*MAX_CARS)|0);
@@ -1032,7 +1057,7 @@ function addObj(o){
   o.y=o.y||0;o.vz=o.vz||0;o.collected=false;o.rot=Math.random()*6.28;
   let mesh=null;mats();
   if(o.kind==="coin")mesh=makeCoin();
-  else if(o.kind==="train"){const t=makeTrain(o.cars,o.colorIdx,o.ramp);mesh=t.group;o.carLen=t.carLen;o.carHalf=t.carHalf;}
+  else if(o.kind==="train"){const t=makeTrain(o.cars,o.colorIdx,o.ramp,!!o.oncoming);mesh=t.group;o.carLen=t.carLen;o.carHalf=t.carHalf;o.glowMesh=t.glow;}
   else if(o.kind==="barrier")mesh=makeBarrier();
   else if(o.kind==="gate")mesh=makeGate();
   else if(o.kind==="power")mesh=makePower(o.power);
@@ -1158,9 +1183,9 @@ function fillResult(){const r=resultInfo;$("rCoins").textContent=r.coins;$("rDis
 let toastT=null;
 function toast(msg){const el=$("toast");el.textContent=msg;show("toast");el.style.opacity="1";
   clearTimeout(toastT);toastT=setTimeout(()=>{el.style.opacity="0";setTimeout(()=>hide("toast"),320);},1400);}
-const POWER_DUR={magnet:8,jetpack:5,x2:12,skate:10,sneak:6,sneakers:10};
+const POWER_DUR={magnet:8,jetpack:5,x2:12,skate:10,sneakers:10};
 const POWER_META={magnet:["🧲","Магнит"],jetpack:["🚀","Джетпак"],x2:["✨","×2"],
-  skate:["🛹","Ховерборд"],sneakers:["👟","Кроссовки"],sneak:["👻","Невидимость"]};
+  skate:["🛹","Ховерборд"],sneakers:["👟","Кроссовки"]};
 function updateHUD(){
   $("hCoins").textContent=G.coins;$("hDist").textContent=Math.floor(G.dist);
   const lifeEl=$("hLife");
@@ -1206,7 +1231,7 @@ function update(dt){
   for(const w of walls){w.position.z+=dz;if(w.position.z>CULL_Z)w.position.z-=WALL_N*WALL_SPAN;}
   for(const a of arches){a.position.z+=dz;if(a.position.z>CULL_Z)a.position.z-=ARCH_N*ARCH_SPAN;}
 
-  const magnet=g.powers.magnet>0,sneak=g.powers.sneak>0;
+  const magnet=g.powers.magnet>0;
   for(let i=activeObjs.length-1;i>=0;i--){
     const o=activeObjs[i];o.z+=(g.speed*speedMul+o.vz)*dt;
     if(o.z>CULL_Z){scene.remove(o.mesh);activeObjs.splice(i,1);continue;}
@@ -1234,11 +1259,37 @@ function update(dt){
       if(o.mesh.userData.box)o.mesh.userData.box.rotation.x=o.rot*0.7;
       if(Math.abs(o.z)<1.4&&Math.abs(LANE_X[o.lane]-pl.x)<1.2&&Math.abs(o.y-(pl.y+0.8))<1.9){
         o.collected=true;activatePower(o.power);scene.remove(o.mesh);activeObjs.splice(i,1);}
-    }else if(o.kind==="train"){o.mesh.position.set(LANE_X[o.lane],0,o.z);if(!pl.dead)collideTrain(o,pl,sneak,jet);}
+    }else if(o.kind==="train"){
+      // ── АНИМАЦИЯ ВСТРЕЧНОГО ПОЕЗДА ──
+      // Мчится по рельсам на игрока: вибрация корпуса на стыках рельсов,
+      // фары пульсируют, гудок при приближении, тряска камеры + whoosh при пролёте.
+      if(o.oncoming){
+        const d=-o.z; // расстояние впереди (z отрицательный = вдали)
+        if(!o.horned&&d<80&&d>0){o.horned=true;sfx.horn();}
+        if(!o.whooshed&&o.z>3&&o.z<8){o.whooshed=true;sfx.whoosh();
+          if(Math.abs(LANE_X[o.lane]-pl.x)<3.4)camShake=Math.max(camShake,0.45);
+          burst(LANE_X[o.lane],1.5,0,NIGHT?0xC8B8FF:0xFFE9A0,8,0.1);}
+        // вибрация: высокочастотная тряска по Y/X (стыки рельсов), амплитуда
+        // растёт при приближении к камере (ближе = сильнее ощущается)
+        const prox=clamp(1-Math.abs(o.z)/60,0,1);
+        const wob=Math.sin(g.time*42+o.phase)*0.035*prox;
+        o.mesh.position.set(LANE_X[o.lane]+Math.sin(g.time*31+o.phase)*0.02*prox,
+          wob+0.01,o.z);
+        // лёгкий крен состава — «живой» тяжёлый поезд
+        o.mesh.rotation.z=Math.sin(g.time*7+o.phase)*0.006;
+        // фары: пульсирующее свечение, ярче вблизи (материал личный у поезда)
+        if(o.glowMesh){const pl2=1+Math.sin(g.time*9+o.phase)*0.18;
+          o.glowMesh.scale.set(pl2,pl2,1);
+          o.glowMesh.material.opacity=0.28+prox*0.25;}
+        if(!pl.dead)collideTrain(o,pl,jet);
+      }else{
+        o.mesh.position.set(LANE_X[o.lane],0,o.z);
+        if(!pl.dead)collideTrain(o,pl,jet);
+      }}
     else if(o.kind==="barrier"){o.mesh.position.set(LANE_X[o.lane],0,o.z);
-      if(!pl.dead&&!sneak&&!jet&&Math.abs(o.z)<1.1&&Math.abs(LANE_X[o.lane]-pl.x)<1.35&&pl.y<BARRIER_TOP)die();}
+      if(!pl.dead&&!jet&&Math.abs(o.z)<1.1&&Math.abs(LANE_X[o.lane]-pl.x)<1.35&&pl.y<BARRIER_TOP)die();}
     else if(o.kind==="gate"){o.mesh.position.set(LANE_X[o.lane],0,o.z);
-      if(!pl.dead&&!sneak&&!jet&&Math.abs(o.z)<1.1&&Math.abs(LANE_X[o.lane]-pl.x)<1.35){
+      if(!pl.dead&&!jet&&Math.abs(o.z)<1.1&&Math.abs(LANE_X[o.lane]-pl.x)<1.35){
         const top=pl.y+(pl.sliding?SLIDE_H:PLAYER_H);if(top>GATE_BAR)die();}}
   }
   if(g.inspector.lunge>0)g.inspector.lunge=Math.max(0,g.inspector.lunge-dt*1.2);
@@ -1259,6 +1310,7 @@ function update(dt){
   updateHUD();
 }
 function roofUnder(pl){for(const o of activeObjs){if(o.kind!=="train")continue;
+  if(o.oncoming)continue; // по встречным не бегаем — они мчатся на игрока
   if(Math.abs(LANE_X[o.lane]-pl.x)>1.3)continue;const rg=trainZRange(o);
   if(0>=rg.back-0.5&&0<=rg.front+0.5)return true;
   // над трамплином стоячего поезда тоже держимся (плавный подъём на крышу)
@@ -1267,7 +1319,7 @@ function roofUnder(pl){for(const o of activeObjs){if(o.kind!=="train")continue;
 }return false;}
 function trainZRange(o){const L=o.carLen||2.6,half=o.carHalf||1.25;
   return {front:o.z+half,back:o.z-(o.cars-1)*L-half};}
-function collideTrain(o,pl,sneak,jet){if(jet||sneak)return;
+function collideTrain(o,pl,jet){if(jet)return;
   // Трамплин стоячего поезда: если игрок на земле перед поездом и бежит по
   // рампе — плавно поднимаем его на крышу (без точного прыжка, как в Subway).
   if(o.ramp&&o.vz===0&&Math.abs(LANE_X[o.lane]-pl.x)<1.35){
@@ -1282,6 +1334,8 @@ function collideTrain(o,pl,sneak,jet){if(jet||sneak)return;
   const rg=trainZRange(o);
   if(!(0>=rg.back-0.4&&0<=rg.front+0.4))return;
   if(Math.abs(LANE_X[o.lane]-pl.x)>1.3)return;
+  // Встречный поезд — не опора: сбил на любой высоте (кроме джетпака выше).
+  if(o.oncoming){die();return;}
   if(pl.y>=ROOF_H-0.3){if(!pl.onRoof&&pl.vy<=0){sfx.roof();pl.squash=0.3;}pl.onRoof=o;pl.y=ROOF_H;pl.vy=0;}else die();}
 function activatePower(kind){
   G.powers[kind]=POWER_DUR[kind]||6;
