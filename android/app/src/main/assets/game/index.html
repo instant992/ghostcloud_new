@@ -300,6 +300,7 @@ let foxGroup=null,foxModel=null,mixer=null,actions={},foxIsModel=false,foxSingle
 let hoverboard=null,magnetRing=null;
 let inspector,inspParts={},inspMixer=null,inspActions={},inspIsModel=false,inspCurAnim=null;
 let ground,trackGroup,ties=[],cityGroup,stars,moon,walls=[],arches=[];
+let wallMeshes=[],wallMats=[],neonMat=null,stripeMat=null; // зона оформления
 let sceneReady=false,modelsReady=false;
 const canvas=document.getElementById("gl");
 const MODEL={};
@@ -340,28 +341,27 @@ function onResize(){if(!renderer)return;const w=window.innerWidth,h=window.inner
   camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h,false);}
 
 // ── процедурная граффити-текстура ──
-function graffitiTexture(){
+// pal — палитра текущей зоны оформления (см. BIOMES): кирпич, швы, цвета тегов.
+function graffitiTexture(pal){
   const cv=document.createElement("canvas");cv.width=512;cv.height=256;
   const x=cv.getContext("2d");
   const W=512,H=256;
   // ── кирпичная кладка (база, как в Subway) ──
-  const base=NIGHT?"#3A2E5C":"#A79BC4";
-  const mortar=NIGHT?"#241B3D":"#8E82AE";
-  x.fillStyle=base;x.fillRect(0,0,W,H);
+  x.fillStyle=pal.brickCss;x.fillRect(0,0,W,H);
   const bh=26,bw=64;
   for(let row=0;row<H/bh;row++){
     const off=(row%2)?bw/2:0;
     for(let col=-1;col<W/bw+1;col++){
-      // лёгкая вариация тона кирпича
-      const v=((row*7+col*13)%5)*((NIGHT?6:8));
-      x.fillStyle=NIGHT?`rgb(${70+v},${55+v},${102+v})`:`rgb(${180+v},${168+v},${206+v})`;
+      // лёгкая вариация тона кирпича — два тона палитры зоны
+      const v=((row*7+col*13)%5);
+      x.fillStyle=(v%2)?pal.brickVarCss:pal.brickCss;
       x.fillRect(col*bw+off+2,row*bh+2,bw-4,bh-4);
     }
   }
-  x.strokeStyle=mortar;x.lineWidth=1;x.globalAlpha=0.5;
+  x.strokeStyle=pal.mortarCss;x.lineWidth=1;x.globalAlpha=0.5;
   for(let row=0;row<=H/bh;row++){x.beginPath();x.moveTo(0,row*bh);x.lineTo(W,row*bh);x.stroke();}
   x.globalAlpha=1;
-  const cols=["#FF2E88","#00E5FF","#FFD23F","#6CFF8A","#FF8A4D","#C77DFF","#FFFFFF"];
+  const cols=pal.cols;
   const pick=()=>cols[(Math.random()*cols.length)|0];
   // ── крупный тег-«пузырь» (толстая кривая с чёрной обводкой) ──
   if(Math.random()<0.9){
@@ -419,7 +419,7 @@ function graffitiTexture(){
     x.globalAlpha=1;
   }
   // потёртости/царапины
-  x.globalAlpha=0.12;x.strokeStyle=NIGHT?"#000":"#4A3A6A";
+  x.globalAlpha=0.12;x.strokeStyle=pal.scratchCss;
   for(let i=0;i<10;i++){x.lineWidth=1+Math.random()*2;x.beginPath();
     const sx=Math.random()*W,sy=Math.random()*H;
     x.moveTo(sx,sy);x.lineTo(sx+(Math.random()-0.5)*70,sy+(Math.random()-0.5)*16);x.stroke();}
@@ -428,6 +428,51 @@ function graffitiTexture(){
   t.wrapS=THREE.RepeatWrapping;t.wrapT=THREE.ClampToEdgeWrapping;
   if(THREE.sRGBEncoding)t.encoding=THREE.sRGBEncoding;
   return t;
+}
+
+// ── Зоны оформления: меняются по мере бега (каждые ~600 м) ──
+// Каждая зона — своя палитра: кирпич стен, цвета граффити, неон, отбивка,
+// тинт пути, земля, туман, небо. Ночью цвета как заданы, днём осветляются.
+const BIOMES=[
+  {name:"Метро",icon:"🚇",brick:0x3A2E5C,brickVar:0x483969,mortar:0x241B3D,neon:0xA855F7,
+   cols:["#FF2E88","#00E5FF","#FFD23F","#6CFF8A","#FF8A4D","#C77DFF","#FFFFFF"],
+   track:0x8F83C4,stripe:0xD6C4FF,ground:0x1B1430,fog:0x1A1130,sky:0x140E2C},
+  {name:"Депо",icon:"🏗️",brick:0x6E3A2A,brickVar:0x7E4533,mortar:0x3E1F16,neon:0xFF8A4D,
+   cols:["#FFD23F","#FF8A4D","#6CFF8A","#FFFFFF","#FF2E88","#00E5FF"],
+   track:0xC49A83,stripe:0xFFD9C4,ground:0x2A1710,fog:0x2E1810,sky:0x2C140E},
+  {name:"Тоннель",icon:"🌊",brick:0x2A3E5C,brickVar:0x334869,mortar:0x16243D,neon:0x4DD2FF,
+   cols:["#00E5FF","#6CFF8A","#FFFFFF","#FFD23F","#C77DFF"],
+   track:0x83A8C4,stripe:0xC4E6FF,ground:0x101B2A,fog:0x101A2E,sky:0x0E1A2C},
+  {name:"Завод",icon:"🏭",brick:0x3D5C2A,brickVar:0x486933,mortar:0x243D16,neon:0x6CFF8A,
+   cols:["#6CFF8A","#FFD23F","#FF8A4D","#FFFFFF","#00E5FF"],
+   track:0x9DC483,stripe:0xD9FFC4,ground:0x16210F,fog:0x15240F,sky:0x142C0E},
+];
+const BIOME_EVERY=600; // метров между сменами зоны
+let curBiome=0,nextBiomeAt=BIOME_EVERY;
+function biomePal(b){
+  const C=x=>new THREE.Color(x),css=c=>"#"+c.getHexString();
+  if(NIGHT)return{brickCss:css(C(b.brick)),brickVarCss:css(C(b.brickVar)),mortarCss:css(C(b.mortar)),
+    scratchCss:"#000",cols:b.cols};
+  const lw=(c,a)=>C(c).lerp(C(0xFFFFFF),a);
+  return{brickCss:css(lw(b.brick,0.62)),brickVarCss:css(lw(b.brickVar,0.60)),mortarCss:css(lw(b.mortar,0.55)),
+    scratchCss:"#4A3A6A",cols:b.cols};
+}
+function applyBiome(idx,silent){
+  curBiome=idx;const b=BIOMES[idx],p=biomePal(b);
+  // перегенерировать граффити на всех панелях стен (12 текстур 512×256 — дёшево)
+  for(let i=0;i<wallMeshes.length;i++){
+    const m=wallMats[i];
+    if(m.map)m.map.dispose();
+    m.map=graffitiTexture(p);m.needsUpdate=true;}
+  const neonC=new THREE.Color(b.neon);
+  if(neonMat)neonMat.color.copy(neonC);
+  if(stripeMat){stripeMat.color.set(NIGHT?b.stripe:0xF2ECFF);stripeMat.emissive.copy(neonC);}
+  if(trackMat)trackMat.color.set(NIGHT?b.track:0xFFFFFF);
+  if(ground)ground.material.color.set(NIGHT?b.ground:0xC3BAD6);
+  if(scene&&scene.fog)scene.fog.color.set(NIGHT?b.fog:(b.fog===0x1A1130?0xDCEBFF:new THREE.Color(b.fog).lerp(new THREE.Color(0xFFFFFF),0.85).getHex()));
+  if(scene&&scene.background)scene.background.set(NIGHT?b.sky:new THREE.Color(b.sky).lerp(new THREE.Color(0xBFE3FF),0.8).getHex());
+  if(rim)rim.color.copy(neonC);
+  if(!silent)toast(b.icon+" Район: "+b.name);
 }
 
 // ── окружение: земля, путь (Meshy-текстура), стены-граффити, арки, город, луна, звёзды ──
@@ -462,9 +507,9 @@ function buildEnvironment(){
 
   // граффити-стены вдоль путей (едут вместе с миром)
   const wallGeo=new THREE.BoxGeometry(0.4,4.6,WALL_SPAN-0.4);
-  const neonMat=new THREE.MeshBasicMaterial({color:0xA855F7});
+  neonMat=new THREE.MeshBasicMaterial({color:0xA855F7});
   // Неоновые полосы-«отбивка» под стеной: сильный маркер движения у земли.
-  const stripeMat=new THREE.MeshStandardMaterial({color:NIGHT?0xD6C4FF:0xF2ECFF,roughness:0.6,
+  stripeMat=new THREE.MeshStandardMaterial({color:NIGHT?0xD6C4FF:0xF2ECFF,roughness:0.6,
     emissive:0xA855F7,emissiveIntensity:NIGHT?0.55:0.3});
   const stripeGeo=new THREE.BoxGeometry(0.5,0.35,4.6);
   for(let s=-1;s<=1;s+=2){
@@ -475,7 +520,9 @@ function buildEnvironment(){
   }
   for(let s=-1;s<=1;s+=2){
     for(let i=0;i<WALL_N;i++){
-      const w=new THREE.Mesh(wallGeo,new THREE.MeshStandardMaterial({map:graffitiTexture(),roughness:0.92}));
+      const wm=new THREE.MeshStandardMaterial({map:graffitiTexture(biomePal(BIOMES[0])),roughness:0.92});
+      wallMats.push(wm);
+      const w=new THREE.Mesh(wallGeo,wm);wallMeshes.push(w);
       w.position.set(s*9.3,2.3,-i*WALL_SPAN);w.receiveShadow=true;scene.add(w);walls.push(w);
       const neon=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,WALL_SPAN-0.4),neonMat);
       neon.position.set(s*9.06,4.62,-i*WALL_SPAN);scene.add(neon);walls.push(neon);
@@ -664,7 +711,6 @@ function fitMax(obj,targetMax){
 // CC0-лицензии — в workspace/assets/endless_runner_3d/LICENSES.md
 const LOAD_LIST=[
   ["fox","models/Fox.glb"],
-  ["foxM","models/fox_meshy.glb"],
   ["rogue","models/rogue.glb"],
   ["mLoco","models/loco_metro.glb"],
   ["mCarriage","models/carriage.glb"],
@@ -714,9 +760,11 @@ function preloadModels(done){
 // ── лиса ──
 function buildFox(){
   foxGroup=new THREE.Group();
-  // Приоритет: Meshy-лиса (quadruped, беговой клип, морда смотрит в -Z — доворот не нужен).
-  // Фолбэк: CC0 Fox.glb (rigged Survey/Walk/Run, морда в +Z → разворот на PI).
-  const src=MODEL.foxM||MODEL.fox, isMeshy=!!MODEL.foxM;
+  // Приоритет: CC0 Fox.glb (PixelMannen) — у неё НАТИВНЫЙ беговой клип Run,
+  // анимация бега настоящая (Meshy-лиса умела только walk, бег платный —
+  // процедурный галоп выглядел хуже). Фолбэк: процедурная лиса из коробок.
+  // Морда CC0-лисы смотрит в +Z → разворот на PI ниже.
+  const src=MODEL.fox, isMeshy=false;
   if(src){
     const model=src.scene; // без clone — клон SkinnedMesh ломает анимации
     // Meshy-лиса — skinned, Box3 по мешу врёт (см. fitSkinned), подгоняем по костям.
@@ -1030,15 +1078,24 @@ function newGame(){return{dist:0,coins:0,combo:0,comboT:0,speed:BASE_SPEED,
 
 function spawnChunk(){
   const g=G,diff=Math.min(1,g.dist/4500),z=SPAWN_Z,lane3=[0,1,2],pick=()=>lane3[(Math.random()*3)|0],r=Math.random();
-  if(r<0.26){const lane=pick(),cars=1+((Math.random()*MAX_CARS)|0);
+  if(r<0.26){const cars=1+((Math.random()*MAX_CARS)|0);
     // Типы поездов: ВСТРЕЧНЫЙ — локомотив мчится по рельсам прямо на игрока
     // (фары сквозь туман, гудок, тряска при пролёте); попутный — катится чуть
     // быстрее/медленнее мира; стоячий — с трамплином, чтобы забежать на крышу.
     const oncoming=Math.random()<0.18+diff*0.22;
     const moving=!oncoming&&Math.random()<0.2+diff*0.15;
-    const ramp=!moving&&!oncoming&&cars>=2&&Math.random()<0.75;
-    addObj({kind:"train",lane,z,cars,oncoming,vz:oncoming?ONCOMING_VZ:moving?(Math.random()<0.5?4.5:-3.0):0,ramp,colorIdx:(Math.random()*12)|0,phase:Math.random()*6.28});
-    if(!oncoming&&Math.random()<0.7)for(let i=0;i<cars*2;i++)addObj({kind:"coin",lane,z:z-1-i*2.4,y:ROOF_H+0.7});
+    const vz=oncoming?ONCOMING_VZ:moving?(Math.random()<0.5?4.5:-3.0):0;
+    // Полоса — только из свободных: поезд не должен проходить сквозь другой
+    // поезд той же полосы (ни статически, ни догнав его в полёте).
+    const free=lane3.filter(l=>!trainLaneBlocked(l,z,cars,vz));
+    if(free.length){
+      const lane=free[(Math.random()*free.length)|0];
+      const ramp=!moving&&!oncoming&&cars>=2&&Math.random()<0.75;
+      addObj({kind:"train",lane,z,cars,oncoming,vz,ramp,colorIdx:(Math.random()*12)|0,phase:Math.random()*6.28});
+      if(!oncoming&&Math.random()<0.7)for(let i=0;i<cars*2;i++)addObj({kind:"coin",lane,z:z-1-i*2.4,y:ROOF_H+0.7});
+    }else{ // все полосы заняты поездами — монетная дорожка вместо поезда
+      const l=pick();for(let i=0;i<4;i++)addObj({kind:"coin",lane:l,z:z+i*2.2,y:1.1});
+    }
   }else if(r<0.44){const n=Math.random()<0.3+diff*0.3?2:1,lanes=shuffle(lane3).slice(0,n);
     for(const l of lanes)addObj({kind:"barrier",lane:l,z});
     const cl=lanes[0];for(let i=0;i<5;i++)addObj({kind:"coin",lane:cl,z:z+2+i*2.0,y:1.1+Math.sin(i/4*Math.PI)*1.5});
@@ -1050,7 +1107,11 @@ function spawnChunk(){
     addObj({kind:"power",power:k,lane:l,z,y:1.5});for(let i=0;i<3;i++)addObj({kind:"coin",lane:l,z:z+2+i*2.2,y:1.1});
   }else{const l1=pick();let l2=clamp(l1+(Math.random()<0.5?-1:1)*(Math.random()<0.5?1:2),0,2);if(l2===l1)l2=clamp(l1+1,0,2);
     const cars2=1+((Math.random()*MAX_CARS)|0);
-    addObj({kind:"barrier",lane:l1,z});addObj({kind:"train",lane:l2,z:z-4,cars:cars2,vz:0,ramp:cars2>=2&&Math.random()<0.6,colorIdx:(Math.random()*12)|0});
+    addObj({kind:"barrier",lane:l1,z});
+    // полоса поезда — только если не пересекается/не будет догнана другим поездом
+    if(!trainLaneBlocked(l2,z-4,cars2,0)){
+      addObj({kind:"train",lane:l2,z:z-4,cars:cars2,vz:0,ramp:cars2>=2&&Math.random()<0.6,colorIdx:(Math.random()*12)|0});
+    }
     const free=3-l1-l2,cl=(free>=0&&free<=2)?free:l1;for(let i=0;i<4;i++)addObj({kind:"coin",lane:cl,z:z+1+i*2.2,y:1.1});}
 }
 function addObj(o){
@@ -1080,6 +1141,7 @@ function slide(){const pl=G.player,floor=pl.onRoof?ROOF_H:0;
 
 function startRun(){clearObjs();G=newGame();state=S.PLAY;lastT=performance.now();
   serverRewarded=false;
+  applyBiome(0,true);nextBiomeAt=BIOME_EVERY;
   audioInit();bgmPlay();
   inspector.visible=true;inspector.position.set(0,0,7);playAnim("Run");
   hoverboard.visible=false;magnetRing.visible=false;
@@ -1207,6 +1269,8 @@ function update(dt){
   else g.speed=Math.min(MAX_SPEED,BASE_SPEED+g.dist/260);
   const jet=g.powers.jetpack>0,speedMul=(g.powers.x2>0?1.12:1)*(jet?1.25:1),dz=g.speed*speedMul*dt;
   g.dist+=dz;
+  // Зоны оформления: каждые BIOME_EVERY метров — новый район (стены/пол/неон/туман)
+  if(g.dist>=nextBiomeAt){nextBiomeAt+=BIOME_EVERY;applyBiome((curBiome+1)%BIOMES.length);}
   if(!pl.dead)while(g.dist>g.nextChunk){spawnChunk();g.nextChunk+=18+Math.random()*10;}
   pl.x=lerp(pl.x,LANE_X[pl.lane],clamp(dt*13,0,1));
   for(const k in g.powers)if(g.powers[k]>0)g.powers[k]=Math.max(0,g.powers[k]-dt);
@@ -1319,6 +1383,27 @@ function roofUnder(pl){for(const o of activeObjs){if(o.kind!=="train")continue;
 }return false;}
 function trainZRange(o){const L=o.carLen||2.6,half=o.carHalf||1.25;
   return {front:o.z+half,back:o.z-(o.cars-1)*L-half};}
+// Занята ли полоса для нового поезда (спавн на z, длина len, скорость vz).
+// Новый поезд не должен проехать сквозь существующие в этой полосе:
+//  а) статическое пересечение — хвост нового состава не налезает на чужой нос;
+//  б) догон — если новый быстрее (vz больше), он не настигнет хвост впереди
+//     идущего поезда до зоны куллинга (CULL_Z). Проход сквозь поезд = баг,
+//     поэтому такая полоса просто не предлагается спавну (как в Subway).
+function trainLaneBlocked(lane,z,len,vz){
+  const back=z-(len-1)*CAR_LEN-CAR_LEN/2, front=z+CAR_LEN/2;
+  const wSpeed=(G?G.speed:BASE_SPEED);
+  for(const o of activeObjs){
+    if(o.kind!=="train"||o.lane!==lane)continue;
+    const r=trainZRange(o);
+    if(back<r.front+0.6&&front>r.back-0.6)return true;          // уже пересекаются
+    if(r.back>front&&vz>o.vz){                                   // o впереди, новый быстрее
+      const tClose=(r.back-front)/(vz-o.vz);                     // время до упора в хвост
+      const tCull=(CULL_Z-o.z)/(wSpeed+o.vz);                    // время до исчезновения o
+      if(tClose<tCull)return true;                               // догонит — полоса занята
+    }
+  }
+  return false;
+}
 function collideTrain(o,pl,jet){if(jet)return;
   // Трамплин стоячего поезда: если игрок на земле перед поездом и бежит по
   // рампе — плавно поднимаем его на крышу (без точного прыжка, как в Subway).
