@@ -204,6 +204,12 @@ const LANE_X=[-3.0,0,3.0];
 const ROOF_H=4.0;
 const PLAYER_H=1.55, SLIDE_H=0.75;
 const BARRIER_TOP=1.0, GATE_BAR=1.45;
+// Ворота-гантри — ВЫСОКАЯ сплошная рама (низ балки = GATE_BAR, верх = GATE_TOP):
+// под неё можно только ПОДКАТИТЬСЯ, перепрыгнуть нельзя (стойки выше апекса
+// обычного прыжка 3.58 и макушки лисы в прыжке 5.13). Видимая балка совпадает
+// с коллизией: гибель только если тело пересекает полосу [GATE_BAR, GATE_TOP];
+// полностью выше GATE_TOP (перелетел, напр. в кроссовках) — безопасно.
+const GATE_TOP=5.2;
 const BASE_SPEED=24, MAX_SPEED=52;
 // Встречный поезд: мчится на игрока по рельсам (vz добавляется к скроллу мира).
 const ONCOMING_VZ=24;
@@ -717,7 +723,6 @@ const LOAD_LIST=[
   ["mCoin","models/coin_meshy.glb"],
   ["mBarrier","models/barrier_road.glb"],
   ["mCone","models/cone.glb"],
-  ["mGate","models/gantry_gate.glb"],
   ["mCrate","models/crate_wood.glb"],
   ["mMagnet","models/magnet_meshy.glb"],
   ["mJetpack","models/jetpack_meshy.glb"],
@@ -1024,20 +1029,46 @@ function makeBarrier(){
   for(let i=-1;i<=1;i++){const st=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.32),MAT.barrierStripe);st.position.set(i*0.8,0.75,0.02);g.add(st);}
   for(const s of[-1,1]){const leg=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.75,0.16),MAT.barrier);leg.position.set(s*1.1,0.37,0);leg.castShadow=true;g.add(leg);}
   return g;}
-// Ворота для подката: Meshy-гантри (столбы + перекладина сверху). Масштабируем
-// так, чтобы зазор под перекладиной был меньше PLAYER_H=1.55 (стоя не пройти —
-// честно против коллизии GATE_BAR=1.45) и больше SLIDE_H=0.75 (подкат проходит).
+// Ворота для подката: высокая сплошная рама. Зазор под балкой больше SLIDE_H=0.75
+// (подкат проходит), а сама балка — сплошная стена от GATE_BAR=1.45 до GATE_TOP:
+// перепрыгнуть нельзя, гибель только при честном пересечении панели телом.
+// ВИД: высокая сплошная рама — стойки до GATE_TOP и полосатая «опасная» панель
+// ровно в полосе коллизии [GATE_BAR, GATE_TOP] со стрелками вниз (подкат).
+// Перепутать с барьером (низкий, перепрыгиваемый) невозможно.
+let gateTex=null;
+function gateHazardTexture(){
+  if(gateTex)return gateTex;
+  const cv=document.createElement("canvas");cv.width=256;cv.height=256;
+  const x=cv.getContext("2d");const W=256,H=256;
+  x.fillStyle="#241B3D";x.fillRect(0,0,W,H);
+  // диагональные жёлто-чёрные полосы (hazard)
+  x.save();x.translate(W/2,H/2);x.rotate(Math.PI/4);
+  for(let i=-8;i<8;i++){x.fillStyle=(i%2)?"#FFC24D":"#1A1426";x.fillRect(i*32,-W,32,W*2);}
+  x.restore();
+  // крупные белые шевроны вниз — «ПОДКАТ»
+  x.strokeStyle="#FFFFFF";x.lineWidth=14;x.lineCap="round";x.lineJoin="round";
+  for(let k=0;k<3;k++){const cy=70+k*58;
+    x.beginPath();x.moveTo(88,cy);x.lineTo(128,cy+34);x.lineTo(168,cy);x.stroke();}
+  x.globalAlpha=0.25;x.fillStyle="#000";x.fillRect(0,0,W,H);x.globalAlpha=1;
+  const t=new THREE.CanvasTexture(cv);
+  if(THREE.sRGBEncoding)t.encoding=THREE.sRGBEncoding;
+  gateTex=t;return t;
+}
 function makeGate(){
-  const proto=protoModel("mGate",{h:1.8});
-  if(proto){
-    const g=new THREE.Group();
-    g.add(proto.obj.clone(true));
-    return g;
-  }
-  const g=new THREE.Group();
-  for(const s of[-1,1]){const post=new THREE.Mesh(new THREE.BoxGeometry(0.22,3.0,0.22),MAT.gate);post.position.set(s*1.25,1.5,0);post.castShadow=true;g.add(post);}
-  const bar=new THREE.Mesh(new THREE.BoxGeometry(2.7,0.6,0.26),MAT.gate);bar.position.y=GATE_BAR;bar.castShadow=true;g.add(bar);
-  const sign=new THREE.Mesh(new THREE.BoxGeometry(1.8,0.44,0.1),MAT.gateSign);sign.position.set(0,GATE_BAR+0.55,0.1);g.add(sign);
+  const g=new THREE.Group();mats();
+  // стойки — выше любого прыжка без кроссовок, сплошные
+  for(const s of[-1,1]){
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.26,GATE_TOP,0.26),MAT.gate);
+    post.position.set(s*1.3,GATE_TOP/2,0);post.castShadow=true;g.add(post);}
+  // «опасная» панель ровно в полосе коллизии — то, во что врезается прыжок
+  const bandH=GATE_TOP-GATE_BAR;
+  const panel=new THREE.Mesh(new THREE.BoxGeometry(2.6,bandH,0.3),
+    new THREE.MeshStandardMaterial({map:gateHazardTexture(),roughness:0.7,
+      emissive:NIGHT?0x2A2000:0x000000,emissiveIntensity:0.4}));
+  panel.position.y=GATE_BAR+bandH/2;panel.castShadow=true;g.add(panel);
+  // козырёк поверх панели — визуально «потолок», за которым безопасно
+  const cap=new THREE.Mesh(new THREE.BoxGeometry(2.9,0.18,0.5),MAT.gateSign);
+  cap.position.y=GATE_TOP+0.09;g.add(cap);
   return g;}
 // Бонусы: Meshy GLB (у каждого свой узнаваемый вид), фолбэк — процедурные фигуры.
 // fitMax: равномерный фитинг по максимальному размеру (ховерборд плоский —
@@ -1354,7 +1385,12 @@ function update(dt){
       if(!pl.dead&&!jet&&Math.abs(o.z)<1.1&&Math.abs(LANE_X[o.lane]-pl.x)<1.35&&pl.y<BARRIER_TOP)die();}
     else if(o.kind==="gate"){o.mesh.position.set(LANE_X[o.lane],0,o.z);
       if(!pl.dead&&!jet&&Math.abs(o.z)<1.1&&Math.abs(LANE_X[o.lane]-pl.x)<1.35){
-        const top=pl.y+(pl.sliding?SLIDE_H:PLAYER_H);if(top>GATE_BAR)die();}}
+        const feet=pl.y,top=pl.y+(pl.sliding?SLIDE_H:PLAYER_H);
+        // Честная коллизия по ВИДИМОЙ панели [GATE_BAR, GATE_TOP]:
+        // подкатился (top<=GATE_BAR) — безопасно; перелетел целиком (feet>=GATE_TOP,
+        // возможно в кроссовках) — безопасно; тело пересекает сплошную стену — гибель.
+        // Больше нет «невидимого потолка» выше балки.
+        if(top>GATE_BAR&&feet<GATE_TOP)die();}}
   }
   if(g.inspector.lunge>0)g.inspector.lunge=Math.max(0,g.inspector.lunge-dt*1.2);
   inspector.position.set(lerp(inspector.position.x,pl.x*0.5,dt*3),0,lerp(inspector.position.z,7.0-g.inspector.lunge*3.4,dt*4));
