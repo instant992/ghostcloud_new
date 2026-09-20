@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Switch, Text, T
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
-import { Card, Screen, Title, useScreenTopPad } from "../components/UI";
+import { Button, Card, Screen, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { useNavigation } from "@react-navigation/native";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
@@ -86,7 +86,7 @@ export default function SettingsScreen() {
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
   const nav = useNavigation<any>();
-  const { me, vpnRunning, setVpnRunning, isFoxcloud } = useApp();
+  const { me, vpnRunning, setVpnRunning, isFoxcloud, signOut } = useApp();
   const [style, setStyle] = useState<ThemeName>(getThemeName());
   const [mode, setMode] = useState<ThemeMode>(getThemeMode());
   const [core, setCore] = useState<CoreName>(getSelectedCore());
@@ -114,6 +114,15 @@ export default function SettingsScreen() {
   const [autoBoot, setAutoBootState] = useState(getAutoConnectBoot());
   const [pingMethod, setPingMethodState] = useState<PingMethod>(getPingMethod());
   const [pingOpen, setPingOpen] = useState(false);
+
+  /** Сворачиваемые группы настроек — по умолчанию всё свёрнуто, экран короткий */
+  const [grpOpen, setGrpOpen] = useState<Record<string, boolean>>({});
+  const toggleGroup = (k: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    setGrpOpen((g) => ({ ...g, [k]: !g[k] }));
+  };
+  /** Подтверждение выхода из аккаунта (кнопка перенесена из профиля) */
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   /** Иконка приложения на рабочем столе: "default" (призрак) / "foxcloud" (лиса) */
   const [appIcon, setAppIcon] = useState<string>(() => getLauncherIcon());
@@ -320,10 +329,18 @@ export default function SettingsScreen() {
     <Screen style={useScreenTopPad()}>
       <Title>Настройки</Title>
 
+      {/* ─── Группа «Внешний вид»: тема + иконка приложения ─── */}
       {/* FoxCloud (вход через Telegram): тема закреплена — режим темы
           (тёмная/авто/светлая), смена темы по времени и выбор стиля скрыты
           целиком, чтобы нельзя было уйти из FoxCloud или включить авто-смену. */}
       {!isFoxcloud && (
+      <SettingsGroup
+        open={!!grpOpen.appearance}
+        onToggle={() => toggleGroup("appearance")}
+        icon="color-palette-outline"
+        title="Внешний вид"
+        sub="Тема, режим, иконка приложения"
+      >
       <Card>
         <Text style={styles.sectionTitle}>Тема</Text>
 
@@ -603,11 +620,9 @@ export default function SettingsScreen() {
           </PressableScale>
         </Modal>}
       </Card>
-      )}
 
       {/* Иконка приложения на рабочем столе (как в старом приложении).
           Для Telegram-авторизации (FoxiCloud) спонсорские фичи скрыты. */}
-      {!isFoxcloud && (
       <Card>
         <Text style={styles.sectionTitle}>Иконка приложения</Text>
         <View style={styles.themeRowLine}>
@@ -655,8 +670,17 @@ export default function SettingsScreen() {
           На некоторых оболочках подпись под иконкой обновится после возврата на главный экран.
         </Text>
       </Card>
+      </SettingsGroup>
       )}
 
+      {/* ─── Группа «VPN и сеть»: ядро, подключение, безопасность, DNS ─── */}
+      <SettingsGroup
+        open={!!grpOpen.vpn}
+        onToggle={() => toggleGroup("vpn")}
+        icon="shield-checkmark-outline"
+        title="VPN и сеть"
+        sub="Ядро, маскировка, Kill Switch, DNS"
+      >
       <Card>
         <Text style={styles.sectionTitle}>Ядро VPN</Text>
         {CORES.map((c) => {
@@ -964,7 +988,16 @@ export default function SettingsScreen() {
         )}
       </Card>
       )}
+      </SettingsGroup>
 
+      {/* ─── Группа «Прочее»: игра, о программе, выход из аккаунта ─── */}
+      <SettingsGroup
+        open={!!grpOpen.other}
+        onToggle={() => toggleGroup("other")}
+        icon="apps-outline"
+        title="Прочее"
+        sub="Игра, о программе, выход из аккаунта"
+      >
       <Card>
         <PressableScale
           style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
@@ -1003,6 +1036,40 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
         </PressableScale>
       </Card>
+
+      {/* Выход из аккаунта (перенесён из профиля) */}
+      <Card>
+        <PressableScale
+          style={styles.logoutRow}
+          onPress={() => setLogoutOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Выйти из аккаунта"
+        >
+          <Ionicons name="log-out-outline" size={18} color="#FF4D4D" />
+          <Text style={styles.logoutText}>Выйти из аккаунта</Text>
+        </PressableScale>
+      </Card>
+      </SettingsGroup>
+
+      {/* Подтверждение выхода из аккаунта */}
+      {logoutOpen && <Modal visible={logoutOpen} transparent animationType="fade" onRequestClose={() => setLogoutOpen(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setLogoutOpen(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Выйти из аккаунта?</Text>
+            <Text style={styles.modalText}>
+              Вы будете перенаправлены на экран входа. Для повторного входа потребуется авторизация.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Отмена" variant="ghost" onPress={() => setLogoutOpen(false)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button title="Выйти" variant="danger" onPress={signOut} />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>}
 
       {/* Стилизованное подтверждение загрузки ядра */}
         {confirmCore !== null && <Modal visible={!!confirmCore} transparent animationType="fade" onRequestClose={() => setConfirmCore(null)}>
@@ -1122,7 +1189,82 @@ function ThemeGlyph({ t, size = 18 }: { t: ThemeName; size?: number }) {
   return <Ionicons name={themeIcon(t)} size={size} color={colors.accent} />;
 }
 
+/** Сворачиваемая группа настроек: заголовок-карточка + содержимое (дочерние
+ *  карточки рендерятся под ним без лишней рамки, чтобы не было «карточки в карточке»). */
+function SettingsGroup({
+  open,
+  onToggle,
+  icon,
+  title,
+  sub,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  sub?: string;
+  children: React.ReactNode;
+}) {
+  const styles = makeStyles();
+  return (
+    <>
+      <PressableScale
+        style={styles.groupHeader}
+        onPress={onToggle}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}${sub ? ` — ${sub}` : ""}`}
+        accessibilityState={{ expanded: open }}
+      >
+        <Ionicons name={icon} size={20} color={colors.accent} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.groupTitle}>{title}</Text>
+          {!open && sub ? (
+            <Text style={styles.groupSub} numberOfLines={1}>{sub}</Text>
+          ) : null}
+        </View>
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={18} color={colors.textFaint} />
+      </PressableScale>
+      {open ? children : null}
+    </>
+  );
+}
+
 const makeStyles = () => StyleSheet.create({
+  logoutRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    paddingVertical: 10,
+  },
+  logoutText: {
+    color: "#FF4D4D",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  groupHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  groupTitle: {
+    color: colors.text,
+    fontWeight: "800",
+    fontSize: 15,
+  },
+  groupSub: {
+    color: colors.textFaint,
+    fontSize: 11.5,
+    marginTop: 2,
+  },
   sectionTitle: {
     color: colors.text,
     fontWeight: "800",

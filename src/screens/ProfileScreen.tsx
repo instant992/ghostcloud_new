@@ -59,7 +59,7 @@ export default function ProfileScreen() {
   const inTabs = useInTabArea();
 
   const nav = useNavigation<any>();
-  const { me, signOut, refreshMe, subscriptionActive, isFoxcloud } = useApp();
+  const { me, refreshMe, subscriptionActive, isFoxcloud } = useApp();
 
   const [editOpen, setEditOpen] = useState(false);
   const [nick, setNick] = useState("");
@@ -92,7 +92,6 @@ export default function ProfileScreen() {
   const [twoFaPassword, setTwoFaPassword] = useState("");
   const [twoFaBackupCodes, setTwoFaBackupCodes] = useState<string[] | null>(null);
   const [twoFaBusy, setTwoFaBusy] = useState(false);
-  const [logoutOpen, setLogoutOpen] = useState(false);
   const [benefitsOpen, setBenefitsOpen] = useState(false);
 
   const avatarUri = me?.avatar_url
@@ -696,7 +695,7 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* ─── Настройки и выход ─── */}
+        {/* ─── Переход в настройки (кнопка выхода перенесена в Настройки → Прочее) ─── */}
         <PressableScale
           style={styles.settingsBtn}
           onPress={() => nav.navigate("Настройки")}
@@ -704,14 +703,6 @@ export default function ProfileScreen() {
         >
           <Ionicons name="settings" size={19} color="#fff" />
           <Text style={styles.settingsBtnText}>Перейти в настройки</Text>
-        </PressableScale>
-        <PressableScale
-          style={styles.logoutBtn}
-          onPress={() => setLogoutOpen(true)}
-          accessibilityRole="button"
-        >
-          <Ionicons name="log-out" size={19} color="#fff" />
-          <Text style={styles.logoutBtnText}>Выйти из аккаунта</Text>
         </PressableScale>
       </ScrollView>
 
@@ -1008,26 +999,6 @@ export default function ProfileScreen() {
           </Pressable>
         </Pressable>
       </Modal>}
-
-      {/* Подтверждение выхода */}
-      {logoutOpen && <Modal visible={logoutOpen} transparent animationType="fade" onRequestClose={() => setLogoutOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setLogoutOpen(false)}>
-          <Pressable style={styles.modalCard} onPress={() => {}}>
-            <Text style={styles.modalTitle}>Выйти из аккаунта?</Text>
-            <Text style={styles.modalText}>
-              Вы будете перенаправлены на экран входа. Для повторного входа потребуется авторизация.
-            </Text>
-            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
-              <View style={{ flex: 1 }}>
-                <Button title="Отмена" variant="ghost" onPress={() => setLogoutOpen(false)} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button title="Выйти" variant="danger" onPress={signOut} />
-              </View>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>}
     </View>
   );
 }
@@ -1156,16 +1127,6 @@ const makeStyles = () =>
       marginBottom: 8,
     },
     settingsBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-    logoutBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      height: 48,
-      borderRadius: 12,
-      backgroundColor: colors.red,
-    },
-    logoutBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
     modalBackdrop: {
       flex: 1,
       backgroundColor: "rgba(0,0,0,0.6)",
