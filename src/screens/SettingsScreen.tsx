@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
@@ -20,11 +20,41 @@ import {
   getCoreStatus,
   getLauncherIcon,
   getXrayVersion,
+  isIgnoringBatteryOptimizations,
   loadLibCore,
   onCoreDownloadProgress,
   openVpnSettings,
+  requestIgnoreBatteryOptimizations,
+  requestVpnPermission,
   setLauncherIcon,
 } from "../vpn/native";
+
+/** Запрашивает системные разрешения, без которых Android не даст
+ *  автоподключению после загрузки устройства отработать молча:
+ *  POST_NOTIFICATIONS (Android 13+; без разрешения Android 14 убивает
+ *  foreground VPN-сервис) и исключение из экономии батареи (иначе
+ *  BOOT_COMPLETED-приёмник откладывается). Каждый шаг идемпотентен:
+ *  уже выданные разрешения не запрашиваются повторно. */
+async function ensureAutobootPermissions(): Promise<void> {
+  // 1. Уведомления — VPN-сервис работает как foreground с уведомлением.
+  if (Platform.OS === "android") {
+    try {
+      const Notifications = await import("expo-notifications");
+      const cur = await Notifications.getPermissionsAsync();
+      if (cur.granted || cur.ios?.status === Notifications.IosAuthorizationStatus.AUTHORIZED) {
+        // уже есть
+      } else {
+        await Notifications.requestPermissionsAsync();
+      }
+    } catch {}
+  }
+  // 2. Исключение из оптимизации батареи — приёмник загрузки сработает вовремя.
+  try {
+    if (!isIgnoringBatteryOptimizations()) {
+      requestIgnoreBatteryOptimizations();
+    }
+  } catch {}
+}
 
 const CORES_REPO_MANIFEST = "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/manifest.json";
 
@@ -890,11 +920,34 @@ export default function SettingsScreen() {
           </View>
           <Switch
             value={autoBoot}
-            onValueChange={(v) => {
-              setAutoBootState(v);
-              setAutoConnectBoot(v);
+            onValueChange={async (v) => {
               Haptics.selectionAsync().catch(() => {});
-              showToast(v ? "Автоподключение при загрузке включено" : "Автоподключение при загрузке выключено", "top");
+              if (!v) {
+                setAutoBootState(false);
+                setAutoConnectBoot(false);
+                showToast("Автоподключение при загрузке выключено", "top");
+                return;
+              }
+              // Android не даёт приложению поднять VPN «из ниоткуда» после
+              // загрузки: нужно заранее получить согласие на VPN, показывать
+              // уведомление (без него Android 14 убивает foreground-сервис) и
+              // вывести приложение из экономии батареи — иначе BOOT_COMPLETED
+              // отложится/не дойдёт. Запрашиваем всё сразу, чтобы потом телефон
+              // сам поднял VPN без единого ручного окна.
+              try {
+                const vpnOk = await requestVpnPermission();
+                if (!vpnOk) {
+                  showToast("Нужно разрешить VPN — автозапуск не включён", "top");
+                  return;
+                }
+                await ensureAutobootPermissions();
+              } catch {
+                showToast("Не удалось получить системные разрешения", "top");
+                return;
+              }
+              setAutoBootState(true);
+              setAutoConnectBoot(true);
+              showToast("Автоподключение при загрузке включено", "top");
             }}
             trackColor={{ false: colors.border, true: colors.accent }}
             thumbColor="#fff"
@@ -1023,13 +1076,13 @@ export default function SettingsScreen() {
       )}
       </SettingsGroup>
 
-      {/* ─── Группа «Прочее»: игра, о программе, выход из аккаунта ─── */}
+      {/* ─── Группа «Прочее»: игра, о программе ─── */}
       <SettingsGroup
         open={!!grpOpen.other}
         onToggle={() => toggleGroup("other")}
         icon="apps-outline"
         title="Прочее"
-        sub="Игра, о программе, выход из аккаунта"
+        sub="Игра, о программе"
       >
       <Card>
         <PressableScale
@@ -1069,8 +1122,9 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
         </PressableScale>
       </Card>
+      </SettingsGroup>
 
-      {/* Выход из аккаунта (перенесён из профиля) */}
+      {/* Выход из аккаунта — вне групп, всегда виден в конце экрана */}
       <Card>
         <PressableScale
           style={styles.logoutRow}
@@ -1082,7 +1136,6 @@ export default function SettingsScreen() {
           <Text style={styles.logoutText}>Выйти из аккаунта</Text>
         </PressableScale>
       </Card>
-      </SettingsGroup>
 
       {/* Подтверждение выхода из аккаунта */}
       {logoutOpen && <Modal visible={logoutOpen} transparent animationType="fade" onRequestClose={() => setLogoutOpen(false)}>

@@ -268,7 +268,7 @@ class XrayCoreModule : Module() {
       }
     }
 
-    AsyncFunction("startVpn") { configJson: String, allowedJson: String?, disallowedJson: String?, host: String?, port: Int, failoverJson: String?, promise: Promise ->
+    AsyncFunction("startVpn") { configJson: String, allowedJson: String?, disallowedJson: String?, host: String?, port: Int, failoverJson: String?, serverName: String?, promise: Promise ->
       if (XrayVpnService.isRunning.get()) {
         promise.reject("ERR_RUNNING", "VPN уже запущен", null)
         return@AsyncFunction
@@ -282,6 +282,7 @@ class XrayCoreModule : Module() {
         if (!host.isNullOrBlank()) putExtra("host", host)
         if (port > 0) putExtra("port", port)
         if (!failoverJson.isNullOrBlank()) putExtra("failover", failoverJson)
+        if (!serverName.isNullOrBlank()) putExtra("serverName", serverName)
       }
       try {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -729,6 +730,36 @@ class XrayCoreModule : Module() {
         context.startActivity(intent)
       } catch (e: Throwable) {
         android.util.Log.e("GhostCloud", "openVpnSettings failed", e)
+      }
+    }
+
+    /** Исключение из экономии батареи: без него Android может отложить
+     *  BOOT_COMPLETED-приёмник, и автоподключение при загрузке не сработает. */
+    Function("isIgnoringBatteryOptimizations") {
+      try {
+        val pm = context.getSystemService(android.content.Context.POWER_SERVICE) as? android.os.PowerManager
+        pm?.isIgnoringBatteryOptimizations(context.packageName) == true
+      } catch (e: Throwable) {
+        false
+      }
+    }
+
+    Function("requestIgnoreBatteryOptimizations") {
+      try {
+        val intent = android.content.Intent(
+          android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+          android.net.Uri.parse("package:" + context.packageName)
+        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+      } catch (e: Throwable) {
+        // Некоторые прошивки не имеют этого экрана — открываем общий список
+        try {
+          val intent = android.content.Intent(
+            android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS
+          ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+          context.startActivity(intent)
+        } catch (_: Throwable) {
+        }
       }
     }
 

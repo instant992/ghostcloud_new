@@ -63,6 +63,7 @@ class GcBootReceiver : BroadcastReceiver() {
     val host = prefs.getString("tile_vpn_host", "") ?: ""
     val port = prefs.getString("tile_vpn_port", "0")?.toIntOrNull() ?: 0
     val failover = prefs.getString("tile_vpn_failover", "") ?: ""
+    val serverName = prefs.getString("tile_vpn_server_name", "") ?: ""
 
     val svc = if (core == "xray") {
       Intent(context, XrayVpnService::class.java).apply {
@@ -73,6 +74,7 @@ class GcBootReceiver : BroadcastReceiver() {
         if (host.isNotEmpty()) putExtra("host", host)
         if (port > 0) putExtra("port", port)
         if (failover.isNotEmpty()) putExtra("failover", failover)
+        if (serverName.isNotEmpty()) putExtra("serverName", serverName)
       }
     } else {
       Intent(context, LibCoreVpnService::class.java).apply {
@@ -88,6 +90,7 @@ class GcBootReceiver : BroadcastReceiver() {
         if (host.isNotEmpty()) putExtra("host", host)
         if (port > 0) putExtra("port", port)
         if (failover.isNotEmpty()) putExtra("failover", failover)
+        if (serverName.isNotEmpty()) putExtra("serverName", serverName)
       }
     }
     try {

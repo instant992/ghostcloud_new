@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.VpnService
@@ -75,6 +76,12 @@ class XrayVpnService : VpnService() {
       }
       else -> {
         val config = intent?.getStringExtra("config")
+        // Имя сервера для уведомления — пишем ДО тикера, чтобы первая же
+        // отрисовка «Подключено · ММ:СС» шла с названием сервера.
+        // Фолбэк на prefs (tile_vpn_server_name) — для tile/boot-старта.
+        ticker.serverName = intent?.getStringExtra("serverName")
+          ?: getSharedPreferences("gc_settings", Context.MODE_PRIVATE)
+            .getString("tile_vpn_server_name", null)
         if (config != null) {
           startForegroundSilently()
           startVpnCore(

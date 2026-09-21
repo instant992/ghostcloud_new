@@ -5,6 +5,7 @@ import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "
 import type { VpnNode } from "./parse";
 import { buildXrayConfig, buildOutbound as buildXrayOutbound } from "./xrayConfig";
 import { buildSingBoxConfig } from "./singboxConfig";
+import { splitNameFlag } from "../theme";
 import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
 import { computeBypassForNetwork, loadFilterSettings, roscomRoutingForNetwork } from "./connectionFilter";
@@ -402,6 +403,9 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   const failover = buildFailoverInfo(core, node, bypass.domains, isSponsor, roscomMode);
 
   // Сохраняем конфигурацию для плитки быстрых настроек (включение без приложения)
+  // + имя сервера для уведомления (без ведущего флага — в шторке флаги-эмодзи
+  // часто рендерятся квадратами, а «Германия» читается всегда).
+  const serverName = splitNameFlag(node.name).name || node.name;
   const saveTileConfig = (config: string, coreKey: string) => {
     try {
       setSetting("tile_vpn_core", coreKey);
@@ -410,6 +414,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
       setSetting("tile_vpn_blocked", blocked.join(","));
       setSetting("tile_vpn_host", node.address);
       setSetting("tile_vpn_port", String(node.port));
+      setSetting("tile_vpn_server_name", serverName);
       setSetting(
         "tile_vpn_failover",
         failover ? JSON.stringify(failover.candidates) : ""
@@ -443,7 +448,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   }
   const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
   saveTileConfig(config, "xray");
-  await startVpn(config, allowed, blocked, failover);
+  await startVpn(config, allowed, blocked, failover, serverName);
   lastConnectedNodeId = node.id;
   markVpnConnected();
 }

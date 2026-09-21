@@ -52,7 +52,9 @@ async function urlPingOne(n: VpnNode): Promise<PingState> {
 
 async function tcpPingOne(n: VpnNode): Promise<PingState> {
   try {
-    const delay = await tcpPing(n.address, n.port, 5000);
+    // 2.5 с достаточно: живые серверы отвечают за 10–300 мс, а мёртвый узел
+    // не должен блокировать воркера на 5 с (проверка всего списка тянулась).
+    const delay = await tcpPing(n.address, n.port, 2500);
     return { status: "done", delay };
   } catch (e: any) {
     return { status: "done", delay: -1, error: e?.message || "недоступен" };
@@ -129,7 +131,8 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
   emit();
 }
 
-/** TCP-волна: 4 одновременных воркера, как было */
+/** TCP-волна: 8 одновременных воркеров (было 4 — список из 20 узлов
+ *  с мёртвыми серверами проверялся слишком долго) */
 async function tcpWave(targets: VpnNode[]): Promise<void> {
   if (targets.length === 0) return;
   let index = 0;
@@ -140,5 +143,5 @@ async function tcpWave(targets: VpnNode[]): Promise<void> {
       emit();
     }
   };
-  await Promise.all([worker(), worker(), worker(), worker()]);
+  await Promise.all([worker(), worker(), worker(), worker(), worker(), worker(), worker(), worker()]);
 }

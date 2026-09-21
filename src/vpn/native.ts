@@ -183,6 +183,22 @@ export function openVpnSettings(): void {
   } catch {}
 }
 
+/** Исключение из экономии батареи — нужно, чтобы BOOT_COMPLETED-приёмник
+ *  гарантированно срабатывал (автоподключение при загрузке устройства). */
+export function isIgnoringBatteryOptimizations(): boolean {
+  try {
+    return XrayNative?.isIgnoringBatteryOptimizations?.() === true;
+  } catch {
+    return false;
+  }
+}
+
+export function requestIgnoreBatteryOptimizations(): void {
+  try {
+    XrayNative?.requestIgnoreBatteryOptimizations?.();
+  } catch {}
+}
+
 /** События смены типа сети (Wi-Fi ↔ LTE) — для фильтра соединения */
 export function onNetworkTypeChanged(cb: (type: string) => void): () => void {
   if (!emitter) return () => {};
@@ -196,7 +212,8 @@ export async function startVpn(
   configJson: string,
   allowedApps: string[] = [],
   disallowedApps: string[] = [],
-  failover?: FailoverInfo
+  failover?: FailoverInfo,
+  serverName?: string
 ): Promise<boolean> {
   if (!XrayNative) throw new Error("VPN-модуль недоступен (соберите нативное приложение)");
   const [foHost, foPort, foJson] = failoverArgs(failover);
@@ -206,7 +223,8 @@ export async function startVpn(
     disallowedApps.length ? disallowedApps.join(",") : null,
     foHost,
     foPort,
-    foJson
+    foJson,
+    serverName ?? null
   );
 }
 
@@ -350,10 +368,11 @@ export async function pingNodesBatch(
       // pingBatch — AsyncFunction на нативной стороне, обязательно await:
       // без него JSON.parse(Promise) бросает «Unexpected token 'o'» и все
       // узлы ложно помечаются непроверенными
-      // gstatic — лёгкий 204-эндпоинт Google (CDN-края по всему миру, не
-      // блокирует дата-центровые IP, в отличие от cp.cloudflare.com, который
-      // отдаёт 403 многим серверам — из-за этого URL-тест «не работал как надо»).
-      const res = await XrayNative.pingBatch(payload, 10, "https://www.gstatic.com/generate_204");
+      // Таймаут пробы 5 с (было 10): рабочий URL-тест через прокси укладывается
+      // в 0.2–2 с, а мёртвый узел блокировал порцию на все 10 с — проверка
+      // списка тянулась до минуты. Внутри pingBatch пробы параллельны, поэтому
+      // 5 с = максимум на всю порцию из 5 узлов, а не на узел.
+      const res = await XrayNative.pingBatch(payload, 5, "https://www.gstatic.com/generate_204");
       const parsed = JSON.parse(res);
       if (!parsed?.success) throw new Error(parsed?.error || "ping failed");
       const items = parsed?.data?.results || [];

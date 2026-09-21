@@ -47,7 +47,8 @@ object VpnNotifications {
     channelId: String,
     running: Boolean,
     timer: String,
-    stopIntent: PendingIntent
+    stopIntent: PendingIntent,
+    serverName: String? = null
   ): Notification {
     ensureChannel(service, channelId)
     val launchIntent = service.packageManager.getLaunchIntentForPackage(service.packageName)
@@ -74,13 +75,15 @@ object VpnNotifications {
     if (running) {
       // Без «GhostCloud» в заголовке: имя приложения система и так показывает
       // над уведомлением, получалось две одинаковые строки.
-      // Первая строка — «Подключено · таймер», вторая — «Вы под защитой».
+      // Первая строка — «Подключено · таймер», вторая — имя сервера
+      // (без него — запасной текст «Вы под защитой»).
       val title = if (timer.isNotEmpty()) "Подключено · $timer" else "Подключено"
+      val body = if (!serverName.isNullOrBlank()) serverName else "Вы под защитой"
       builder.setContentTitle(title)
-      builder.setContentText("Вы под защитой")
+      builder.setContentText(body)
       builder.setStyle(
         Notification.BigTextStyle()
-          .bigText("Вы под защитой")
+          .bigText(body)
           .setBigContentTitle(title)
       )
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -106,6 +109,8 @@ class NotificationTicker(
   private val handler = Handler(Looper.getMainLooper())
   private var startTimeMs = 0L
   private var active = false
+  @Volatile
+  var serverName: String? = null
 
   private val runnable = object : Runnable {
     override fun run() {
@@ -114,7 +119,7 @@ class NotificationTicker(
       val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
       nm.notify(
         notificationId,
-        VpnNotifications.build(service, channelId, true, VpnNotifications.formatElapsed(elapsed), stopIntent)
+        VpnNotifications.build(service, channelId, true, VpnNotifications.formatElapsed(elapsed), stopIntent, serverName)
       )
       handler.postDelayed(this, 1000)
     }
