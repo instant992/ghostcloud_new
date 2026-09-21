@@ -15,7 +15,7 @@ import {
   ensureFreshPings,
   isLteNode,
 } from "./autoSelect";
-import { pingNodesBatch } from "./native";
+import { pingNodesBatch, loadLibCore, getCoreStatus } from "./native";
 import {
   getInstalledPackageNames,
   getNetworkType,
@@ -85,7 +85,7 @@ function buildFailoverInfo(
     .filter((n) => n.id !== current.id)
     .filter((n) => n.source !== "lte")
     .filter((n) => isNodeUsable(n))
-    .filter((n) => (core === "xray" ? n.supportedByXray : true));
+    .filter((n) => (core === "xray" || core === "uwuray" ? n.supportedByXray : true));
   const ranked = rankByPing(rest);
   // без пинга — исходный порядок, после пропингованных
   const rankedIds = new Set(ranked.map((n) => n.id));
@@ -134,7 +134,7 @@ export async function pickBestNode(
       !isLteNode(n) &&
       !exclude.has(n.id) &&
       isNodeUsable(n) &&
-      (core === "xray" ? n.supportedByXray : true)
+      (core === "xray" || core === "uwuray" ? n.supportedByXray : true)
   );
   if (candidates.length === 0) return [];
 
@@ -323,6 +323,36 @@ export type ConnectOptions = {
   isSponsor?: boolean;
 };
 
+/** UwuRay — скачиваемое ядро: после рестарта процесса библиотека не загружена.
+ *  Грузим её лениво перед подключением (идемпотентно: GcUwuCore.load кэширует). */
+let uwuRayLoadPromise: Promise<void> | null = null;
+async function ensureUwuRayLoaded(): Promise<void> {
+  if (uwuRayLoadPromise) return uwuRayLoadPromise;
+  uwuRayLoadPromise = (async () => {
+    const st = getCoreStatus("libuwuray.so");
+    if (!st?.downloaded) {
+      throw new Error("Ядро UwuRay не скачано — загрузите его в настройках");
+    }
+    try {
+      await loadLibCore("uwuray");
+    } catch (e: any) {
+      // ERR_CORE_CONFLICT: в этом процессе уже загружено другое скачиваемое ядро
+      // (Go-рантайм один на процесс) — нужен перезапуск приложения.
+      const msg = String(e?.message || e || "");
+      if (msg.includes("ERR_CORE_CONFLICT") || msg.includes("перезапустите")) {
+        throw new Error("Переключено ядро — перезапустите приложение, чтобы применить UwuRay");
+      }
+      throw new Error(msg || "Не удалось загрузить ядро UwuRay");
+    }
+  })();
+  try {
+    await uwuRayLoadPromise;
+  } catch (e) {
+    uwuRayLoadPromise = null; // разрешить повторную попытку после перезапуска
+    throw e;
+  }
+}
+
 export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise<void> {
   const granted = await ensurePermission();
   if (!granted) throw new Error("Нет разрешения на создание VPN-подключения");
@@ -381,6 +411,20 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     const config = buildSingBoxConfig(node, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
+    lastConnectedNodeId = node.id;
+    markVpnConnected();
+    return;
+  }
+  if (core === "uwuray") {
+    // UwuRay — форк Xray-core: конфиг и анти-DPI (finalmask) как у Xray,
+    // но ядро скачиваемое (System.load) — стартует через LibCoreVpnService.
+    if (!node.supportedByXray) {
+      throw new Error("Hysteria2 доступен только на ядре sing-box — выберите его в настройках");
+    }
+    await ensureUwuRayLoaded();
+    const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
+    saveTileConfig(config, "uwuray");
+    await startLibCoreVpn("uwuray", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
     markVpnConnected();
     return;

@@ -20,7 +20,7 @@ export type ThemeName =
   | "happ"
   | "simple";
 export type ThemeMode = "dark" | "light" | "auto";
-export type CoreName = "xray" | "sing-box";
+export type CoreName = "xray" | "sing-box" | "uwuray";
 
 export function getSetting(key: string, fallback: string): string {
   try {
@@ -73,6 +73,7 @@ export function getThemeMode(): ThemeMode {
 export function getSelectedCore(): CoreName {
   const v = getSetting("core", "xray");
   if (v === "sing-box") return "sing-box";
+  if (v === "uwuray") return "uwuray";
   // Mihomo убран из приложения: ранее выбранное ядро мигрируем на встроенный Xray,
   // иначе в настройках не было бы активного пункта, а подключение падало бы.
   if (v === "mihomo") {

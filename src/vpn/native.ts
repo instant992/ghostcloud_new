@@ -72,7 +72,7 @@ export async function deleteCore(name: string): Promise<boolean> {
   return XrayNative.deleteCore(name);
 }
 
-export async function loadLibCore(lib: "mihomo" | "singbox"): Promise<string> {
+export async function loadLibCore(lib: "mihomo" | "singbox" | "uwuray"): Promise<string> {
   if (!XrayNative) throw new Error("модуль недоступен");
   return XrayNative.loadLibCore(lib);
 }
@@ -91,7 +91,7 @@ function failoverArgs(failover?: FailoverInfo): [string | null, number, string |
 }
 
 export async function startLibCoreVpn(
-  lib: "mihomo" | "singbox",
+  lib: "mihomo" | "singbox" | "uwuray",
   config: string,
   allowedApps: string[] = [],
   disallowedApps: string[] = [],

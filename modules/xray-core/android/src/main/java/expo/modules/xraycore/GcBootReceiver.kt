@@ -77,7 +77,11 @@ class GcBootReceiver : BroadcastReceiver() {
     } else {
       Intent(context, LibCoreVpnService::class.java).apply {
         action = LibCoreVpnService.ACTION_START
-        putExtra("lib", if (core == "mihomo") "mihomo" else "singbox")
+        putExtra("lib", when (core) {
+          "mihomo" -> "mihomo"
+          "uwuray" -> "uwuray"
+          else -> "singbox"
+        })
         putExtra("config", config)
         if (allowed.isNotEmpty()) putExtra("allowed", allowed)
         if (blocked.isNotEmpty()) putExtra("disallowed", blocked)

@@ -91,6 +91,8 @@ class LibCoreVpnService : VpnService() {
     failoverJson: String? = null
   ) {
     try {
+      // Конфиг может дополняться env-секцией (xray.location.asset) для UwuRay
+      val configRef = java.util.concurrent.atomic.AtomicReference(config)
       val builder = Builder()
         .setSession("GhostCloud")
         .setMtu(1500)
@@ -132,20 +134,41 @@ class LibCoreVpnService : VpnService() {
       tunInterface = pfd
 
       // Geo rule-set'ы RoscomVPN: распаковываем в домашний каталог ядра
-      // (тот же, что задан в loadLibCore: filesDir/singbox или filesDir/mihomo;
-      //  gcInit делает chdir в него, поэтому относительные пути rule-set/... работают)
+      // (тот же, что задан в loadLibCore: filesDir/singbox, filesDir/mihomo или
+      //  filesDir/uwuray; gcInit делает chdir в него, поэтому относительные пути работают)
       try {
-        val home = File(filesDir, if (lib == "singbox") "singbox" else "mihomo")
+        val home = File(filesDir, when (lib) {
+          "singbox" -> "singbox"
+          "uwuray" -> "uwuray"
+          else -> "mihomo"
+        })
         if (!home.exists()) home.mkdirs()
-        if (lib == "singbox") GeoAssets.singboxRuleSets(applicationContext, home)
-        else GeoAssets.mihomoRuleSets(applicationContext, home)
+        when (lib) {
+          "singbox" -> GeoAssets.singboxRuleSets(applicationContext, home)
+          "uwuray" -> {
+            // UwuRay = форк Xray-core: geoip.dat/geosite.dat в каталог ядра +
+            // xray.location.asset через env-секцию конфига (добавляется ниже).
+            val geoDir = GeoAssets.xrayAssetDir(applicationContext)
+            val json = org.json.JSONObject(config)
+            val env = json.optJSONObject("env") ?: org.json.JSONObject().also { json.put("env", it) }
+            env.put("xray.location.asset", geoDir.absolutePath)
+            configRef.set(json.toString())
+          }
+          else -> GeoAssets.mihomoRuleSets(applicationContext, home)
+        }
       } catch (e: Throwable) {
         android.util.Log.e("GhostCloud", "geo rule-sets failed", e)
       }
 
+      // Библиотека ядра должна быть загружена в этом процессе. Путь через
+      // приложение грузит её заранее (loadLibCore), но boot-receiver/плитка
+      // стартуют сервис напрямую — подгружаем здесь (идемпотентно).
+      ensureLibLoaded(lib)
+
       val err = when (lib) {
-        "mihomo" -> GcCore.gcStart(config, pfd.fd)
-        "singbox" -> GcSbCore.gcStart(config, pfd.fd)
+        "mihomo" -> GcCore.gcStart(configRef.get(), pfd.fd)
+        "singbox" -> GcSbCore.gcStart(configRef.get(), pfd.fd)
+        "uwuray" -> GcUwuCore.gcStart(configRef.get(), pfd.fd)
         else -> "неизвестное ядро: $lib"
       }
       if (err.isNotEmpty()) {
@@ -169,10 +192,37 @@ class LibCoreVpnService : VpnService() {
     }
   }
 
+  /** Ленивая загрузка .so ядра в текущий процесс (для boot/tile-пути без JS). */
+  private fun ensureLibLoaded(lib: String) {
+    val fileName = when (lib) {
+      "singbox" -> "libsingbox.so"
+      "uwuray" -> "libuwuray.so"
+      else -> "libclash.so"
+    }
+    val file = File(filesDir, "cores/$fileName")
+    val home = File(filesDir, when (lib) {
+      "singbox" -> "singbox"; "uwuray" -> "uwuray"; else -> "mihomo"
+    })
+    if (!home.exists()) home.mkdirs()
+    if (!file.exists()) throw IllegalStateException("Ядро не скачано: $lib")
+    val already = when (lib) {
+      "singbox" -> GcSbCore.loaded
+      "uwuray" -> GcUwuCore.loaded
+      else -> GcCore.loaded
+    }
+    if (already) return
+    when (lib) {
+      "singbox" -> { GcSbCore.load(file.absolutePath); GcSbCore.gcInit(home.absolutePath) }
+      "uwuray" -> { GcUwuCore.load(file.absolutePath); GcUwuCore.gcInit(home.absolutePath) }
+      else -> { GcCore.load(file.absolutePath); GcCore.gcInit(home.absolutePath) }
+    }
+  }
+
   private fun stopLibCore(lib: String) {
     when (lib) {
       "mihomo" -> if (GcCore.loaded) GcCore.gcStop()
       "singbox" -> if (GcSbCore.loaded) GcSbCore.gcStop()
+      "uwuray" -> if (GcUwuCore.loaded) GcUwuCore.gcStop()
     }
   }
 
@@ -182,6 +232,7 @@ class LibCoreVpnService : VpnService() {
     try {
       if (GcCore.loaded) GcCore.gcStop()
       if (GcSbCore.loaded) GcSbCore.gcStop()
+      if (GcUwuCore.loaded) GcUwuCore.gcStop()
     } catch (_: Throwable) {
     }
     closeTun()
@@ -209,9 +260,22 @@ class LibCoreVpnService : VpnService() {
     val pfd = tunInterface ?: return false
     return try {
       stopLibCore(currentLib)
+      // UwuRay (форк Xray): как и при первом старте, добавляем xray.location.asset
+      var cfg = config
+      if (currentLib == "uwuray") {
+        try {
+          val geoDir = GeoAssets.xrayAssetDir(applicationContext)
+          val json = org.json.JSONObject(config)
+          val env = json.optJSONObject("env") ?: org.json.JSONObject().also { json.put("env", it) }
+          env.put("xray.location.asset", geoDir.absolutePath)
+          cfg = json.toString()
+        } catch (_: Throwable) {
+        }
+      }
       val err = when (currentLib) {
-        "mihomo" -> GcCore.gcStart(config, pfd.fd)
-        "singbox" -> GcSbCore.gcStart(config, pfd.fd)
+        "mihomo" -> GcCore.gcStart(cfg, pfd.fd)
+        "singbox" -> GcSbCore.gcStart(cfg, pfd.fd)
+        "uwuray" -> GcUwuCore.gcStart(cfg, pfd.fd)
         else -> "неизвестное ядро: $currentLib"
       }
       if (err.isNotEmpty()) {

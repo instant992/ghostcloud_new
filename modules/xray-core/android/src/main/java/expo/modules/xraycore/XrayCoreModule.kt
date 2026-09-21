@@ -529,13 +529,21 @@ class XrayCoreModule : Module() {
     AsyncFunction("loadLibCore") { lib: String, promise: Promise ->
       kotlin.concurrent.thread(name = "gc-libcore-load") {
         try {
-          val fileName = if (lib == "singbox") "libsingbox.so" else "libclash.so"
+          val fileName = when (lib) {
+            "singbox" -> "libsingbox.so"
+            "uwuray" -> "libuwuray.so"
+            else -> "libclash.so"
+          }
           val file = File(context.filesDir, "cores/$fileName")
           if (!file.exists()) {
             promise.reject("ERR_NO_CORE", "Ядро не скачано: $lib", null)
             return@thread
           }
-          val home = File(context.filesDir, if (lib == "singbox") "singbox" else "mihomo")
+          val home = File(context.filesDir, when (lib) {
+            "singbox" -> "singbox"
+            "uwuray" -> "uwuray"
+            else -> "mihomo"
+          })
           if (!home.exists()) home.mkdirs()
           val version = when (lib) {
             "singbox" -> {
@@ -546,6 +554,21 @@ class XrayCoreModule : Module() {
                 return@thread
               }
               GcSbCore.gcVersion()
+            }
+            "uwuray" -> {
+              // Второй Go-рантайм в процессе запрещён: если уже загружено
+              // другое скачиваемое ядро — сообщаем явно (нужен перезапуск приложения).
+              if (GcSbCore.loaded || GcCore.loaded) {
+                promise.reject("ERR_CORE_CONFLICT", "Другое ядро уже загружено — перезапустите приложение", null)
+                return@thread
+              }
+              GcUwuCore.load(file.absolutePath)
+              val err = GcUwuCore.gcInit(home.absolutePath)
+              if (err.isNotEmpty()) {
+                promise.reject("ERR_INIT", "uwuray: $err", null)
+                return@thread
+              }
+              GcUwuCore.gcVersion()
             }
             else -> {
               GcCore.load(file.absolutePath)
@@ -575,6 +598,7 @@ class XrayCoreModule : Module() {
       }
       val loaded = when (lib) {
         "singbox" -> GcSbCore.loaded
+        "uwuray" -> GcUwuCore.loaded
         else -> GcCore.loaded
       }
       if (!loaded) {
