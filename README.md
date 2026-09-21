@@ -17,10 +17,16 @@ APK по архитектурам: `android/app/build/outputs/apk/release/`.
 Нативное ядро не хранится в репозитории. Перед сборкой скачай AAR:
 
 ```bash
-curl -L -o android/xraylibs/libXray.aar \
-  "https://github.com/XTLS/libXray/releases/download/v26.7.28/libxray-android.zip"
-# затем распаковать zip и взять libXray-android/libXray.aar
+curl -L -o /tmp/libxray-android.zip \
+  "https://github.com/XTLS/libXray/releases/download/v26.9.9/libxray-android.zip"
+# затем распаковать zip и взять libXray.aar в android/xraylibs/libXray.aar
 ```
+
+Или запусти готовый хук: `bash scripts/eas/download-libxray.sh`.
+
+Ядро — Xray-core **v26.9.9** (libXray apiVersion 3: `XrayApi.kt` читает версию
+из `LibXray.LibXrayAPIVersion`, поэтому при следующей пересборке aar править
+Kotlin не нужно).
 
 ### Подпись
 

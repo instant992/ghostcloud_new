@@ -55,7 +55,10 @@ class LibCoreVpnService : VpnService() {
     when (intent?.action) {
       ACTION_STOP -> {
         stopCore()
-        stopForegroundAndSelf()
+        // stopSelf(startId): не даём отложенному onDestroy убить туннель,
+        // если новый ACTION_START уже доставлен (краш при быстрой смене сервера).
+        stopForegroundCompat()
+        stopSelf(startId)
       }
       else -> {
         val config = intent?.getStringExtra("config")
@@ -227,7 +230,18 @@ class LibCoreVpnService : VpnService() {
   }
 
   private fun stopCore() {
-    monitor?.destroy()
+    // Сначала гасим failover-монитор и ЖДЁМ (ограниченно) его in-flight
+    // restart: quitSafely() не ждёт выполняющийся restartLibCore, а тот держит
+    // TUN fd — closeTun() под ним = use-after-close → SIGSEGV в Go-рантайме
+    // (краш процесса при смене сервера/отключении VPN).
+    monitor?.let { m ->
+      m.stop()
+      val deadline = System.currentTimeMillis() + 3000
+      while (m.isRestarting() && System.currentTimeMillis() < deadline) {
+        try { Thread.sleep(50) } catch (_: Throwable) { break }
+      }
+      m.destroy()
+    }
     monitor = null
     try {
       if (GcCore.loaded) GcCore.gcStop()
@@ -326,7 +340,7 @@ class LibCoreVpnService : VpnService() {
     }
   }
 
-  private fun stopForegroundAndSelf() {
+  private fun stopForegroundCompat() {
     ticker.stop()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       stopForeground(STOP_FOREGROUND_REMOVE)
@@ -334,6 +348,10 @@ class LibCoreVpnService : VpnService() {
       @Suppress("DEPRECATION")
       stopForeground(true)
     }
+  }
+
+  private fun stopForegroundAndSelf() {
+    stopForegroundCompat()
     stopSelf()
   }
 

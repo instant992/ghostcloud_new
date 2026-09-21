@@ -58,7 +58,10 @@ class CoreVpnService : VpnService() {
     when (intent?.action) {
       ACTION_STOP -> {
         stopCore()
-        stopForegroundAndSelf()
+        // stopSelf(startId): не даём отложенному onDestroy убить туннель,
+        // если новый ACTION_START уже доставлен (краш при быстрой смене сервера).
+        stopForegroundCompat()
+        stopSelf(startId)
       }
       else -> {
         val config = intent?.getStringExtra("config")
@@ -241,7 +244,7 @@ class CoreVpnService : VpnService() {
     }
   }
 
-  private fun stopForegroundAndSelf() {
+  private fun stopForegroundCompat() {
     ticker.stop()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       stopForeground(STOP_FOREGROUND_REMOVE)
@@ -249,6 +252,10 @@ class CoreVpnService : VpnService() {
       @Suppress("DEPRECATION")
       stopForeground(true)
     }
+  }
+
+  private fun stopForegroundAndSelf() {
+    stopForegroundCompat()
     stopSelf()
   }
 

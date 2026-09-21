@@ -12,7 +12,7 @@ if [ -f "$AAR_PATH" ]; then
   exit 0
 fi
 
-URL="https://github.com/XTLS/libXray/releases/download/v26.7.28/libxray-android.zip"
+URL="https://github.com/XTLS/libXray/releases/download/v26.9.9/libxray-android.zip"
 TMP="$(mktemp -d)"
 echo "Скачиваю $URL ..."
 curl -fL --retry 3 -o "$TMP/libxray-android.zip" "$URL"

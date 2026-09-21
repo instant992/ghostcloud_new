@@ -8,12 +8,20 @@ import java.io.File
 
 /**
  * Обёртка над LibXray.invoke с автоопределением версии API.
- * Свежие сборки libXray используют apiVersion 2 (payload {xrayJson}),
- * более старые — apiVersion 1 (payload {configPath}).
+ * apiVersion берётся из самой библиотеки (LibXray.LibXrayAPIVersion) — свежие
+ * сборки libXray (v26.9+) требуют СТРОГОГО совпадения версии (сейчас 3) и
+ * отвечают «unsupported apiVersion» на любое другое значение; payload-формы
+ * (xrayJson / configs / url) от версии к версии не менялись. Для старых aar без
+ * этого поля — дефолт 2, с фолбэком на apiVersion 1 (payload {configPath}).
  */
 object XrayApi {
 
   private var forceV1 = false
+
+  // Версия API, которую ожидает подключённый libXray.aar.
+  private val apiVersion: Int by lazy {
+    runCatching { LibXray.LibXrayAPIVersion.toInt() }.getOrDefault(2)
+  }
 
   private fun errorResult(message: String): JSONObject = try {
     JSONObject().put("success", false).put("error", message)
@@ -23,7 +31,7 @@ object XrayApi {
 
   fun invoke(context: Context?, method: String, payload: JSONObject? = null): JSONObject {
     if (!forceV1) {
-      val req = JSONObject().put("apiVersion", 2).put("method", method)
+      val req = JSONObject().put("apiVersion", apiVersion).put("method", method)
       if (payload != null && payload.length() > 0) {
         req.put("payload", payload)
       }
@@ -32,6 +40,7 @@ object XrayApi {
         return res
       }
       val err = res.optString("error", "")
+      // Только если сама библиотека просит другую версию — пробуем legacy-путь.
       if (err.contains("apiversion", ignoreCase = true) ||
         err.contains("api version", ignoreCase = true)
       ) {
@@ -84,7 +93,7 @@ object XrayApi {
         JSONObject()
           .put("configs", configsOut)
           .put("timeout", payload.optInt("timeout", 5))
-          .put("url", payload.optString("url", "https://cp.cloudflare.com/"))
+          .put("url", payload.optString("url", "https://www.gstatic.com/generate_204"))
       }
       else -> payload
     }

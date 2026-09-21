@@ -358,8 +358,17 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   if (!granted) throw new Error("Нет разрешения на создание VPN-подключения");
   const running = await isVpnRunning();
   if (running) {
-    await stopVpn();
-    await new Promise((r) => setTimeout(r, 800));
+    stopVpn();
+    // Ждём фактической остановки (нативная сторона может гасить failover-монитор
+    // до 3 с), а не фиксированные 800 мс — иначе runXray стартует на ещё не
+    // закрытом туннеле и падает (краш при быстрой смене сервера).
+    const deadline = Date.now() + 4000;
+    while (Date.now() < deadline) {
+      if (!(await isVpnRunning())) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    // Страховка: даже если сервис не рапортует остановку, даём ему договорить
+    await new Promise((r) => setTimeout(r, 300));
   }
   const filter = await loadFilter();
   const bypass = currentBypass();

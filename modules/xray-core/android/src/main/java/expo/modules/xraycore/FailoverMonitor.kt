@@ -98,6 +98,13 @@ class FailoverMonitor(
     thread.quitSafely()
   }
 
+  /** Завершается ли сейчас перезапуск ядра на фоновом потоке.
+   *  stop-путь проверяет это, чтобы не закрывать TUN под идущим runXray. */
+  fun isRestarting(): Boolean = restarting
+
+  @Volatile
+  private var restarting = false
+
   private fun acquireWakeLock() {
     try {
       val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -154,10 +161,13 @@ class FailoverMonitor(
       }
       Log.i(TAG, "switching to ${candidate.host}:${candidate.port}")
       val ok = try {
+        restarting = true
         restart(candidate)
       } catch (e: Throwable) {
         Log.e(TAG, "restart error", e)
         false
+      } finally {
+        restarting = false
       }
       if (ok) {
         index = candidateIndex

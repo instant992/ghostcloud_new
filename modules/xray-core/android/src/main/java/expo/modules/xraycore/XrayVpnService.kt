@@ -66,7 +66,12 @@ class XrayVpnService : VpnService() {
     when (intent?.action) {
       ACTION_STOP -> {
         stopVpnCore()
-        stopForegroundAndSelf()
+        // stopSelf(startId): если следом уже доставлен ACTION_START с новым
+        // startId, система НЕ станет уничтожать сервис — иначе отложенный
+        // onDestroy убивал только что поднятый туннель (краш при быстрой
+        // смене сервера: stop → start → отложенный destroy).
+        stopForegroundCompat()
+        stopSelf(startId)
       }
       else -> {
         val config = intent?.getStringExtra("config")
@@ -188,7 +193,18 @@ class XrayVpnService : VpnService() {
   }
 
   private fun stopVpnCore() {
-    monitor?.destroy()
+    // Сначала гасим failover-монитор и ЖДЁМ (ограниченно) его in-flight
+    // restart: quitSafely() не ждёт выполняющийся restartXray, а тот держит
+    // TUN fd — closeTun() под ним = use-after-close → SIGSEGV в Go-рантайме
+    // (краш процесса при смене сервера/отключении VPN).
+    monitor?.let { m ->
+      m.stop()
+      val deadline = System.currentTimeMillis() + 3000
+      while (m.isRestarting() && System.currentTimeMillis() < deadline) {
+        try { Thread.sleep(50) } catch (_: Throwable) { break }
+      }
+      m.destroy()
+    }
     monitor = null
     try {
       XrayApi.invoke(applicationContext, "stopXray")
@@ -277,7 +293,7 @@ class XrayVpnService : VpnService() {
     }
   }
 
-  private fun stopForegroundAndSelf() {
+  private fun stopForegroundCompat() {
     ticker.stop()
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
       stopForeground(STOP_FOREGROUND_REMOVE)
@@ -285,6 +301,10 @@ class XrayVpnService : VpnService() {
       @Suppress("DEPRECATION")
       stopForeground(true)
     }
+  }
+
+  private fun stopForegroundAndSelf() {
+    stopForegroundCompat()
     stopSelf()
   }
 

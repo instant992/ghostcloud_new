@@ -350,7 +350,10 @@ export async function pingNodesBatch(
       // pingBatch — AsyncFunction на нативной стороне, обязательно await:
       // без него JSON.parse(Promise) бросает «Unexpected token 'o'» и все
       // узлы ложно помечаются непроверенными
-      const res = await XrayNative.pingBatch(payload, 10, "https://cp.cloudflare.com/generate_204");
+      // gstatic — лёгкий 204-эндпоинт Google (CDN-края по всему миру, не
+      // блокирует дата-центровые IP, в отличие от cp.cloudflare.com, который
+      // отдаёт 403 многим серверам — из-за этого URL-тест «не работал как надо»).
+      const res = await XrayNative.pingBatch(payload, 10, "https://www.gstatic.com/generate_204");
       const parsed = JSON.parse(res);
       if (!parsed?.success) throw new Error(parsed?.error || "ping failed");
       const items = parsed?.data?.results || [];
