@@ -8,9 +8,45 @@ export type PingState =
   | { status: "pending" }
   | { status: "done"; delay: number; error?: string };
 
-let map: Record<string, PingState> = {}
+let map: Record<string, PingState> = {};
 const listeners = new Set<() => void>();
 let running = false;
+
+/** Жёсткий потолок ожидания одной порции URL-теста (pingBatch).
+ *  Нативный промис изредка не возвращается вовсе (гонка stop/start VPN-сервиса) —
+ *  без потолка волна висит вечно и running=true блокирует все следующие пинги. */
+const PING_BATCH_CHUNK_TIMEOUT_MS = 30_000;
+/** Потолок на одну TCP-пробу: нативный таймаут 2.5 с + запас на доставку промиса. */
+const TCP_PROBE_TIMEOUT_MS = 6_000;
+
+/** Резолвит промис значением по таймеру — страховка от потерянных нативных промисов. */
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let done = false;
+    const t = setTimeout(() => {
+      if (!done) {
+        done = true;
+        resolve(fallback);
+      }
+    }, ms);
+    p.then(
+      (v) => {
+        if (!done) {
+          done = true;
+          clearTimeout(t);
+          resolve(v);
+        }
+      },
+      () => {
+        if (!done) {
+          done = true;
+          clearTimeout(t);
+          resolve(fallback);
+        }
+      }
+    );
+  });
+}
 
 function emit() {
   map = { ...map };
@@ -54,7 +90,10 @@ async function tcpPingOne(n: VpnNode): Promise<PingState> {
   try {
     // 2.5 с достаточно: живые серверы отвечают за 10–300 мс, а мёртвый узел
     // не должен блокировать воркера на 5 с (проверка всего списка тянулась).
-    const delay = await tcpPing(n.address, n.port, 2500);
+    // withTimeout — страховка: если нативный промис потеряется (гонка
+    // stop/start сервиса), воркер не зависнет навсегда и волна завершится.
+    const delay = await withTimeout(tcpPing(n.address, n.port, 2500), TCP_PROBE_TIMEOUT_MS, -1);
+    if (delay < 0) return { status: "done", delay: -1, error: "недоступен" };
     return { status: "done", delay };
   } catch (e: any) {
     return { status: "done", delay: -1, error: e?.message || "недоступен" };
@@ -89,46 +128,65 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
   map = { ...map, ...next };
   emit();
 
-  const method = getPingMethod();
-  const vpnUp = await isVpnRunning();
-  if (method === "url" && !vpnUp) {
-    // URL-тест: сам pingNodesBatch режет на порции по 5, но отдаёт всё в конце —
-    // при 20 узлах это ~40 с сплошного спиннера («не работает»). Поэтому режем
-    // на порции здесь и публикуем результаты после каждой.
-    try {
-      const withOb = targets
-        .map((n) => ({ n, ob: buildOutbound(n) }))
-        .filter((x): x is { n: VpnNode; ob: Record<string, any> } => !!x.ob);
-      const doneIds = new Set<string>();
-      for (let i = 0; i < withOb.length; i += 5) {
-        const chunk = withOb.slice(i, i + 5);
-        const results = await pingNodesBatch(
-          chunk.map((x) => ({ xrayJson: JSON.stringify({ outbounds: [x.ob] }) }))
-        );
-        for (let j = 0; j < chunk.length; j++) {
-          const r = results[j];
-          map[chunk[j].n.id] =
-            r?.success && r.delay >= 0
-              ? { status: "done", delay: r.delay }
-              : { status: "done", delay: -1, error: r?.error || "недоступен" };
-          doneIds.add(chunk[j].n.id);
+  try {
+    const method = getPingMethod();
+    const vpnUp = await isVpnRunning();
+    if (method === "url" && !vpnUp) {
+      // URL-тест: сам pingNodesBatch режет на порции по 5, но отдаёт всё в конце —
+      // при 20 узлах это ~40 с сплошного спиннера («не работает»). Поэтому режем
+      // на порции здесь и публикуем результаты после каждой.
+      try {
+        const withOb = targets
+          .map((n) => ({ n, ob: buildOutbound(n) }))
+          .filter((x): x is { n: VpnNode; ob: Record<string, any> } => !!x.ob);
+        const doneIds = new Set<string>();
+        for (let i = 0; i < withOb.length; i += 5) {
+          const chunk = withOb.slice(i, i + 5);
+          const results = await withTimeout(
+            pingNodesBatch(
+              chunk.map((x) => ({ xrayJson: JSON.stringify({ outbounds: [x.ob] }) }))
+            ),
+            // нативный промис может не вернуться вовсе (потеря при гонке
+            // stop/start сервиса) — жёсткий потолок на порцию, иначе волна
+            // висит вечно и running=true блокирует все следующие пинги
+            PING_BATCH_CHUNK_TIMEOUT_MS,
+            []
+          );
+          for (let j = 0; j < chunk.length; j++) {
+            const r = results?.[j];
+            map[chunk[j].n.id] =
+              r?.success && r.delay >= 0
+                ? { status: "done", delay: r.delay }
+                : { status: "done", delay: -1, error: r?.error || "недоступен" };
+            doneIds.add(chunk[j].n.id);
+          }
+          emit(); // результаты этой порции — сразу в UI
         }
-        emit(); // результаты этой порции — сразу в UI
+        // узлы, где outbound не собрался или URL-тест не вернул результат, — TCP-фолбэк
+        const failedOb = targets.filter((n) => !doneIds.has(n.id));
+        await tcpWave(failedOb);
+      } catch (e: any) {
+        // URL-тест не смог стартовать (изолированный процесс и т.п.) — TCP-фолбэк
+        console.warn("[pingAll] url-test failed, fallback to TCP:", String(e?.message || e).slice(0, 100));
+        await tcpWave(targets);
       }
-      // узлы, где outbound не собрался или URL-тест не вернул результат, — TCP-фолбэк
-      const failedOb = targets.filter((n) => !doneIds.has(n.id));
-      await tcpWave(failedOb);
-    } catch (e: any) {
-      // URL-тест не смог стартовать (изолированный процесс и т.п.) — TCP-фолбэк
-      console.warn("[pingAll] url-test failed, fallback to TCP:", String(e?.message || e).slice(0, 100));
+    } else {
       await tcpWave(targets);
     }
-  } else {
-    await tcpWave(targets);
+  } finally {
+    // ОБЯЗАТЕЛЬНО в finally: любой бросок выше (потерянный нативный промис,
+    // исключение подписчика в emit) раньше оставлял running=true навсегда —
+    // все следующие pingAll молча выходили, пинг «ломался» до перезапуска.
+    running = false;
+    // Узлы, не получившие результат (оборванная волна), — из pending в ошибку,
+    // чтобы UI не крутил спиннер вечно.
+    for (const n of targets) {
+      if (map[n.id]?.status === "pending") {
+        map[n.id] = { status: "done", delay: -1, error: "не проверен" };
+      }
+    }
+    emit();
   }
-
-  running = false;
-  emit();
 }
 
 /** TCP-волна: 8 одновременных воркеров (было 4 — список из 20 узлов

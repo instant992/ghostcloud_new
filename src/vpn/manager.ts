@@ -16,6 +16,7 @@ import {
   ensureFreshPings,
   isLteNode,
 } from "./autoSelect";
+import { getSnapshot as getPingSnapshot } from "./pingStore";
 import { pingNodesBatch, loadLibCore, getCoreStatus } from "./native";
 import {
   getInstalledPackageNames,
@@ -82,12 +83,26 @@ function buildFailoverInfo(
   isSponsor: boolean,
   roscomMode?: RoscomMode | null
 ): FailoverInfo | undefined {
+  // Файловер НЕ должен менять класс сервера: у LTE OPEN-ноды запасные — только
+  // другие LTE-ноды, у обычной — только обычные. Иначе при обрыве LTE-сервера
+  // монитор молча переключал пользователя на обычный сервер (другой роутинг,
+  // белый-списочный режим теряется) — жалоба «сидел на LTE, само переключило».
+  const currentIsLte = isLteNode(current);
   const rest = failoverPool
     .filter((n) => n.id !== current.id)
-    .filter((n) => n.source !== "lte")
+    .filter((n) => (currentIsLte ? isLteNode(n) : n.source !== "lte"))
     .filter((n) => isNodeUsable(n))
     .filter((n) => (core === "xray" || core === "uwuray" ? n.supportedByXray : true));
-  const ranked = rankByPing(rest);
+  // Сортировка по пингу — локальная (rankByPing отфильтровал бы LTE-ноды).
+  const snap = getPingSnapshot();
+  const ranked = rest
+    .map((n) => ({ n, p: snap[n.id] }))
+    .filter(
+      (x): x is { n: VpnNode; p: { status: "done"; delay: number } } =>
+        x.p?.status === "done" && !x.p.error && x.p.delay > 0
+    )
+    .sort((a, b) => a.p.delay - b.p.delay)
+    .map((x) => x.n);
   // без пинга — исходный порядок, после пропингованных
   const rankedIds = new Set(ranked.map((n) => n.id));
   const unranked = rest.filter((n) => !rankedIds.has(n.id));
