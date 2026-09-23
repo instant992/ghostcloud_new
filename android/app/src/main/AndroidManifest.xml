@@ -12,6 +12,11 @@
   <uses-permission android:name="android.permission.VIBRATE"/>
   <uses-permission android:name="android.permission.WAKE_LOCK"/>
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32" tools:replace="android:maxSdkVersion"/>
+  <!-- Android TV: приложение устанавливается и на телевизоры (leanback),
+       но сенсорный экран не обязателен. -->
+  <uses-feature android:name="android.software.leanback" android:required="false"/>
+  <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+  <uses-feature android:name="android.hardware.faketouch" android:required="false"/>
   <queries>
     <intent>
       <action android:name="android.intent.action.VIEW"/>
@@ -27,7 +32,7 @@
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATE_URL" android:value="https://u.expo.dev/610ee1ee-ed79-4bbc-93f4-f14e3e05c3e3"/>
     <meta-data android:name="expo.modules.updates.UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY" android:value="{&quot;expo-channel-name&quot;:&quot;production&quot;}"/>
-    <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize|assetsPaths" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait">
+    <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode|smallestScreenSize|assetsPaths" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true">
       <intent-filter>
         <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES"/>
       </intent-filter>
@@ -55,6 +60,14 @@
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
+      </intent-filter>
+    </activity-alias>
+    <!-- Вход с домашнего экрана Android TV / Google TV: категория
+         LEANBACK_LAUNCHER + баннер 16:9 (обязателен для TV-лаунчеров). -->
+    <activity-alias android:name=".MainActivityTV" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:banner="@drawable/tv_banner" android:enabled="true" android:exported="true" android:targetActivity="space.ghostcloud.app.MainActivity">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN"/>
+        <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
       </intent-filter>
     </activity-alias>
     <service android:name="expo.modules.xraycore.GhostCloudTileService" android:exported="true" android:icon="@drawable/ic_qs_tile" android:label="@string/app_name" android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">

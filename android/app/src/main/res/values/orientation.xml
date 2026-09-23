@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Ориентация MainActivity: 1 = portrait (телефоны/планшеты) -->
+  <integer name="activity_orientation">1</integer>
+</resources>

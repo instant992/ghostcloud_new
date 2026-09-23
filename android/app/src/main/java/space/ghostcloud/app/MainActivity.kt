@@ -16,6 +16,10 @@ class MainActivity : ReactActivity() {
     // coloring the background, status bar, and navigation bar.
     // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
+    // Ориентация из ресурсов: portrait на телефонах (values/),
+    // unspecified на Android TV (values-television/) — TV всегда landscape,
+    // а портретная ориентация включает letterbox-режим (узкая полоса экрана).
+    requestedOrientation = resources.getInteger(R.integer.activity_orientation)
     super.onCreate(null)
   }
 

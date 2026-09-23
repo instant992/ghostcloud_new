@@ -8,7 +8,7 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { AppProvider, useApp } from "./src/context";
-import { colors, ThemeProvider, useTheme } from "./src/theme";
+import { colors, ThemeProvider, useTheme, useThemeSwitcher } from "./src/theme";
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import RegisterScreen from "./src/screens/auth/RegisterScreen";
@@ -40,6 +40,9 @@ import FoxSplash from "./src/components/FoxSplash";
 import { SecurityAlertModal } from "./src/components/SecurityAlertModal";
 import { ToastHost } from "./src/components/Toast";
 import { TabAreaContext } from "./src/components/UI";
+import { IS_TV } from "./src/tv";
+import { TvLoginScreen } from "./src/tv/TvLoginScreen";
+import { TvHomeScreen } from "./src/tv/TvHomeScreen";
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -554,6 +557,29 @@ function SimpleFlow() {
   return <ThemedFlow Home={SimpleScreen} />;
 }
 
+/** Android TV: собственный одностраничный интерфейс с боковым рельсом
+ *  (Главная / Серверы / Настройки) вместо телефонных экранов. */
+function TvFlow() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+      <Stack.Screen name="TvHome" component={TvHomeScreen} />
+    </Stack.Navigator>
+  );
+}
+
+/** На TV интерфейс один — фиксируем основную тёмную тему, чтобы сохранённая
+ *  с телефона тема (glass/pickme/…) не перекрашивала TV-экран. */
+function TvThemeLock() {
+  const { style, mode } = useTheme();
+  const switchTheme = useThemeSwitcher();
+  React.useEffect(() => {
+    if (IS_TV && (style !== "default" || mode !== "dark")) {
+      switchTheme({ style: "default", mode: "dark" });
+    }
+  }, [style, mode, switchTheme]);
+  return null;
+}
+
 function Root() {
   const { style } = useTheme();
   const { loading, session } = useApp();
@@ -563,6 +589,10 @@ function Root() {
         <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
+  }
+  // Android TV: свои экраны входа и главная — телефонный стек не показываем
+  if (IS_TV) {
+    return session ? <TvFlow /> : <TvLoginScreen />;
   }
   const MainFlow =
     style === "v2ray"
@@ -659,6 +689,7 @@ export default function App() {
         <SafeAreaProvider>
           <StatusBarFollower />
           <AppProvider>
+            {IS_TV && <TvThemeLock />}
             <ThemedContainer>
               <Root />
             </ThemedContainer>

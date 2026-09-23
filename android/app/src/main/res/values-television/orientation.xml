@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Android TV: 0 = unspecified — TV всегда landscape; portrait вызвал бы
+       letterbox-полосу на весь экран (topActivityLetterboxed=true). -->
+  <integer name="activity_orientation">0</integer>
+</resources>
