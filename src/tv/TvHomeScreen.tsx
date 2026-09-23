@@ -5,11 +5,8 @@ import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import { getTrafficSnapshot } from "../vpn/native";
 import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
-import { colors, countryFromFlag, countryFromName, formatBytes, isLightPalette, splitNameFlag, useTheme } from "../theme";
+import { colors, formatBytes, splitNameFlag, useTheme } from "../theme";
 import { transportLabel } from "../utils/transportLabel";
-import { resolveNodeCountry } from "../vpn/geoIp";
-import { buildMapMarkers } from "../components/worldMap/markers";
-import { WorldMap, type MapMarker } from "../components/worldMap/WorldMap";
 import { TvFocusable } from "./TvFocusable";
 import { TvServersTab } from "./TvServersTab";
 import { TvSettingsTab } from "./TvSettingsTab";
@@ -115,47 +112,18 @@ function RailFooter() {
   );
 }
 
-/** Главная вкладка: карта мира + кнопка питания + карточки статуса. */
+/** Главная вкладка: крупная кнопка питания по центру + строка чипов снизу. */
 function TvDashboardTab({ onOpenServers }: { onOpenServers: () => void }) {
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive } = useApp();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const seconds = useVpnTimerSeconds(vpnRunning);
-  const [bestCountry, setBestCountry] = useState<{ name: string; flag: string } | null>(null);
   const [speed, setSpeed] = useState({ rx: 0, tx: 0 });
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
     [nodes, selectedNodeId]
   );
-  const mapMarkers = useMemo<MapMarker[]>(() => buildMapMarkers(nodes), [nodes]);
-
-  // Страна «Лучшего сервера» (⚡) — по IP его адреса
-  useEffect(() => {
-    const best = nodes.find((n) => /лучш/i.test(n.name) && n.source !== "lte");
-    if (!best) return;
-    let cancelled = false;
-    resolveNodeCountry(best.address)
-      .then((c) => {
-        if (!cancelled && c) setBestCountry(c);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [nodes]);
-
-  const activeMarker = useMemo<MapMarker | null>(() => {
-    if (!selectedNode) return null;
-    const info = splitNameFlag(selectedNode.name);
-    if (/лучш/i.test(info.name)) {
-      if (!bestCountry) return null;
-      return mapMarkers.find((m) => m.country === bestCountry.name) || null;
-    }
-    const c = countryFromFlagSafe(info);
-    if (!c) return null;
-    return mapMarkers.find((m) => m.country === c.name) || null;
-  }, [selectedNode, mapMarkers, bestCountry]);
 
   // Живая скорость: дельта счётчиков трафика раз в секунду
   const lastRef = useRef<{ tx: number; rx: number } | null>(null);
@@ -219,52 +187,31 @@ function TvDashboardTab({ onOpenServers }: { onOpenServers: () => void }) {
   const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
 
   return (
-    // Спокойный «hero»-экран: кнопка питания + карта занимают всё поле зрения,
-    // снизу одна строка чипов (сервер · скорость). Подписка и аккаунт —
-    // в футере рельса, дублировать их карточками не нужно.
+    // Минималистичный «hero»-экран: одна крупная кнопка питания по центру,
+    // снизу строка чипов (сервер · скорость). Карта убрана намеренно — на
+    // телевизоре она размывала фокус внимания; география видна в чипе сервера.
     <View style={s.dash}>
       <View style={s.dashTop}>
-        {/* Левая колонка: кнопка питания — герой экрана */}
-        <View style={s.dashLeft}>
-          <TvFocusable
-            autoFocus
-            onPress={toggle}
-            disabled={busy}
-            style={s.powerFocusable}
-            borderRadius={112}
-            scale={1.05}
-            accessibilityLabel={vpnRunning ? "Выключить VPN" : "Включить VPN"}
-          >
-            <TvPowerButton connected={vpnRunning} busy={busy} />
-          </TvFocusable>
-          <Text style={s.powerState}>{busy ? "Подождите…" : vpnRunning ? "VPN подключён" : "VPN выключен"}</Text>
-          {!!vpnRunning && (
-            <View style={s.timerPill}>
-              <Ionicons name="time-outline" size={15} color={colors.green} />
-              <Text style={s.timerText}>{formatElapsed(seconds)}</Text>
-            </View>
-          )}
-          {!!error && <Text style={s.dashError}>{error}</Text>}
-          <Text style={s.dashHint}>«ОК» — включить или выключить VPN</Text>
-        </View>
-
-        {/* Карта мира на всю оставшуюся площадь */}
-        <View style={s.mapCard}>
-          <WorldMap
-            markers={mapMarkers}
-            active={activeMarker}
-            connected={vpnRunning}
-            light={isLightPalette()}
-          />
-          <Text style={s.mapTitle}>
-            {vpnRunning ? "Вы подключены" : "География серверов"}
-          </Text>
-          {/* Подпись активной страны рисует сам WorldMap — не дублируем;
-              строка ниже нужна только когда маркера нет. */}
-          {!activeMarker && (
-            <Text style={s.mapSub}>{mapMarkers.length} стран(ы) в подписке</Text>
-          )}
-        </View>
+        <TvFocusable
+          autoFocus
+          onPress={toggle}
+          disabled={busy}
+          style={s.powerFocusable}
+          borderRadius={132}
+          scale={1.05}
+          accessibilityLabel={vpnRunning ? "Выключить VPN" : "Включить VPN"}
+        >
+          <TvPowerButton connected={vpnRunning} busy={busy} />
+        </TvFocusable>
+        <Text style={s.powerState}>{busy ? "Подождите…" : vpnRunning ? "VPN подключён" : "VPN выключен"}</Text>
+        {!!vpnRunning && (
+          <View style={s.timerPill}>
+            <Ionicons name="time-outline" size={15} color={colors.green} />
+            <Text style={s.timerText}>{formatElapsed(seconds)}</Text>
+          </View>
+        )}
+        {!!error && <Text style={s.dashError}>{error}</Text>}
+        <Text style={s.dashHint}>«ОК» — включить или выключить VPN</Text>
       </View>
 
       {/* Нижняя строка: чип сервера (ведёт во вкладку «Серверы») + скорость */}
@@ -319,8 +266,8 @@ function TvDashboardTab({ onOpenServers }: { onOpenServers: () => void }) {
   );
 }
 
-/** Кнопка питания для TV: те же кольца-частицы и пульсация, что на телефоне,
- *  но в размере под большой экран. Отрисовка — локальная (без Pressable). */
+/** Кнопка питания для TV: крупные кольца под большой экран, только иконка —
+ *  без текстовой подписи внутри (состояние читается из заголовка под кнопкой). */
 function TvPowerButton({ connected, busy }: { connected: boolean; busy: boolean }) {
   return (
     <View style={s.powerWrap}>
@@ -330,16 +277,11 @@ function TvPowerButton({ connected, busy }: { connected: boolean; busy: boolean 
         {busy ? (
           <ActivityIndicator color="#fff" size="large" />
         ) : (
-          <Ionicons name={connected ? "pause" : "power"} size={62} color="#fff" style={{ marginTop: -5 }} />
+          <Ionicons name={connected ? "pause" : "power"} size={76} color="#fff" />
         )}
       </View>
-      <Text style={s.powerLabel}>{connected ? "ВЫКЛЮЧИТЬ" : "ВКЛЮЧИТЬ"}</Text>
     </View>
   );
-}
-
-function countryFromFlagSafe(info: { flag: string; name: string }) {
-  return countryFromFlag(info.flag) || countryFromName(info.name);
 }
 
 export function pluralDays(n: number): string {
@@ -380,11 +322,10 @@ const s = StyleSheet.create({
   railDays: { fontSize: 12 },
   content: { flex: 1, paddingVertical: 14, paddingRight: 24, paddingLeft: 20 },
 
-  // Спокойный «hero»-экран: питание + крупная карта сверху, одна строка
-  // чипов снизу. Подписка/аккаунт живут в футере рельса.
+  // Минималистичный «hero»-экран: одна крупная кнопка питания по центру,
+  // снизу строка чипов. Подписка/аккаунт живут в футере рельса.
   dash: { flex: 1, gap: 14 },
-  dashTop: { flex: 1, flexDirection: "row", gap: 24 },
-  dashLeft: { width: 260, alignItems: "center", justifyContent: "center", gap: 9 },
+  dashTop: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
 
   // Нижняя строка чипов. Высота задана явно: при авто-высоте Yoga в ряде
   // случаев меряет ряд в 0 и dashTop (flex:1) съедает всё место, уводя чипы
@@ -429,32 +370,27 @@ const s = StyleSheet.create({
   warnChip: { borderColor: "rgba(251,191,36,0.4)" },
   warnChipText: { color: "#FBBF24", fontSize: 13, fontWeight: "700" },
 
-  powerFocusable: { marginBottom: 2 },
-  powerWrap: { width: 224, height: 224, alignItems: "center", justifyContent: "center" },
-  powerHalo: { position: "absolute", width: 218, height: 218, borderRadius: 109, backgroundColor: "rgba(124,58,237,0.10)" },
-  powerHaloOn: { backgroundColor: "rgba(124,58,237,0.20)" },
-  powerRing: { position: "absolute", width: 188, height: 188, borderRadius: 94, borderWidth: 1, borderColor: "#2E2150" },
+  // alignSelf перебивает «flex-start» из TvFocusable.wrap — иначе кнопка
+  // прижмётся к левому краю вместо центрирования в dashTop.
+  powerFocusable: { marginBottom: 4, alignSelf: "center" },
+  powerWrap: { width: 280, height: 280, alignItems: "center", justifyContent: "center" },
+  powerHalo: { position: "absolute", width: 272, height: 272, borderRadius: 136, backgroundColor: "rgba(124,58,237,0.10)" },
+  powerHaloOn: { backgroundColor: "rgba(124,58,237,0.22)" },
+  powerRing: { position: "absolute", width: 232, height: 232, borderRadius: 116, borderWidth: 1, borderColor: "#2E2150" },
   powerCircle: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 188,
+    height: 188,
+    borderRadius: 94,
     alignItems: "center",
     justifyContent: "center",
   },
   powerCircleOff: { backgroundColor: "#251A42" },
   powerCircleOn: { backgroundColor: "#7C3AED" },
-  powerLabel: {
-    position: "absolute",
-    bottom: 28,
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 2.4,
-  },
-  powerState: { color: "#FFFFFF", fontSize: 20, fontWeight: "800" },
+  powerState: { color: "#FFFFFF", fontSize: 24, fontWeight: "800", textAlign: "center" },
   timerPill: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "center",
     gap: 7,
     backgroundColor: "#1C1433",
     borderWidth: 1,
@@ -463,20 +399,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
   },
-  timerText: { color: "#34D399", fontSize: 15, fontWeight: "800", fontVariant: ["tabular-nums"] },
+  timerText: { color: "#34D399", fontSize: 16, fontWeight: "800", fontVariant: ["tabular-nums"] },
   dashError: { color: "#F87171", fontSize: 14, textAlign: "center", paddingHorizontal: 20 },
-  dashHint: { color: "#8F84AC", fontSize: 12 },
-
-  mapCard: {
-    flex: 1,
-    justifyContent: "center",
-    backgroundColor: "#1C1433",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "#2E2150",
-    padding: 18,
-    paddingTop: 14,
-  },
-  mapTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", marginTop: 10, textAlign: "center" },
-  mapSub: { color: "#9C93B8", fontSize: 13, textAlign: "center", marginTop: 3 },
+  dashHint: { color: "#8F84AC", fontSize: 13, textAlign: "center" },
 });
