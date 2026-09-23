@@ -8,17 +8,20 @@ import * as pingStore from "../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
 import { colors, formatBytes, pingColor, splitNameFlag, useTheme } from "../theme";
 import { transportLabel } from "../utils/transportLabel";
+import * as stats from "../stats";
 import { TvFocusable } from "./TvFocusable";
 import { TvServerSheet } from "./TvServerSheet";
 import { TvSettingsTab } from "./TvSettingsTab";
+import { TvProfileTab } from "./TvProfileTab";
 import * as Haptics from "expo-haptics";
 
-type TabKey = "home" | "settings";
+type TabKey = "home" | "profile" | "settings";
 
 // «Серверы» — не вкладка: список открывается выезжающей панелью по чипу
 // сервера на главной.
 const TABS: Array<{ key: TabKey; icon: string; iconActive: string; label: string }> = [
   { key: "home", icon: "home-outline", iconActive: "home", label: "Главная" },
+  { key: "profile", icon: "person-outline", iconActive: "person", label: "Профиль" },
   { key: "settings", icon: "settings-outline", iconActive: "settings", label: "Настройки" },
 ];
 
@@ -49,6 +52,7 @@ export function TvHomeScreen() {
       {/* Контент вкладки */}
       <View style={s.content}>
         {tab === "home" ? <TvDashboardTab /> : null}
+        {tab === "profile" ? <TvProfileTab /> : null}
         {tab === "settings" ? <TvSettingsTab /> : null}
       </View>
     </View>
@@ -119,6 +123,27 @@ function TvDashboardTab() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const seconds = useVpnTimerSeconds(vpnRunning);
   const [speed, setSpeed] = useState({ rx: 0, tx: 0 });
+  const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
+
+  // Трафик за сегодня: контекст пишет дельты в stats каждые 3 с при активном
+  // VPN — перечитываем файл периодически, чтобы цифры росли на глазах.
+  useEffect(() => {
+    let stopped = false;
+    const load = () => {
+      stats
+        .sumDays(1)
+        .then((v) => {
+          if (!stopped) setTodayStat(v);
+        })
+        .catch(() => {});
+    };
+    load();
+    const t = setInterval(load, vpnRunning ? 5000 : 60000);
+    return () => {
+      stopped = true;
+      clearInterval(t);
+    };
+  }, [vpnRunning]);
 
   // Только обычные серверы: LTE OPEN на ТВ скрыт.
   const visibleNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
@@ -226,6 +251,32 @@ function TvDashboardTab() {
         )}
         {!!error && <Text style={s.dashError}>{error}</Text>}
         <Text style={s.dashHint}>«ОК» — включить или выключить VPN</Text>
+      </View>
+
+      {/* Трафик за сегодня — блок над списком серверов */}
+      <View style={s.trafficRow}>
+        <View style={s.trafficCard}>
+          <View style={[s.trafficIcon, { backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="arrow-down" size={16} color={colors.accent} />
+          </View>
+          <View>
+            <Text style={s.trafficValue} numberOfLines={1}>
+              {formatBytes(todayStat.rx)}
+            </Text>
+            <Text style={s.trafficLabel}>скачано сегодня</Text>
+          </View>
+        </View>
+        <View style={s.trafficCard}>
+          <View style={[s.trafficIcon, { backgroundColor: "rgba(52,211,153,0.12)" }]}>
+            <Ionicons name="arrow-up" size={16} color={colors.green} />
+          </View>
+          <View>
+            <Text style={s.trafficValue} numberOfLines={1}>
+              {formatBytes(todayStat.tx)}
+            </Text>
+            <Text style={s.trafficLabel}>отдано сегодня</Text>
+          </View>
+        </View>
       </View>
 
       {/* Нижняя строка: чип сервера (открывает выезжающий список) + скорость */}
@@ -349,10 +400,27 @@ const s = StyleSheet.create({
   railDays: { fontSize: 12 },
   content: { flex: 1, paddingVertical: 14, paddingRight: 24, paddingLeft: 20 },
 
-  // Минималистичный «hero»-экран: одна крупная кнопка питания по центру,
-  // снизу строка чипов. Подписка/аккаунт живут в футере рельса.
+  // Минималистичный «hero»-экран: крупная кнопка питания по центру, блок
+  // трафика за сегодня и строка чипов снизу. Подписка/аккаунт — в футере рельса.
   dash: { flex: 1, gap: 14 },
   dashTop: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
+
+  // Блок трафика за сегодня (фикс. высота: Yoga иначе может смерить ряд в 0)
+  trafficRow: { flexDirection: "row", gap: 12, height: 76 },
+  trafficCard: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: "#1C1433",
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#2E2150",
+    paddingHorizontal: 20,
+  },
+  trafficIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  trafficValue: { color: "#FFFFFF", fontSize: 20, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  trafficLabel: { color: "#8F84AC", fontSize: 12, marginTop: 1 },
 
   // Нижняя строка чипов. Высота задана явно: при авто-высоте Yoga в ряде
   // случаев меряет ряд в 0 и dashTop (flex:1) съедает всё место, уводя чипы
