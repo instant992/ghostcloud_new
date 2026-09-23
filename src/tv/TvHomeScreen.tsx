@@ -1,27 +1,29 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "../context";
 import { connect, disconnect } from "../vpn/manager";
 import { getTrafficSnapshot } from "../vpn/native";
+import * as pingStore from "../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
-import { colors, formatBytes, splitNameFlag, useTheme } from "../theme";
+import { colors, formatBytes, pingColor, splitNameFlag, useTheme } from "../theme";
 import { transportLabel } from "../utils/transportLabel";
 import { TvFocusable } from "./TvFocusable";
-import { TvServersTab } from "./TvServersTab";
+import { TvServerSheet } from "./TvServerSheet";
 import { TvSettingsTab } from "./TvSettingsTab";
 import * as Haptics from "expo-haptics";
 
-type TabKey = "home" | "servers" | "settings";
+type TabKey = "home" | "settings";
 
+// «Серверы» — не вкладка: список открывается выезжающей панелью по чипу
+// сервера на главной.
 const TABS: Array<{ key: TabKey; icon: string; iconActive: string; label: string }> = [
   { key: "home", icon: "home-outline", iconActive: "home", label: "Главная" },
-  { key: "servers", icon: "server-outline", iconActive: "server", label: "Серверы" },
   { key: "settings", icon: "settings-outline", iconActive: "settings", label: "Настройки" },
 ];
 
-/** Домашний экран Android TV: боковое меню-рельс + крупная приборная панель
- *  (карта мира, кнопка питания, сервер/скорость/подписка) в стиле основной темы. */
+/** Домашний экран Android TV: боковое меню-рельс + крупная кнопка питания
+ *  по центру и чип текущего сервера снизу (открывает панель списка серверов). */
 export function TvHomeScreen() {
   useTheme();
   const [tab, setTab] = useState<TabKey>("home");
@@ -46,8 +48,7 @@ export function TvHomeScreen() {
 
       {/* Контент вкладки */}
       <View style={s.content}>
-        {tab === "home" ? <TvDashboardTab onOpenServers={() => setTab("servers")} /> : null}
-        {tab === "servers" ? <TvServersTab /> : null}
+        {tab === "home" ? <TvDashboardTab /> : null}
         {tab === "settings" ? <TvSettingsTab /> : null}
       </View>
     </View>
@@ -85,9 +86,10 @@ function TvNavItem({
   );
 }
 
-/** Статус подключения и аккаунта внизу рельса — всегда на виду. */
+/** Аккаунт внизу рельса — всегда на виду. Статус VPN дублировать не нужно:
+ *  он крупно показан в центре главной. */
 function RailFooter() {
-  const { vpnRunning, me } = useApp();
+  const { me } = useApp();
   const daysLeft = useMemo(() => {
     if (!me?.expire_at) return 0;
     const d = new Date(String(me.expire_at)).getTime();
@@ -96,10 +98,6 @@ function RailFooter() {
   }, [me]);
   return (
     <View style={s.railFooter}>
-      <View style={s.railStatusRow}>
-        <View style={[s.statusDot, { backgroundColor: vpnRunning ? colors.green : colors.textFaint }]} />
-        <Text style={s.railStatusText}>{vpnRunning ? "VPN активен" : "VPN выключен"}</Text>
-      </View>
       {!!me?.login && (
         <Text style={s.railLogin} numberOfLines={1}>
           {me.login}
@@ -113,17 +111,33 @@ function RailFooter() {
 }
 
 /** Главная вкладка: крупная кнопка питания по центру + строка чипов снизу. */
-function TvDashboardTab({ onOpenServers }: { onOpenServers: () => void }) {
+function TvDashboardTab() {
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive } = useApp();
+  const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const seconds = useVpnTimerSeconds(vpnRunning);
   const [speed, setSpeed] = useState({ rx: 0, tx: 0 });
 
+  // Только обычные серверы: LTE OPEN на ТВ скрыт.
+  const visibleNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
+
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
-    [nodes, selectedNodeId]
+    () => visibleNodes.find((n) => n.id === selectedNodeId) || visibleNodes[0] || null,
+    [visibleNodes, selectedNodeId]
   );
+
+  // Пинг выбранного сервера для чипа на главной: если результата ещё нет —
+  // разово измеряем (например, после перезапуска приложения).
+  const selectedPing = selectedNode ? pings[selectedNode.id] : undefined;
+  useEffect(() => {
+    if (!selectedNode) return;
+    if (selectedPing) return;
+    if (pingStore.isRunning()) return;
+    pingStore.pingOne(selectedNode).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedNode?.id, selectedPing, nodes.length]);
 
   // Живая скорость: дельта счётчиков трафика раз в секунду
   const lastRef = useRef<{ tx: number; rx: number } | null>(null);
@@ -214,10 +228,10 @@ function TvDashboardTab({ onOpenServers }: { onOpenServers: () => void }) {
         <Text style={s.dashHint}>«ОК» — включить или выключить VPN</Text>
       </View>
 
-      {/* Нижняя строка: чип сервера (ведёт во вкладку «Серверы») + скорость */}
+      {/* Нижняя строка: чип сервера (открывает выезжающий список) + скорость */}
       <View style={s.chipRow}>
         <TvFocusable
-          onPress={onOpenServers}
+          onPress={() => setSheetOpen(true)}
           style={s.serverChip}
           contentStyle={s.serverChipContent}
           borderRadius={20}
@@ -225,7 +239,20 @@ function TvDashboardTab({ onOpenServers }: { onOpenServers: () => void }) {
           accessibilityLabel="Выбрать другой сервер"
         >
           <View style={s.chipInner}>
-            <Ionicons name="server-outline" size={18} color={colors.accent} />
+            {/* Пинг выбранного сервера — слева от флага */}
+            <View style={s.chipPingBox}>
+              {selectedPing?.status === "pending" ? (
+                <ActivityIndicator size="small" color={colors.textDim} />
+              ) : selectedPing?.status === "done" && selectedPing.delay > 0 ? (
+                <Text style={[s.chipPing, { color: pingColor(selectedPing.delay) }]}>
+                  {selectedPing.delay} ms
+                </Text>
+              ) : selectedPing?.status === "done" ? (
+                <Text style={[s.chipPing, { color: colors.red }]}>—</Text>
+              ) : (
+                <Text style={[s.chipPing, { color: colors.textFaint }]}>…</Text>
+              )}
+            </View>
             {selectedNode && selectedInfo ? (
               <>
                 {!!selectedInfo.flag && <Text style={s.chipFlag}>{selectedInfo.flag}</Text>}
@@ -262,6 +289,9 @@ function TvDashboardTab({ onOpenServers }: { onOpenServers: () => void }) {
           </View>
         )}
       </View>
+
+      {/* Выезжающий список серверов */}
+      <TvServerSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
     </View>
   );
 }
@@ -315,9 +345,6 @@ const s = StyleSheet.create({
   navPip: { width: 5, height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.85)" },
   railDivider: { width: 1, backgroundColor: "#2E2150" },
   railFooter: { paddingHorizontal: 6, gap: 4 },
-  railStatusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
-  statusDot: { width: 9, height: 9, borderRadius: 5 },
-  railStatusText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
   railLogin: { color: "#9C93B8", fontSize: 13 },
   railDays: { fontSize: 12 },
   content: { flex: 1, paddingVertical: 14, paddingRight: 24, paddingLeft: 20 },
@@ -346,6 +373,8 @@ const s = StyleSheet.create({
     minHeight: 58,
   },
   chipFlag: { fontSize: 22 },
+  chipPingBox: { minWidth: 62, alignItems: "flex-start" },
+  chipPing: { fontSize: 14, fontWeight: "800", fontVariant: ["tabular-nums"] },
   chipName: { color: "#FFFFFF", fontSize: 17, fontWeight: "800" },
   chipSub: {
     color: "#8F84AC",
