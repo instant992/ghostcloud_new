@@ -130,16 +130,34 @@ export function setAutoConnectBoot(v: boolean) {
 /** Метод проверки пинга:
  *  - "tcp": рукопожатие TCP с портом сервера (быстро, работает всегда);
  *  - "url": полный тест протоколом через прокси-туннель (Xray pingBatch,
- *    HTTP 204) — точнее, но дольше и не работает при уже включённом VPN.
+ *    HTTP GET через прокси — как «via proxy get» в happ) — точнее, но дольше
+ *    и не работает при уже включённом VPN.
+ *  По умолчанию — "url": TCP-рукопожатие к REALITY-серверам с анти-блокировкой
+ *  часто не проходит, и рабочие серверы ложно помечались «недоступен».
  *  UDP/ICMP-пинг на Android без root невозможен (нет сырых сокетов). */
 export type PingMethod = "tcp" | "url";
 
 export function getPingMethod(): PingMethod {
-  return getSetting("ping_method", "tcp") === "url" ? "url" : "tcp";
+  return getSetting("ping_method", "url") === "tcp" ? "tcp" : "url";
 }
 
 export function setPingMethod(v: PingMethod) {
   setSetting("ping_method", v);
+}
+
+/** URL для URL-теста пинга (HTTP GET через прокси, ожидаем 204).
+ *  По умолчанию — connectivity-check Xiaomi MIUI: работает из российских
+ *  сетей, в отличие от gstatic.com, который периодически недоступен и
+ *  ронял весь URL-тест в «недоступен». Свой URL можно задать в настройках. */
+export const DEFAULT_PING_URL = "http://connect.rom.miui.com/generate_204";
+
+export function getPingUrl(): string {
+  const v = (getSetting("ping_url", "") || "").trim();
+  return /^https?:\/\/\S+$/i.test(v) ? v : DEFAULT_PING_URL;
+}
+
+export function setPingUrl(v: string) {
+  setSetting("ping_url", (v || "").trim());
 }
 
 /** Список строк в настройках (закреплённые серверы, избранное и т.п.) */

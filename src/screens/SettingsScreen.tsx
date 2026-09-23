@@ -11,7 +11,7 @@ import { SponsorHeart } from "../components/Badges";
 import { showToast } from "../components/Toast";
 import { useApp } from "../context";
 import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, sheetSurfaceBg, type ThemeName } from "../theme";
-import { getAntiDpi, getAutoConnect, getAutoConnectBoot, getKillSwitch, getPingMethod, getSelectedCore, getSetting, getThemeName, getThemeMode, setAntiDpi, setAutoConnect, setAutoConnectBoot, setKillSwitch, setPingMethod, setSetting, type CoreName, type PingMethod, type ThemeMode } from "../settings";
+import { getAntiDpi, getAutoConnect, getAutoConnectBoot, getKillSwitch, getPingMethod, getPingUrl, getSelectedCore, getSetting, getThemeName, getThemeMode, setAntiDpi, setAutoConnect, setAutoConnectBoot, setKillSwitch, setPingMethod, setPingUrl, setSetting, DEFAULT_PING_URL, type CoreName, type PingMethod, type ThemeMode } from "../settings";
 import { DNS_PROVIDERS, getDnsProvider } from "../vpn/dns";
 import { disconnect, isVpnRunning } from "../vpn/manager";
 import {
@@ -167,6 +167,8 @@ export default function SettingsScreen() {
   const [autoBoot, setAutoBootState] = useState(getAutoConnectBoot());
   const [pingMethod, setPingMethodState] = useState<PingMethod>(getPingMethod());
   const [pingOpen, setPingOpen] = useState(false);
+  const [pingUrl, setPingUrlState] = useState(() => getPingUrl());
+  const [pingUrlInput, setPingUrlInput] = useState(() => getPingUrl());
 
   /** Сворачиваемые группы настроек — по умолчанию всё свёрнуто, экран короткий */
   const [grpOpen, setGrpOpen] = useState<Record<string, boolean>>({});
@@ -974,7 +976,7 @@ export default function SettingsScreen() {
             <Text style={styles.themeRowTitle}>Метод проверки пинга</Text>
             <Text style={styles.themeRowSub}>
               {pingMethod === "url"
-                ? "URL-тест: полный протокол через прокси — точнее, но дольше и не работает при включённом VPN"
+                ? "Via Proxy Get: HTTP-запрос через прокси (полный тест протокола) — точнее, но дольше и не работает при включённом VPN"
                 : "TCP: рукопожатие с сервером — быстро, работает всегда"}
             </Text>
           </View>
@@ -982,14 +984,66 @@ export default function SettingsScreen() {
             style={styles.styleDropdownBtn}
             onPress={() => setPingOpen(true)}
             accessibilityRole="button"
-            accessibilityLabel={`Метод проверки пинга: ${pingMethod === "url" ? "URL-тест" : "TCP"}. Нажмите, чтобы выбрать`}
+            accessibilityLabel={`Метод проверки пинга: ${pingMethod === "url" ? "Via Proxy Get" : "TCP"}. Нажмите, чтобы выбрать`}
           >
-            <Text style={styles.styleDropdownText}>{pingMethod === "url" ? "URL-тест" : "TCP"}</Text>
+            <Text style={styles.styleDropdownText}>{pingMethod === "url" ? "Via Proxy Get" : "TCP"}</Text>
             <Ionicons name="chevron-down" size={14} color={colors.accent} />
           </PressableScale>
         </View>
+
+        {/* URL для Via Proxy Get — можно заменить на свой */}
+        {pingMethod === "url" && (
+          <View style={{ marginTop: 12, gap: 8 }}>
+            <Text style={styles.themeRowSub}>
+              URL для проверки (HTTP/HTTPS). Сервер должен отвечать 204/200 без тела.
+            </Text>
+            <TextInput
+              style={styles.coreInput}
+              value={pingUrlInput}
+              onChangeText={setPingUrlInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              placeholder={DEFAULT_PING_URL}
+              placeholderTextColor={colors.textFaint}
+            />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}>
+                <PressableScale
+                  style={styles.modalBtnGhost}
+                  onPress={() => {
+                    setPingUrlInput(DEFAULT_PING_URL);
+                    setPingUrl(DEFAULT_PING_URL);
+                    setPingUrlState(DEFAULT_PING_URL);
+                    showToast("URL по умолчанию восстановлен", "top");
+                  }}
+                >
+                  <Text style={styles.modalBtnGhostText}>По умолчанию</Text>
+                </PressableScale>
+              </View>
+              <View style={{ flex: 1 }}>
+                <PressableScale
+                  style={styles.modalBtnPrimary}
+                  onPress={() => {
+                    const v = pingUrlInput.trim();
+                    if (!/^https?:\/\/\S+$/i.test(v)) {
+                      showToast("Некорректный URL — нужен http(s)://…", "top");
+                      return;
+                    }
+                    setPingUrl(v);
+                    setPingUrlState(v);
+                    showToast("URL проверки сохранён", "top");
+                  }}
+                >
+                  <Text style={styles.modalBtnPrimaryText}>Сохранить</Text>
+                </PressableScale>
+              </View>
+            </View>
+            <Text style={styles.hint}>Сейчас: {pingUrl}</Text>
+          </View>
+        )}
         <Text style={styles.hint}>
-          UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и URL-тест.
+          UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и Via Proxy Get.
         </Text>
       </Card>
 
@@ -999,8 +1053,8 @@ export default function SettingsScreen() {
           <PressableScale style={styles.stylePanel} onPress={() => {}}>
             <Text style={styles.themeSheetTitle}>Метод проверки пинга</Text>
             {([
+              { key: "url" as PingMethod, title: "Via Proxy Get", sub: "HTTP-запрос через прокси (полный тест протокола VLESS/REALITY). Точнее, но дольше; при включённом VPN автоматически используется TCP." },
               { key: "tcp" as PingMethod, title: "TCP", sub: "Рукопожатие с портом сервера. Быстро, работает при включённом VPN." },
-              { key: "url" as PingMethod, title: "URL-тест", sub: "Полный тест протоколом через прокси (VLESS/REALITY + HTTP 204). Точнее, но дольше; при включённом VPN автоматически используется TCP." },
             ]).map((o) => (
               <PressableScale
                 key={o.key}
@@ -1010,7 +1064,7 @@ export default function SettingsScreen() {
                   setPingMethod(o.key);
                   setPingOpen(false);
                   Haptics.selectionAsync().catch(() => {});
-                  showToast(o.key === "url" ? "Метод: URL-тест" : "Метод: TCP", "top");
+                  showToast(o.key === "url" ? "Метод: Via Proxy Get" : "Метод: TCP", "top");
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={`${o.title}: ${o.sub}`}
@@ -1028,7 +1082,7 @@ export default function SettingsScreen() {
               </PressableScale>
             ))}
             <Text style={styles.hint}>
-              UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и URL-тест.
+              UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и Via Proxy Get.
             </Text>
           </PressableScale>
         </PressableScale>

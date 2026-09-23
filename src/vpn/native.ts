@@ -1,6 +1,7 @@
 import { requireNativeModule } from "expo-modules-core";
 import { EventEmitter } from "expo-modules-core";
 import { Platform } from "react-native";
+import { getPingUrl } from "../settings";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const XrayNative: any =
@@ -373,7 +374,9 @@ export async function pingNodesBatch(
       // Ниже 8 нельзя: медленные узлы РФ-хостингов дают TCP-коннект 2–4 с,
       // плюс REALITY-рукопожатие и HTTP 204 через прокси — при 5 с рабочие
       // серверы ложно помечались «недоступен».
-      const res = await XrayNative.pingBatch(payload, 8, "https://www.gstatic.com/generate_204");
+      // URL — из настроек (по умолчанию connectivity-check MIUI): gstatic
+      // из российских сетей периодически недоступен, и весь URL-тест падал.
+      const res = await XrayNative.pingBatch(payload, 8, getPingUrl());
       const parsed = JSON.parse(res);
       if (!parsed?.success) throw new Error(parsed?.error || "ping failed");
       const items = parsed?.data?.results || [];

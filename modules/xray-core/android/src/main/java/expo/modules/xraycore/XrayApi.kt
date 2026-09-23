@@ -76,24 +76,30 @@ object XrayApi {
         }
       }
       "pingBatch" -> {
+        // ВАЖНО: в отличие от runXray, pingBatch принимает xrayJson напрямую —
+        // у PingBatchItemRequest в libXray (apiVersion 3) есть только поля
+        // xrayJson/outboundTag, никакого configPath. Прежняя конвертация в
+        // configPath оставляла xrayJson пустым, и каждый узел падал с
+        // «ping Xray JSON is empty» — URL-проверка пинга не работала вовсе.
         val configsIn = payload.optJSONArray("configs") ?: JSONArray()
         val configsOut = JSONArray()
         for (i in 0 until configsIn.length()) {
           val item = configsIn.optJSONObject(i) ?: continue
+          val out = JSONObject()
           val json = item.optString("xrayJson", "")
           if (json.isNotEmpty()) {
-            configsOut.put(JSONObject().put("configPath", writeFile(context, json)))
-          } else {
-            val path = item.optString("configPath", "")
-            if (path.isNotEmpty()) {
-              configsOut.put(JSONObject().put("configPath", path))
-            }
+            out.put("xrayJson", json)
           }
+          val tag = item.optString("outboundTag", "")
+          if (tag.isNotEmpty()) {
+            out.put("outboundTag", tag)
+          }
+          configsOut.put(out)
         }
         JSONObject()
           .put("configs", configsOut)
           .put("timeout", payload.optInt("timeout", 5))
-          .put("url", payload.optString("url", "https://www.gstatic.com/generate_204"))
+          .put("url", payload.optString("url", "http://connect.rom.miui.com/generate_204"))
       }
       else -> payload
     }
