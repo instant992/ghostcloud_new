@@ -644,8 +644,9 @@ class XrayCoreModule : Module() {
       kotlin.concurrent.thread(name = "gc-tcp-ping") {
         val start = android.os.SystemClock.elapsedRealtime()
         try {
+          val addr = java.net.InetAddress.getByName(host)
           java.net.Socket().use { socket ->
-            socket.connect(java.net.InetSocketAddress(host, port), timeoutMs.coerceIn(500, 10000))
+            socket.connect(java.net.InetSocketAddress(addr, port), timeoutMs.coerceIn(500, 10000))
           }
           promise.resolve((android.os.SystemClock.elapsedRealtime() - start).toInt())
         } catch (e: Throwable) {

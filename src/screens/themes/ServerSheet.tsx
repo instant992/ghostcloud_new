@@ -101,6 +101,10 @@ export function ServerSheet({
             bounces={false}
             overScrollMode="never"
             data={shown}
+            // extraData обязателен: значения пингов приходят из внешнего
+            // стора — без него VirtualizedList не перерисовывает уже
+            // отрисованные строки, и готовые результаты не появляются в UI.
+            extraData={pings}
             keyExtractor={(n) => n.id}
             style={{ maxHeight: 400 }}
             contentContainerStyle={{ paddingBottom: 16 }}

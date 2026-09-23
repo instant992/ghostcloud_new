@@ -368,11 +368,12 @@ export async function pingNodesBatch(
       // pingBatch — AsyncFunction на нативной стороне, обязательно await:
       // без него JSON.parse(Promise) бросает «Unexpected token 'o'» и все
       // узлы ложно помечаются непроверенными
-      // Таймаут пробы 5 с (было 10): рабочий URL-тест через прокси укладывается
-      // в 0.2–2 с, а мёртвый узел блокировал порцию на все 10 с — проверка
-      // списка тянулась до минуты. Внутри pingBatch пробы параллельны, поэтому
-      // 5 с = максимум на всю порцию из 5 узлов, а не на узел.
-      const res = await XrayNative.pingBatch(payload, 5, "https://www.gstatic.com/generate_204");
+      // Таймаут пробы 8 с (было 10): пробы внутри pingBatch параллельны
+      // (воркер на каждый узел), поэтому таймаут = потолок на всю порцию из 5.
+      // Ниже 8 нельзя: медленные узлы РФ-хостингов дают TCP-коннект 2–4 с,
+      // плюс REALITY-рукопожатие и HTTP 204 через прокси — при 5 с рабочие
+      // серверы ложно помечались «недоступен».
+      const res = await XrayNative.pingBatch(payload, 8, "https://www.gstatic.com/generate_204");
       const parsed = JSON.parse(res);
       if (!parsed?.success) throw new Error(parsed?.error || "ping failed");
       const items = parsed?.data?.results || [];

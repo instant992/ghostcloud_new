@@ -344,6 +344,7 @@ export default function V2rayScreen() {
                   bounces={false}
                   overScrollMode="never"
                   data={pageNodes}
+                  extraData={pings}
                   keyExtractor={(n) => n.id}
                   contentContainerStyle={{ paddingBottom: 96 }}
                   renderItem={({ item }) => (

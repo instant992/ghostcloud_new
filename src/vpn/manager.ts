@@ -251,7 +251,34 @@ function mergeNodes(a: VpnNode[], b: VpnNode[]): VpnNode[] {
   const keyOf = (n: VpnNode) =>
     `${n.protocol}|${n.address}|${n.port}|${(n.uuid || n.password || n.method || "").slice(0, 8)}`;
   const seen = new Set(a.map(keyOf));
-  return [...a, ...b.filter((n) => !seen.has(keyOf(n)))];
+  const merged = [...a, ...b.filter((n) => !seen.has(keyOf(n)))];
+  return ensureUniqueIds(merged);
+}
+
+/** Гарантирует уникальность id. Подписка отдаёт один сервер под двумя именами
+ *  («🚀 Лучший сервер» и «🇪🇪 Эстония» — одинаковые address/port/uuid):
+ *  одинаковый id ломает React-ключи FlatList (строки рендерятся неверно) и
+ *  слот карты пингов (две строки показывают одно значение). Первый узел пары
+ *  сохраняет исходный id (сохранённый выбор пользователя остаётся валиден),
+ *  дублям добавляется стабильный хэш имени — он не меняется между запусками. */
+function ensureUniqueIds(nodes: VpnNode[]): VpnNode[] {
+  const used = new Set<string>();
+  const hashName = (s: string): string => {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return Math.abs(h).toString(36);
+  };
+  return nodes.map((n) => {
+    if (!used.has(n.id)) {
+      used.add(n.id);
+      return n;
+    }
+    let id = `${n.id}-${hashName(n.name)}`;
+    let k = 2;
+    while (used.has(id)) id = `${n.id}-${hashName(n.name)}-${k++}`;
+    used.add(id);
+    return { ...n, id };
+  });
 }
 
 /** Тянет узлы из raw Remnawave (vless/vmess/trojan/ss ссылки)

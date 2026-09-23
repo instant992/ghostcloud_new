@@ -535,6 +535,7 @@ function ServerPicker({
           bounces={false}
           overScrollMode="never"
             data={filtered}
+            extraData={pings}
             keyExtractor={(n: any) => n.id}
             style={{ maxHeight: 420 }}
             renderItem={({ item }: any) => {
