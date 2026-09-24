@@ -18,7 +18,8 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
-import { QuickNavBar } from "../components/QuickNavBar";
+import { QuickNavBar, themeHasQuickNav } from "../components/QuickNavBar";
+import { getThemeName } from "../settings";
 import { PressableScale } from "../components/PressableScale";
 import { FoxRenew, FoxRenewSheet } from "../components/FoxRenew";
 import { BalanceSheet } from "../components/BalanceSheet";
@@ -476,7 +477,7 @@ export default function ProfileScreen() {
       <View style={[styles.stickyHeader, { paddingTop: insets.top + 6 }]}>
         {nav.canGoBack() ? (
           <Pressable
-            onPress={() => nav.goBack()}
+            onPress={() => (themeHasQuickNav(getThemeName()) ? nav.goBack() : nav.popToTop())}
             hitSlop={10}
             style={styles.headerBtn}
             accessibilityRole="button"
@@ -507,7 +508,7 @@ export default function ProfileScreen() {
         contentContainerStyle={{
           padding: 16,
           paddingTop: insets.top + 66,
-          paddingBottom: inTabs ? insets.bottom + 116 : insets.bottom + 96,
+          paddingBottom: inTabs ? insets.bottom + 116 : themeHasQuickNav(getThemeName()) ? insets.bottom + 96 : insets.bottom + 24,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

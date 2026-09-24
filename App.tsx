@@ -41,6 +41,8 @@ import FoxSplash from "./src/components/FoxSplash";
 import { SecurityAlertModal } from "./src/components/SecurityAlertModal";
 import { ToastHost } from "./src/components/Toast";
 import { TabAreaContext } from "./src/components/UI";
+import { themeHasQuickNav } from "./src/components/QuickNavBar";
+import { getThemeName } from "./src/settings";
 import { IS_TV } from "./src/tv";
 import { TvLoginScreen } from "./src/tv/TvLoginScreen";
 import { TvHomeScreen } from "./src/tv/TvHomeScreen";
@@ -177,10 +179,14 @@ function AuthStack() {
 }
 
 /** Плавающая кнопка «назад» поверх без-хедерных экранов (в темах v2ray/happ
- *  навигация одноэкранная, как во Flutter-версии) */
+ *  навигация одноэкранная, как во Flutter-версии).
+ *  В темах без нижнего меню стрелка возвращает сразу на главный экран
+ *  (popToTop) — иначе она вела бы в промежуточный экран без возможности
+ *  быстро попасть на главную. */
 function BackOverlay({ children }: { children: React.ReactNode }) {
   const nav = useNavigation<any>();
   useTheme();
+  const backToHome = !themeHasQuickNav(getThemeName());
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {children}
@@ -199,9 +205,9 @@ function BackOverlay({ children }: { children: React.ReactNode }) {
         }}
       >
         <Pressable
-          onPress={() => nav.goBack()}
-          hitSlop={12}
-          style={{ width: 46, height: 42, alignItems: "center", justifyContent: "center" }}
+          onPress={() => (backToHome ? nav.popToTop() : nav.goBack())}
+          hitSlop={16}
+          style={{ width: 52, height: 48, alignItems: "center", justifyContent: "center" }}
         >
           <Ionicons name="arrow-back" size={23} color={colors.text} />
         </Pressable>

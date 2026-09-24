@@ -18,38 +18,40 @@ type NavItem = {
   routes: string[];
 };
 
+const HOME: NavItem = { key: "home", label: "Главная", icon: "home-outline", iconActive: "home", routes: ["ThemeHome", "Главная", "ThemeTabs"] };
+const SUB: NavItem = { key: "sub", label: "Подписка", icon: "card-outline", iconActive: "card", routes: ["Подписка"] };
+const PROFILE: NavItem = { key: "profile", label: "Профиль", icon: "person-outline", iconActive: "person", routes: ["Профиль"] };
+const SETTINGS: NavItem = { key: "settings", label: "Настройки", icon: "settings-outline", iconActive: "settings", routes: ["Настройки"] };
+
 /** Состав меню = док главной текущей темы:
- *  - glass / minimalist / pickme / foxcloud: Главная / Подписка / Профиль
- *    (как DOCK_TABS на главной этих тем);
- *  - awg: Главная / Профиль / Настройки — 3 иконки без подписей, как док AWG;
- *  - v2ray / happ: дока на главной нет — минимальный набор разделов стека;
- *  - simple: Главная / Профиль (настройки защищены кодом — пункт не показываем,
- *    чтобы меню не позволяло обойти блокировку);
+ *  - glass / minimalist / pickme / foxcloud: пункты дока главной
+ *    (Главная / Подписка / Профиль) + активный пункт «Настройки» — чтобы было
+ *    видно, что открыт именно он (настройки открываются стеком поверх дока);
+ *  - awg: Главная / Профиль / Настройки — как док главной AWG;
+ *  - v2ray / happ / simple: на главной меню нет — здесь тоже нет,
+ *    возврат на главную — стрелкой «назад» (popToTop);
  *  - default: не показывается (экраны и так внутри таб-зоны MainTabs). */
 function itemsForTheme(theme: ThemeName): NavItem[] {
-  const home: NavItem = { key: "home", label: "Главная", icon: "home-outline", iconActive: "home", routes: ["ThemeHome", "Главная", "ThemeTabs"] };
-  const sub: NavItem = { key: "sub", label: "Подписка", icon: "card-outline", iconActive: "card", routes: ["Подписка"] };
-  const profile: NavItem = { key: "profile", label: "Профиль", icon: "person-outline", iconActive: "person", routes: ["Профиль"] };
-  const settings: NavItem = { key: "settings", label: "Настройки", icon: "settings-outline", iconActive: "settings", routes: ["Настройки"] };
-
   switch (theme) {
     case "glass":
     case "minimalist":
     case "pickme":
     case "foxcloud":
-      return [home, sub, profile];
-    case "simple":
-      return [home, profile];
-    case "default":
-      return [];
+      return [HOME, SUB, PROFILE, SETTINGS];
+    case "awg":
+      return [HOME, PROFILE, SETTINGS];
     default:
-      // awg, v2ray, happ
-      return [home, profile, settings];
+      return [];
   }
 }
 
-/** Быстрое нижнее меню для экранов, открытых стеком поверх темы (Профиль,
- *  Настройки): состав и стиль повторяют док главной текущей темы.
+/** Есть ли у темы быстрое нижнее меню (влияет и на стрелку «назад») */
+export function themeHasQuickNav(theme: ThemeName): boolean {
+  return itemsForTheme(theme).length > 0;
+}
+
+/** Быстрое нижнее меню для экранов, открытых стеком поверх темы (Настройки):
+ *  состав и стиль повторяют док главной текущей темы.
  *  Внутри таб-зоны (где уже есть свой таб-бар/док) автоматически скрыто. */
 export function QuickNavBar() {
   useTheme();
@@ -67,6 +69,7 @@ export function QuickNavBar() {
   const hasDockTabs = routeNames.includes("ThemeTabs");
 
   const go = (it: NavItem) => {
+    if (it.routes.includes(route.name)) return;
     Haptics.selectionAsync().catch(() => {});
     switch (it.key) {
       case "home":
@@ -88,77 +91,69 @@ export function QuickNavBar() {
 
   const isAwg = theme === "awg";
   const isGlass = theme === "glass";
-  // Стиль дока dock-тем (минимализм/Pink/FoxCloud) — пилюля с кружком, как MinimalDockBar
-  const pillStyle = !isAwg && theme !== "v2ray" && theme !== "happ" && theme !== "simple";
 
   const row = (
-    <View style={pillStyle ? styles.pillRow : isAwg ? styles.awgRow : styles.plainRow}>
+    <View style={isAwg ? styles.awgRow : styles.pillRow}>
       {items.map((it) => {
         const active = it.routes.includes(route.name);
-        if (pillStyle) {
-          if (active) {
-            if (isGlass) {
-              // Стекло: активная пилюля accentSoft с акцентной иконкой — как GlassDockBar
-              return (
-                <Pressable
-                  key={it.key}
-                  style={styles.slot}
-                  onPress={() => go(it)}
-                  accessibilityRole="tab"
-                  accessibilityLabel={it.label}
-                  accessibilityState={{ selected: true }}
-                >
-                  <View style={styles.glassPill}>
-                    <Ionicons name={it.iconActive as any} size={22} color={colors.accent} />
-                    <Text style={styles.glassPillText}>{it.label}</Text>
-                  </View>
-                </Pressable>
-              );
-            }
-            return (
-              <Pressable
-                key={it.key}
-                style={styles.slot}
-                onPress={() => go(it)}
-                accessibilityRole="tab"
-                accessibilityLabel={it.label}
-                accessibilityState={{ selected: true }}
-              >
+        if (isAwg) {
+          // AWG: иконки без подписей, плотно к центру — как док главной AWG
+          return (
+            <Pressable
+              key={it.key}
+              style={styles.awgSlot}
+              onPress={() => go(it)}
+              accessibilityRole="tab"
+              accessibilityLabel={it.label}
+              accessibilityState={{ selected: active }}
+            >
+              <Ionicons
+                name={(active ? it.iconActive : it.icon) as any}
+                size={24}
+                color={active ? colors.accent : colors.textFaint}
+              />
+            </Pressable>
+          );
+        }
+        if (active) {
+          // Активный пункт — пилюля с подписью, как активная вкладка дока главной.
+          // Слот без flex — пилюля занимает столько места, сколько нужно тексту
+          // (иначе в ряду из 4 пунктов подпись «Настройки» обрезается)
+          return (
+            <Pressable
+              key={it.key}
+              style={styles.activeSlot}
+              onPress={() => go(it)}
+              accessibilityRole="tab"
+              accessibilityLabel={it.label}
+              accessibilityState={{ selected: true }}
+            >
+              {isGlass ? (
+                <View style={styles.glassPill}>
+                  <Ionicons name={it.iconActive as any} size={22} color={colors.accent} />
+                  <Text style={styles.glassPillText} numberOfLines={1}>{it.label}</Text>
+                </View>
+              ) : (
                 <View style={styles.pill}>
                   <View style={[styles.pillCircle, { backgroundColor: colors.accent }]}>
                     <Ionicons name={it.iconActive as any} size={21} color="#fff" />
                   </View>
-                  <Text style={[styles.pillText, { color: colors.text }]}>{it.label}</Text>
+                  <Text style={[styles.pillText, { color: colors.text }]} numberOfLines={1}>{it.label}</Text>
                 </View>
-              </Pressable>
-            );
-          }
-          return (
-            <Pressable key={it.key} style={styles.slot} onPress={() => go(it)} accessibilityRole="tab" accessibilityLabel={it.label}>
-              <View style={[styles.circle, { backgroundColor: colors.card, borderColor: colors.border }]}>
-                <Ionicons name={it.icon as any} size={23} color={colors.textFaint} />
-              </View>
+              )}
             </Pressable>
           );
         }
+        // Неактивный пункт
         return (
-          <Pressable
-            key={it.key}
-            style={isAwg ? styles.awgSlot : styles.slot}
-            onPress={() => go(it)}
-            accessibilityRole="tab"
-            accessibilityLabel={it.label}
-            accessibilityState={{ selected: active }}
-          >
-            <Ionicons
-              name={(active ? it.iconActive : it.icon) as any}
-              size={isAwg ? 24 : 23}
-              color={active ? colors.accent : colors.textFaint}
-            />
-            {!isAwg && (
-              <Text style={[styles.label, { color: active ? colors.accent : colors.textFaint }]} numberOfLines={1}>
-                {it.label}
-              </Text>
+          <Pressable key={it.key} style={styles.slot} onPress={() => go(it)} accessibilityRole="tab" accessibilityLabel={it.label}>
+            {isGlass ? (
+              // Glass: неактивные — простые иконки без кружков, как в GlassDockBar
+              <Ionicons name={it.icon as any} size={24} color={colors.textFaint} />
+            ) : (
+              <View style={[styles.circle, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                <Ionicons name={it.icon as any} size={23} color={colors.textFaint} />
+              </View>
             )}
           </Pressable>
         );
@@ -172,31 +167,22 @@ export function QuickNavBar() {
         style={[
           styles.bar,
           { paddingBottom: Math.max(8, insets.bottom) },
-          // AWG и стековые темы: панель на весь низ с фоном и разделителем,
-          // как док главной AWG; док-темы (минимализм/Pink/FoxCloud/стекло):
-          // «плавающая» пилюля без подложки — как док их главной
-          pillStyle || isGlass
-            ? { backgroundColor: "transparent", paddingHorizontal: 24 }
-            : {
-                backgroundColor: colors.bgSoft,
-                borderTopWidth: 1,
-                borderTopColor: colors.border,
-              },
+          // «Плавающая» пилюля без подложки — как док главной в док-темах;
+          // AWG — панель с фоном и разделителем, как его док
+          isAwg
+            ? { backgroundColor: colors.bgSoft, borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 0 }
+            : { backgroundColor: "transparent", paddingHorizontal: 24 },
         ]}
         pointerEvents="auto"
       >
         {isGlass ? (
-          <View style={styles.padded} pointerEvents="box-none">
-            <GlassCard radius={28} intensity={70} style={{ paddingHorizontal: 8, paddingVertical: 6 }}>
-              {row}
-            </GlassCard>
-          </View>
-        ) : pillStyle ? (
-          <View style={styles.padded} pointerEvents="box-none">
-            <View style={[styles.minimalBar, { backgroundColor: colors.cardLight, borderColor: colors.border }]}>{row}</View>
-          </View>
+          <GlassCard radius={28} intensity={70} style={{ paddingHorizontal: 8, paddingVertical: 6, alignSelf: "stretch" }}>
+            {row}
+          </GlassCard>
+        ) : isAwg ? (
+          <View style={{ alignSelf: "stretch", paddingTop: 4 }}>{row}</View>
         ) : (
-          row
+          <View style={[styles.minimalBar, { backgroundColor: colors.cardLight, borderColor: colors.border }]}>{row}</View>
         )}
       </View>
     </View>
@@ -215,11 +201,7 @@ const styles = StyleSheet.create({
   },
   bar: {
     alignItems: "center",
-    paddingTop: 8,
-  },
-  padded: {
-    paddingHorizontal: 24,
-    alignSelf: "stretch",
+    paddingTop: 4,
   },
   // AWG: плотный ряд иконок к центру — как док главной AWG
   awgRow: {
@@ -235,22 +217,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  // v2ray/happ/simple: иконки с подписями
-  plainRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    alignSelf: "stretch",
-    paddingHorizontal: 8,
-  },
-  // док-темы: пилюля как MinimalDockBar
+  // док-темы: слоты как в MinimalDockBar/GlassDockBar.
+  // width: 100% — без него внутри горизонтального minimalBar ряд сжимается
+  // по контенту и кружки сбиваются влево
   pillRow: {
     flexDirection: "row",
     alignItems: "center",
+    width: "100%",
   },
   minimalBar: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "stretch",
     borderWidth: 1,
     borderRadius: 28,
     paddingHorizontal: 8,
@@ -268,10 +246,14 @@ const styles = StyleSheet.create({
     gap: 3,
     paddingVertical: 4,
   },
-  label: {
-    fontSize: 10,
-    fontWeight: "600",
+  // Активный слот: по содержимому — пилюля с подписью не обрезается
+  activeSlot: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
+  // Активная пилюля минимализма — как minimalPill в MinimalDockBar
   pill: {
     flexDirection: "row",
     alignItems: "center",
@@ -284,19 +266,6 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     height: 52,
   },
-  // Стеклянная активная пилюля — как в GlassDockBar
-  glassPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 20,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 0.5,
-    borderColor: colors.accent + "4D",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  glassPillText: { color: colors.accent, fontSize: 15, fontWeight: "600" },
   pillCircle: {
     width: 40,
     height: 40,
@@ -304,7 +273,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  pillText: { fontSize: 15, fontWeight: "600", maxWidth: 100 },
+  pillText: { fontSize: 15, fontWeight: "600", maxWidth: 130 },
   circle: {
     width: 52,
     height: 52,
@@ -313,4 +282,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Стеклянная активная пилюля — как glassPill в GlassDockBar
+  glassPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderRadius: 20,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 0.5,
+    borderColor: colors.accent + "4D",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  glassPillText: { color: colors.accent, fontSize: 14, fontWeight: "600" },
 });

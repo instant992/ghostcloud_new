@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
 import { Button, Card, Screen, Title, useScreenTopPad, useInTabArea } from "../components/UI";
-import { QuickNavBar } from "../components/QuickNavBar";
+import { QuickNavBar, themeHasQuickNav } from "../components/QuickNavBar";
 import { PressableScale } from "../components/PressableScale";
 import { useNavigation } from "@react-navigation/native";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
@@ -395,7 +395,7 @@ export default function SettingsScreen() {
   const topPad = useScreenTopPad();
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <Screen style={{ ...topPad, ...(!inTabs ? { paddingBottom: 92 } : null) }}>
+      <Screen style={{ ...topPad, ...(!inTabs && themeHasQuickNav(getThemeName()) ? { paddingBottom: 92 } : null) }}>
       <Title>Настройки</Title>
 
       {/* ─── Группа «Внешний вид»: тема + иконка приложения ─── */}
