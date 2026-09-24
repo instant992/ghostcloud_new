@@ -106,6 +106,12 @@ export async function registerFcmToken(fcmToken: string) {
   return request("POST", "/api/auth/mobile/fcm-register", { fcm_token: fcmToken });
 }
 
+/** Лента серверных уведомлений (рассылки из админки) с id > afterId —
+ *  фолбэк-доставка для устройств без FCM. */
+export async function fetchNotifications(afterId: number) {
+  return request("GET", `/api/auth/mobile/notifications?after_id=${afterId}`);
+}
+
 export async function securityAlertRead(alertId: number) {
   return request("POST", "/api/auth/mobile/security/alert-read", { alert_id: alertId });
 }

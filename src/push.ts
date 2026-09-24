@@ -4,15 +4,24 @@
  *
  * Сервер шлёт push при входе по 2FA (data payload event=login_2fa), поэтому
  * модалка безопасности откроется даже если приложение было в фоне.
- * Если FCM недоступен (например, устройство без Google Play) — уведомление
- * всё равно придёт лентой через поллинг /mobile/me (дублирующая доставка).
+ * Рассылки из админки (Инфраструктура → Уведомления) приходят notification-
+ * payload'ом на канал GhostCloud_Subscription — канал ОБЯЗАТЕЛЬНО должен
+ * существовать в приложении, иначе Android 8+ молча выбрасывает уведомление.
+ * Если FCM недоступен (например, устройство без Google Play) — уведомления
+ * всё равно доставляются лентой: поллинг /mobile/notifications показывает
+ * их локально (фолбэк-доставка).
  */
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
-import { registerFcmToken as apiRegisterFcmToken } from "./api";
+import { fetchNotifications, registerFcmToken as apiRegisterFcmToken } from "./api";
+import { getSetting, setSetting } from "./settings";
 
 const CHANNEL_ID = "GhostCloud_Security";
+/** Канал рассылок/объявлений — совпадает с channel_id в fcm_service.py
+ *  (send_push_notification / broadcast). Без него серверные рассылки
+ *  не отображаются на Android 8+. */
+const SUBSCRIPTION_CHANNEL_ID = "GhostCloud_Subscription";
 let _configured = false;
 let _lastToken = "";
 
@@ -32,6 +41,12 @@ async function ensureChannel() {
     name: "Безопасность",
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 250, 250],
+    lightColor: "#A855F7",
+    sound: "default",
+  });
+  await Notifications.setNotificationChannelAsync(SUBSCRIPTION_CHANNEL_ID, {
+    name: "Новости и рассылки",
+    importance: Notifications.AndroidImportance.DEFAULT,
     lightColor: "#A855F7",
     sound: "default",
   });
@@ -55,13 +70,80 @@ export async function initPush(): Promise<void> {
 
     await ensureChannel();
 
-    const tokenData = await Notifications.getDevicePushTokenAsync();
-    const token = typeof tokenData.data === "string" ? tokenData.data : "";
-    if (!token) return;
-
-    await registerFcmToken(token);
+    let fcmOk = false;
+    try {
+      const tokenData = await Notifications.getDevicePushTokenAsync();
+      const token = typeof tokenData.data === "string" ? tokenData.data : "";
+      if (token) {
+        fcmOk = await registerFcmToken(token);
+      }
+    } catch (e) {
+      console.warn("[Push] FCM token error:", e);
+    }
+    if (!fcmOk) {
+      // Нет Google Play / FCM-токен не зарегистрировался — фолбэк:
+      // лента серверных уведомлений поллингом.
+      startNotificationFeed();
+    }
   } catch (e) {
     console.warn("[Push] init error:", e);
+    startNotificationFeed();
+  }
+}
+
+// ── Фолбэк-доставка: поллинг ленты уведомлений без FCM ──
+// Сервер хранит историю рассылок (push_notifications), /mobile/notifications
+// отдаёт всё с id > after_id. Показываем их локально в шторке.
+
+const FEED_LAST_ID_KEY = "notif_feed_last_id";
+const FEED_POLL_MS = 60_000;
+let _feedTimer: ReturnType<typeof setInterval> | null = null;
+let _feedBusy = false;
+
+export function startNotificationFeed(): void {
+  if (_feedTimer || Platform.OS !== "android") return;
+  // Первый прогон сразу, дальше — по таймеру (процесс живёт, пока
+  // приложение открыто или VPN-сервис держит его в foreground).
+  pollFeed().catch(() => {});
+  _feedTimer = setInterval(() => pollFeed().catch(() => {}), FEED_POLL_MS);
+}
+
+export function stopNotificationFeed(): void {
+  if (_feedTimer) {
+    clearInterval(_feedTimer);
+    _feedTimer = null;
+  }
+}
+
+async function pollFeed(): Promise<void> {
+  if (_feedBusy) return;
+  _feedBusy = true;
+  try {
+    const lastId = parseInt(getSetting(FEED_LAST_ID_KEY, "0"), 10) || 0;
+    const data = await fetchNotifications(lastId);
+    const list: Array<{ id: number; title: string; message: string }> =
+      data?.success && Array.isArray(data.notifications) ? data.notifications : [];
+    if (list.length === 0) return;
+    const maxId = list.reduce((m, n) => Math.max(m, n.id || 0), lastId);
+    if (lastId === 0) {
+      // Первый запуск: не показываем всю историю — просто запоминаем
+      // последний id, чтобы следующие рассылки уже долетали.
+      setSetting(FEED_LAST_ID_KEY, String(maxId));
+      return;
+    }
+    for (const n of list) {
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: { title: n.title || "GhostCloud", body: n.message || "" },
+          trigger: null, // сразу
+        });
+      } catch {}
+    }
+    setSetting(FEED_LAST_ID_KEY, String(maxId));
+  } catch {
+    // сеть недоступна — попробуем в следующий тик
+  } finally {
+    _feedBusy = false;
   }
 }
 
