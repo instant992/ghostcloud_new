@@ -41,7 +41,7 @@ export default function GameScreen() {
     }
     try {
       if (msg.type === "run_start") {
-        const r = await gameRunStart("1.1.5");
+        const r = await gameRunStart("1.1.6");
         if (r?.success && r.round_token) {
           roundToken.current = r.round_token;
           sendToGame({
