@@ -3,7 +3,8 @@ import { ActivityIndicator, Image, Modal, Platform, Pressable, StyleSheet, Switc
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
-import { Button, Card, Screen, Title, useScreenTopPad } from "../components/UI";
+import { Button, Card, Screen, Title, useScreenTopPad, useInTabArea } from "../components/UI";
+import { QuickNavBar } from "../components/QuickNavBar";
 import { PressableScale } from "../components/PressableScale";
 import { useNavigation } from "@react-navigation/native";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
@@ -137,6 +138,7 @@ const SIMPLE_UNLOCK_KEY = "simple_theme_unlocked";
 export default function SettingsScreen() {
   useTheme();
   const styles = makeStyles();
+  const inTabs = useInTabArea();
   const switchTheme = useThemeSwitcher();
   const nav = useNavigation<any>();
   const { me, vpnRunning, setVpnRunning, isFoxcloud, signOut } = useApp();
@@ -390,8 +392,10 @@ export default function SettingsScreen() {
     })();
   };
 
+  const topPad = useScreenTopPad();
   return (
-    <Screen style={useScreenTopPad()}>
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <Screen style={{ ...topPad, ...(!inTabs ? { paddingBottom: 92 } : null) }}>
       <Title>Настройки</Title>
 
       {/* ─── Группа «Внешний вид»: тема + иконка приложения ─── */}
@@ -1286,7 +1290,9 @@ export default function SettingsScreen() {
 
       {/* Шторка преимуществ спонсора */}
       {benefitsOpen && <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />}
-    </Screen>
+      </Screen>
+      <QuickNavBar />
+    </View>
   );
 }
 

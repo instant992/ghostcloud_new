@@ -322,7 +322,12 @@ export default function AwgScreen() {
             <Text style={styles.serverFlag} accessibilityElementsHidden>
               {selectedInfo?.flag || "🌐"}
             </Text>
-            <Text style={styles.serverName} numberOfLines={1}>
+            <Text
+              style={styles.serverName}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.6}
+            >
               {selectedInfo?.name || "Выберите сервер"}
             </Text>
             <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
@@ -547,6 +552,14 @@ const makeStyles = () =>
       justifyContent: "center",
     },
     serverFlag: { fontSize: 26 },
-    serverName: { color: colors.text, fontSize: 17, fontWeight: "700" },
+    // Длинное имя сервера: влезает в одну строку — крупно; не влезает —
+    // переносится на две строки и автоматически уменьшается (adjustsFontSizeToFit)
+    serverName: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: "700",
+      flexShrink: 1,
+      textAlign: "center",
+    },
     serverSub: { color: colors.textDim, fontSize: 12 },
   });

@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
+import { QuickNavBar } from "../components/QuickNavBar";
 import { PressableScale } from "../components/PressableScale";
 import { FoxRenew, FoxRenewSheet } from "../components/FoxRenew";
 import { BalanceSheet } from "../components/BalanceSheet";
@@ -506,7 +507,7 @@ export default function ProfileScreen() {
         contentContainerStyle={{
           padding: 16,
           paddingTop: insets.top + 66,
-          paddingBottom: inTabs ? insets.bottom + 116 : insets.bottom + 24,
+          paddingBottom: inTabs ? insets.bottom + 116 : insets.bottom + 96,
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -705,6 +706,10 @@ export default function ProfileScreen() {
           <Text style={styles.settingsBtnText}>Перейти в настройки</Text>
         </PressableScale>
       </ScrollView>
+
+      {/* Быстрое нижнее меню — видно когда экран открыт стеком поверх темы
+          (в таб-зоне основной темы компонент сам себя скрывает) */}
+      <QuickNavBar />
 
       {/* ─── Шторки и модалки (условный рендер: не монтируются, пока закрыты —
            ускоряет перерисовку при смене темы) ─── */}
