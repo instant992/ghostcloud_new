@@ -334,7 +334,7 @@ const simpleDark: Palette = {
 };
 
 // ── AWG (стиль AmneziaVPN: чёрный фон, контурный круг со свечением,
-//    нижняя панель выбора сервера, док из иконок) ──
+//    нижняя панель выбора сервера, док из иконок; акцент — фирменный фиолетовый) ──
 const awgDark: Palette = {
   bg: "#0D0D0F",
   bgSoft: "#16161A",
@@ -344,13 +344,13 @@ const awgDark: Palette = {
   text: "#FFFFFF",
   textDim: "#9A9AA5",
   textFaint: "#7A7A85",
-  accent: "#F0A050",
-  accentDeep: "#E08A30",
-  accentSoft: "rgba(240,160,80,0.14)",
+  accent: "#A855F7",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(168,85,247,0.14)",
   green: "#34D399",
   red: "#F87171",
   orange: "#FBBF24",
-  gradient: ["#F0A050", "#F5B870"],
+  gradient: ["#7C3AED", "#A855F7"],
 };
 
 const awgLight: Palette = {
@@ -362,13 +362,13 @@ const awgLight: Palette = {
   text: "#17181C",
   textDim: "#5A5B62",
   textFaint: "#6E6F77",
-  accent: "#E8890C",
-  accentDeep: "#C26E00",
-  accentSoft: "rgba(232,137,12,0.12)",
+  accent: "#9333EA",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(147,51,234,0.10)",
   green: "#059669",
   red: "#DC2626",
   orange: "#D97706",
-  gradient: ["#E8890C", "#F0A050"],
+  gradient: ["#7C3AED", "#A855F7"],
 };
 
 const PALETTES: Record<ThemeName, PalettePair> = {

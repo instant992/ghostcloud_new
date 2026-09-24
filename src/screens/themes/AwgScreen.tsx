@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,14 +8,96 @@ import { useApp } from "../../context";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
-import { colors, splitNameFlag, useTheme, isLightPalette } from "../../theme";
+import { colors, splitNameFlag, useTheme, isLightPalette, sheetSurfaceBg } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { ServerSheet } from "./ServerSheet";
+import TopUpScreen from "../TopUpScreen";
+import PlansScreen from "../PlansScreen";
+import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
+import * as appFilterMod from "../../vpn/appFilter";
+import { computeBypassForNetwork, loadFilterSettings } from "../../vpn/connectionFilter";
+import { getNetworkType } from "../../vpn/native";
 import { showToast } from "../../components/Toast";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 
+function pluralDays(n: number): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "день";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "дня";
+  return "дней";
+}
+
+/** Всплывающее окно (bottom-sheet) с заголовком и крестиком — внутри
+ *  рендерится готовый экран (пополнение / продление подписки). */
+function AwgPopup({
+  visible,
+  onClose,
+  title,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={popupStyles.backdrop}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel={`Закрыть: ${title}`}
+        />
+        <View style={popupStyles.sheet}>
+          <View style={popupStyles.handle} />
+          <View style={popupStyles.header}>
+            <Text style={popupStyles.title}>{title}</Text>
+            <Pressable onPress={onClose} hitSlop={8} style={{ padding: 4 }}>
+              <Ionicons name="close" size={20} color={colors.textFaint} />
+            </Pressable>
+          </View>
+          <View style={{ flex: 1 }}>{children}</View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const popupStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  sheet: {
+    height: "88%",
+    backgroundColor: sheetSurfaceBg(),
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderBottomWidth: 0,
+    overflow: "hidden",
+  },
+  handle: {
+    alignSelf: "center",
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.border,
+    marginTop: 8,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  title: { color: colors.text, fontSize: 17, fontWeight: "800" },
+});
+
 /** Тема «AWG» — стиль AmneziaVPN: чёрный фон, контурный круг «Подключиться»
- *  со свечением, снизу панель выбора сервера, док из контурных иконок. */
+ *  со свечением, сверху дни подписки и баланс (тап — всплывающее окно),
+ *  снизу панель выбора сервера, док из контурных иконок. */
 export default function AwgScreen() {
   useTheme();
   const styles = makeStyles();
@@ -34,7 +116,45 @@ export default function AwgScreen() {
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
   const [busy, setBusy] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [topupOpen, setTopupOpen] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
+  const [appsOpen, setAppsOpen] = useState(false);
+  /** Краткий статус раздельного туннелирования: «выключено» / «N приложений мимо» и т.п. */
+  const [splitLabel, setSplitLabel] = useState("выключено");
   const seconds = useVpnTimerSeconds(vpnRunning);
+
+  const refreshSplitLabel = () => {
+    appFilterMod
+      .loadFilter()
+      .then(async (f) => {
+        let parts: string[] = [];
+        try {
+          const s = loadFilterSettings();
+          const bypass = computeBypassForNetwork(s, getNetworkType());
+          if (bypass.domains.length) parts.push(`${bypass.domains.length} сайтов мимо`);
+          if (bypass.packages.length) parts.push(`${bypass.packages.length} приложений мимо`);
+          if (s.active.length) parts.push(`${s.active.length} профилей`);
+        } catch {}
+        if (!parts.length) {
+          if (f.allowed.length) parts.push(`через VPN ${f.allowed.length} прил.`);
+          else if (f.blocked.length) parts.push(`мимо VPN ${f.blocked.length} прил.`);
+        }
+        setSplitLabel(parts.length ? parts.join(", ") : "выключено");
+      })
+      .catch(() => {});
+  };
+
+  React.useEffect(() => {
+    refreshSplitLabel();
+  }, [appsOpen]);
+
+  const daysLeft = useMemo(() => {
+    if (!me?.expire_at) return 0;
+    const d = new Date(String(me.expire_at)).getTime();
+    if (Number.isNaN(d)) return 0;
+    return Math.max(0, Math.ceil((d - Date.now()) / 86400000));
+  }, [me]);
+  const balanceRub = (me?.balance || 0) / 100;
 
   const allVisible = useMemo(() => nodes, [nodes]);
   const selectedNode = useMemo(
@@ -106,6 +226,42 @@ export default function AwgScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
+      {/* Сверху: дни подписки по центру, баланс справа — оба с «+» и тапом */}
+      <View style={styles.topRow}>
+        <Pressable
+          style={styles.topPill}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            setPlansOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Осталось ${daysLeft} ${pluralDays(daysLeft)} подписки. Продлить`}
+        >
+          <Ionicons name="time-outline" size={15} color={colors.textDim} />
+          <Text style={styles.topPillText}>
+            {daysLeft} {pluralDays(daysLeft)}
+          </Text>
+          <View style={styles.plusBadge}>
+            <Ionicons name="add" size={13} color="#fff" />
+          </View>
+        </Pressable>
+        <Pressable
+          style={styles.topPill}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            setTopupOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Баланс ${balanceRub.toFixed(0)} рублей. Пополнить`}
+        >
+          <Ionicons name="wallet-outline" size={15} color={colors.textDim} />
+          <Text style={styles.topPillText}>{balanceRub.toFixed(0)} ₽</Text>
+          <View style={styles.plusBadge}>
+            <Ionicons name="add" size={13} color="#fff" />
+          </View>
+        </Pressable>
+      </View>
+
       {/* Круг по центру */}
       <View style={styles.center}>
         <View style={[styles.glowOuter, { borderColor: glow + "22" }]}>
@@ -136,32 +292,58 @@ export default function AwgScreen() {
         )}
       </View>
 
-      {/* Нижняя панель сервера + док из контурных иконок */}
+      {/* Нижняя панель: раздельное туннелирование + блок сервера + док */}
       <View style={styles.bottomArea}>
+        {/* Раздельное туннелирование — как на скрине: статус по центру, тап открывает фильтр */}
+        <Pressable
+          style={styles.splitRow}
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            setAppsOpen(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`Раздельное туннелирование ${splitLabel}. Настроить`}
+        >
+          <View style={{ flex: 1 }} />
+          <Text style={styles.splitText}>{`Раздельное туннелирование ${splitLabel}`}</Text>
+          <View style={{ flex: 1, alignItems: "flex-end", paddingRight: 4 }}>
+            <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
+          </View>
+        </Pressable>
+
+        {/* Блок сервера: по центру флаг + страна, пинг слева, снизу протокол */}
         <Pressable
           style={styles.serverPanel}
           onPress={() => setSheetOpen(true)}
           accessibilityRole="button"
           accessibilityLabel={`Выбор сервера. Текущий: ${selectedInfo?.name || "не выбран"}`}
         >
-          <Text style={styles.serverFlag} accessibilityElementsHidden>
-            {selectedInfo?.flag || "🌐"}
-          </Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.serverName} numberOfLines={1}>
-              {selectedInfo?.name || "Выберите сервер"}
-            </Text>
-            <Text style={styles.serverSub} numberOfLines={1}>
-              {selectedNode ? transportLabel(selectedNode) : "—"}
-              {selPing?.status === "done" && !selPing.error && selPing.delay > 0
-                ? ` | ${selPing.delay} мс`
-                : ""}
-            </Text>
+          <View style={styles.handle} />
+          <View style={styles.serverMainRow}>
+            {/* Левая колонка (пинг) и правая (шеврон) — равной ширины, чтобы центр не съезжал */}
+            <View style={styles.serverSide}>
+              {selPing?.status === "done" && !selPing.error && selPing.delay > 0 ? (
+                <Text style={styles.serverPing}>{selPing.delay} мс</Text>
+              ) : null}
+            </View>
+            <View style={styles.serverCenter}>
+              <Text style={styles.serverFlag} accessibilityElementsHidden>
+                {selectedInfo?.flag || "🌐"}
+              </Text>
+              <Text style={styles.serverName} numberOfLines={1}>
+                {selectedInfo?.name || "Выберите сервер"}
+              </Text>
+            </View>
+            <View style={[styles.serverSide, { alignItems: "flex-end" }]}>
+              <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
+            </View>
           </View>
-          <Ionicons name="chevron-down" size={20} color={colors.textFaint} />
+          <Text style={styles.serverSub} numberOfLines={1}>
+            {selectedNode ? transportLabel(selectedNode) : "—"}
+          </Text>
         </Pressable>
 
-        {/* Док: Главная (активна) / Рефералы / Настройки / Тарифы */}
+        {/* Док: Главная (активна) / Профиль / Настройки */}
         <View style={[styles.dock, { paddingBottom: Math.max(10, insets.bottom) }]}>
           <View style={styles.dockSlot} accessibilityRole="tab" accessibilityState={{ selected: true }}>
             <Ionicons name="home" size={24} color={colors.accent} />
@@ -170,12 +352,12 @@ export default function AwgScreen() {
             style={styles.dockSlot}
             onPress={() => {
               Haptics.selectionAsync().catch(() => {});
-              nav.navigate("Referral");
+              nav.navigate("Профиль");
             }}
             accessibilityRole="tab"
-            accessibilityLabel="Рефералы"
+            accessibilityLabel="Профиль"
           >
-            <Ionicons name="share-outline" size={24} color={colors.textFaint} />
+            <Ionicons name="person-outline" size={24} color={colors.textFaint} />
           </Pressable>
           <Pressable
             style={styles.dockSlot}
@@ -188,17 +370,6 @@ export default function AwgScreen() {
           >
             <Ionicons name="settings-outline" size={24} color={colors.textFaint} />
           </Pressable>
-          <Pressable
-            style={styles.dockSlot}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              nav.navigate("Тарифы");
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="Тарифы"
-          >
-            <Ionicons name="add" size={26} color={colors.textFaint} />
-          </Pressable>
         </View>
       </View>
 
@@ -209,6 +380,16 @@ export default function AwgScreen() {
         selectedId={selectedNodeId}
         onSelect={chooseNode}
       />
+
+      {/* Всплывающие окна: пополнение баланса и продление подписки */}
+      <AwgPopup visible={topupOpen} onClose={() => setTopupOpen(false)} title="Пополнение баланса">
+        <TopUpScreen />
+      </AwgPopup>
+      <AwgPopup visible={plansOpen} onClose={() => setPlansOpen(false)} title="Продление подписки">
+        <PlansScreen />
+      </AwgPopup>
+
+      <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
     </View>
   );
 }
@@ -216,6 +397,35 @@ export default function AwgScreen() {
 const makeStyles = () =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
+    topRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 8,
+      paddingHorizontal: 16,
+      paddingTop: 10,
+    },
+    topPill: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 18,
+      paddingLeft: 12,
+      paddingRight: 6,
+      paddingVertical: 6,
+    },
+    topPillText: { color: colors.text, fontSize: 13, fontWeight: "700" },
+    plusBadge: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: colors.accent,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     center: {
       flex: 1,
       alignItems: "center",
@@ -260,18 +470,60 @@ const makeStyles = () =>
       borderTopColor: colors.border,
       backgroundColor: colors.bgSoft,
       paddingHorizontal: 16,
-      paddingTop: 12,
+      paddingTop: 6,
+    },
+    splitRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 14,
+    },
+    splitText: {
+      color: colors.textDim,
+      fontSize: 14,
+      fontWeight: "500",
+      maxWidth: "72%",
+      textAlign: "center",
     },
     serverPanel: {
-      flexDirection: "row",
       alignItems: "center",
       backgroundColor: colors.card,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 16,
-      paddingHorizontal: 16,
-      paddingVertical: 14,
-      gap: 12,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
+    handle: {
+      alignSelf: "center",
+      width: 40,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: colors.border,
+      marginBottom: 10,
+    },
+    serverMainRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      width: "100%",
+    },
+    // Равные боковые колонки — центр (флаг + страна) остаётся строго по центру
+    serverSide: {
+      width: 74,
+      alignItems: "flex-start",
+      justifyContent: "center",
+    },
+    serverCenter: {
+      flex: 1,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    },
+    serverPing: {
+      color: colors.textDim,
+      fontSize: 13,
+      fontWeight: "700",
+      fontVariant: ["tabular-nums"],
     },
     dock: {
       flexDirection: "row",
@@ -286,6 +538,6 @@ const makeStyles = () =>
       justifyContent: "center",
     },
     serverFlag: { fontSize: 26 },
-    serverName: { color: colors.text, fontSize: 15, fontWeight: "700" },
-    serverSub: { color: colors.textDim, fontSize: 12, marginTop: 2 },
+    serverName: { color: colors.text, fontSize: 17, fontWeight: "700" },
+    serverSub: { color: colors.textDim, fontSize: 12, marginTop: 6 },
   });
