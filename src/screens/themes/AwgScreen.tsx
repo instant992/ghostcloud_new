@@ -319,26 +319,26 @@ export default function AwgScreen() {
         >
           <View style={styles.handle} />
           <View style={styles.serverMainRow}>
-            {/* Равные боковые колонки — центр (флаг + страна) остаётся строго по центру */}
-            <View style={styles.serverSide}>
-              {selPing?.status === "done" && !selPing.error && selPing.delay > 0 ? (
-                <Text style={styles.serverPing}>{selPing.delay} мс</Text>
-              ) : null}
-            </View>
-            <View style={styles.serverCenter}>
-              <Text style={styles.serverFlag} accessibilityElementsHidden>
-                {selectedInfo?.flag || "🌐"}
-              </Text>
-              <Text style={styles.serverName} numberOfLines={1}>
-                {selectedInfo?.name || "Выберите сервер"}
-              </Text>
-              <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
-            </View>
-            <View style={styles.serverSide} />
+            <Text style={styles.serverFlag} accessibilityElementsHidden>
+              {selectedInfo?.flag || "🌐"}
+            </Text>
+            <Text style={styles.serverName} numberOfLines={1}>
+              {selectedInfo?.name || "Выберите сервер"}
+            </Text>
+            <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
           </View>
-          <Text style={styles.serverSub} numberOfLines={1}>
-            {selectedNode ? transportLabel(selectedNode) : "—"}
-          </Text>
+          {/* Снизу: пинг слева от протокола */}
+          <View style={styles.serverSubRow}>
+            {selPing?.status === "done" && !selPing.error && selPing.delay > 0 ? (
+              <>
+                <Text style={styles.serverPing}>{selPing.delay} мс</Text>
+                <Text style={styles.serverSubDot}>·</Text>
+              </>
+            ) : null}
+            <Text style={styles.serverSub} numberOfLines={1}>
+              {selectedNode ? transportLabel(selectedNode) : "—"}
+            </Text>
+          </View>
 
           <View style={styles.dockSeparator} />
 
@@ -506,20 +506,20 @@ const makeStyles = () =>
     serverMainRow: {
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
       width: "100%",
     },
-    // Равные боковые колонки — центр (флаг + страна) остаётся строго по центру
-    serverSide: {
-      width: 74,
-      alignItems: "flex-start",
-      justifyContent: "center",
-    },
-    serverCenter: {
-      flex: 1,
+    serverSubRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      gap: 6,
+      marginTop: 6,
+    },
+    serverSubDot: {
+      color: colors.textFaint,
+      fontSize: 12,
     },
     serverPing: {
       color: colors.textDim,
@@ -548,5 +548,5 @@ const makeStyles = () =>
     },
     serverFlag: { fontSize: 26 },
     serverName: { color: colors.text, fontSize: 17, fontWeight: "700" },
-    serverSub: { color: colors.textDim, fontSize: 12, marginTop: 6 },
+    serverSub: { color: colors.textDim, fontSize: 12 },
   });
