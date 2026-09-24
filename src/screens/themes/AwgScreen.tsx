@@ -292,9 +292,9 @@ export default function AwgScreen() {
         )}
       </View>
 
-      {/* Нижняя панель: раздельное туннелирование + блок сервера + док */}
+      {/* Низ: раздельное туннелирование на простом фоне + полноширинная карточка сервера */}
       <View style={styles.bottomArea}>
-        {/* Раздельное туннелирование — как на скрине: статус по центру, тап открывает фильтр */}
+        {/* Раздельное туннелирование — текст по центру с шевроном, без подложки */}
         <Pressable
           style={styles.splitRow}
           onPress={() => {
@@ -304,23 +304,22 @@ export default function AwgScreen() {
           accessibilityRole="button"
           accessibilityLabel={`Раздельное туннелирование ${splitLabel}. Настроить`}
         >
-          <View style={{ flex: 1 }} />
-          <Text style={styles.splitText}>{`Раздельное туннелирование ${splitLabel}`}</Text>
-          <View style={{ flex: 1, alignItems: "flex-end", paddingRight: 4 }}>
-            <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
-          </View>
+          <Text style={styles.splitText} numberOfLines={1}>
+            {`Раздельное туннелирование ${splitLabel}`}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color={colors.textFaint} />
         </Pressable>
 
-        {/* Блок сервера: по центру флаг + страна, пинг слева, снизу протокол */}
+        {/* Карточка сервера как на фото: во всю ширину, скруглённые верхние углы, рамка */}
         <Pressable
-          style={styles.serverPanel}
+          style={styles.serverCard}
           onPress={() => setSheetOpen(true)}
           accessibilityRole="button"
           accessibilityLabel={`Выбор сервера. Текущий: ${selectedInfo?.name || "не выбран"}`}
         >
           <View style={styles.handle} />
           <View style={styles.serverMainRow}>
-            {/* Левая колонка (пинг) и правая (шеврон) — равной ширины, чтобы центр не съезжал */}
+            {/* Равные боковые колонки — центр (флаг + страна) остаётся строго по центру */}
             <View style={styles.serverSide}>
               {selPing?.status === "done" && !selPing.error && selPing.delay > 0 ? (
                 <Text style={styles.serverPing}>{selPing.delay} мс</Text>
@@ -333,44 +332,47 @@ export default function AwgScreen() {
               <Text style={styles.serverName} numberOfLines={1}>
                 {selectedInfo?.name || "Выберите сервер"}
               </Text>
-            </View>
-            <View style={[styles.serverSide, { alignItems: "flex-end" }]}>
               <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
             </View>
+            <View style={styles.serverSide} />
           </View>
           <Text style={styles.serverSub} numberOfLines={1}>
             {selectedNode ? transportLabel(selectedNode) : "—"}
           </Text>
-        </Pressable>
 
-        {/* Док: Главная (активна) / Профиль / Настройки */}
-        <View style={[styles.dock, { paddingBottom: Math.max(10, insets.bottom) }]}>
-          <View style={styles.dockSlot} accessibilityRole="tab" accessibilityState={{ selected: true }}>
-            <Ionicons name="home" size={24} color={colors.accent} />
+          <View style={styles.dockSeparator} />
+
+          {/* Док: Главная (активна) / Профиль / Настройки — кучно к центру */}
+          <View style={[styles.dock, { paddingBottom: Math.max(10, insets.bottom) }]}>
+            <View style={styles.dockSlot} accessibilityRole="tab" accessibilityState={{ selected: true }}>
+              <Ionicons name="home" size={24} color={colors.accent} />
+            </View>
+            <Pressable
+              style={styles.dockSlot}
+              hitSlop={8}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                nav.navigate("Профиль");
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="Профиль"
+            >
+              <Ionicons name="person-outline" size={24} color={colors.textFaint} />
+            </Pressable>
+            <Pressable
+              style={styles.dockSlot}
+              hitSlop={8}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {});
+                nav.navigate("Настройки");
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="Настройки"
+            >
+              <Ionicons name="settings-outline" size={24} color={colors.textFaint} />
+            </Pressable>
           </View>
-          <Pressable
-            style={styles.dockSlot}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              nav.navigate("Профиль");
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="Профиль"
-          >
-            <Ionicons name="person-outline" size={24} color={colors.textFaint} />
-          </Pressable>
-          <Pressable
-            style={styles.dockSlot}
-            onPress={() => {
-              Haptics.selectionAsync().catch(() => {});
-              nav.navigate("Настройки");
-            }}
-            accessibilityRole="tab"
-            accessibilityLabel="Настройки"
-          >
-            <Ionicons name="settings-outline" size={24} color={colors.textFaint} />
-          </Pressable>
-        </View>
+        </Pressable>
       </View>
 
       <ServerSheet
@@ -466,32 +468,32 @@ const makeStyles = () =>
     status: { marginTop: 28, fontSize: 15, fontWeight: "500" },
     timer: { marginTop: 6, fontSize: 13, color: colors.textFaint, fontVariant: ["tabular-nums"] },
     bottomArea: {
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      backgroundColor: colors.bgSoft,
-      paddingHorizontal: 16,
-      paddingTop: 6,
+      backgroundColor: "transparent",
     },
     splitRow: {
       flexDirection: "row",
       alignItems: "center",
-      paddingVertical: 14,
+      justifyContent: "center",
+      gap: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
     },
     splitText: {
       color: colors.textDim,
       fontSize: 14,
       fontWeight: "500",
-      maxWidth: "72%",
-      textAlign: "center",
     },
-    serverPanel: {
+    serverCard: {
       alignItems: "center",
       backgroundColor: colors.card,
-      borderWidth: 1,
+      borderTopWidth: 1,
+      borderLeftWidth: 1,
+      borderRightWidth: 1,
       borderColor: colors.border,
-      borderRadius: 16,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
       paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingTop: 6,
     },
     handle: {
       alignSelf: "center",
@@ -525,14 +527,21 @@ const makeStyles = () =>
       fontWeight: "700",
       fontVariant: ["tabular-nums"],
     },
+    dockSeparator: {
+      alignSelf: "stretch",
+      height: 1,
+      backgroundColor: colors.border,
+      marginTop: 12,
+    },
     dock: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "space-around",
-      paddingTop: 14,
+      justifyContent: "center",
+      gap: 44,
+      paddingTop: 10,
     },
     dockSlot: {
-      paddingHorizontal: 18,
+      paddingHorizontal: 8,
       paddingVertical: 6,
       alignItems: "center",
       justifyContent: "center",
