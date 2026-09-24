@@ -1304,6 +1304,7 @@ function themeIcon(t: ThemeName): any {
     case "foxcloud": return "flame-outline";
     case "pickme": return "heart-outline";
     case "happ": return "sunny-sharp";
+    case "awg": return "ellipse-outline";
     default: return "sparkles-outline";
   }
 }

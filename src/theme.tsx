@@ -12,7 +12,8 @@ export type ThemeName =
   | "foxcloud"
   | "pickme"
   | "happ"
-  | "simple";
+  | "simple"
+  | "awg";
 
 export type { ThemeMode };
 
@@ -332,6 +333,44 @@ const simpleDark: Palette = {
   gradient: ["#2563EB", "#3B82F6"],
 };
 
+// ── AWG (стиль AmneziaVPN: чёрный фон, контурный круг со свечением,
+//    нижняя панель выбора сервера, док из иконок) ──
+const awgDark: Palette = {
+  bg: "#0D0D0F",
+  bgSoft: "#16161A",
+  card: "#1E2227",
+  cardLight: "#262A30",
+  border: "#2E3238",
+  text: "#FFFFFF",
+  textDim: "#9A9AA5",
+  textFaint: "#7A7A85",
+  accent: "#F0A050",
+  accentDeep: "#E08A30",
+  accentSoft: "rgba(240,160,80,0.14)",
+  green: "#34D399",
+  red: "#F87171",
+  orange: "#FBBF24",
+  gradient: ["#F0A050", "#F5B870"],
+};
+
+const awgLight: Palette = {
+  bg: "#F5F4F2",
+  bgSoft: "#EDECEA",
+  card: "#FFFFFF",
+  cardLight: "#F3F1EE",
+  border: "#DCDAD6",
+  text: "#17181C",
+  textDim: "#5A5B62",
+  textFaint: "#6E6F77",
+  accent: "#E8890C",
+  accentDeep: "#C26E00",
+  accentSoft: "rgba(232,137,12,0.12)",
+  green: "#059669",
+  red: "#DC2626",
+  orange: "#D97706",
+  gradient: ["#E8890C", "#F0A050"],
+};
+
 const PALETTES: Record<ThemeName, PalettePair> = {
   default: { dark: defaultDark, light: defaultLight },
   minimalist: { dark: minimalistDark, light: minimalistLight },
@@ -341,6 +380,7 @@ const PALETTES: Record<ThemeName, PalettePair> = {
   pickme: { dark: pickmeDark, light: pickmeLight },
   happ: { dark: happDark, light: happLight },
   simple: { dark: simpleDark, light: simpleLight },
+  awg: { dark: awgDark, light: awgLight },
 };
 
 /** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью.
@@ -396,6 +436,7 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   pickme: "Pink",
   happ: "Happ",
   simple: "Простой",
+  awg: "AWG",
 };
 
 /** Код разблокировки секретной темы «Простой» (общий для настроек и экрана блокировки) */
@@ -411,6 +452,7 @@ export const THEME_ORDER: ThemeName[] = [
   "pickme",
   "v2ray",
   "happ",
+  "awg",
 ];
 
 /** Светлая ли сейчас палитра (для статус-бара и стеклянных эффектов) */

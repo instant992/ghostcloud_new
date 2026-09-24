@@ -18,7 +18,8 @@ export type ThemeName =
   | "foxcloud"
   | "pickme"
   | "happ"
-  | "simple";
+  | "simple"
+  | "awg";
 export type ThemeMode = "dark" | "light" | "auto";
 export type CoreName = "xray" | "sing-box" | "uwuray";
 
@@ -46,6 +47,7 @@ const THEME_NAMES: ThemeName[] = [
   "pickme",
   "happ",
   "simple",
+  "awg",
 ];
 
 export function getThemeName(): ThemeName {

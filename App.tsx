@@ -35,6 +35,7 @@ import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
+import AwgScreen from "./src/screens/themes/AwgScreen";
 import { TabChain } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 import { SecurityAlertModal } from "./src/components/SecurityAlertModal";
@@ -557,6 +558,10 @@ function SimpleFlow() {
   return <ThemedFlow Home={SimpleScreen} />;
 }
 
+function AwgFlow() {
+  return <ThemedFlow Home={AwgScreen} />;
+}
+
 /** Android TV: собственный одностраничный интерфейс с боковым рельсом
  *  (Главная / Серверы / Настройки) вместо телефонных экранов. */
 function TvFlow() {
@@ -605,7 +610,9 @@ function Root() {
             ? GlassFlow
             : style === "simple"
               ? SimpleFlow
-              : MainTabs;
+              : style === "awg"
+                ? AwgFlow
+                : MainTabs;
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       {!session ? (
