@@ -17,7 +17,7 @@ import {
   isLteNode,
 } from "./autoSelect";
 import { getSnapshot as getPingSnapshot } from "./pingStore";
-import { pingNodesBatch, loadLibCore, getCoreStatus } from "./native";
+import { pingNodesBatch, loadLibCore, getCoreStatus, truncateTextFile, accessLogPath, errorLogPath } from "./native";
 import {
   getInstalledPackageNames,
   getNetworkType,
@@ -415,6 +415,12 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   }
   const filter = await loadFilter();
   const bypass = currentBypass();
+  // Новое подключение — начинаем журнал запросов с чистого листа (как в старом
+  // приложении «Запросы» показывал соединения текущей сессии).
+  try {
+    truncateTextFile(accessLogPath());
+    truncateTextFile(errorLogPath());
+  } catch {}
   // Системный фильтр приложений: к выбранному вручную белому/чёрному списку
   // добавляются пакеты активных профилей «мимо VPN» (Android фиксирует список
   // приложений при establish(), поэтому пакеты — только на старте)

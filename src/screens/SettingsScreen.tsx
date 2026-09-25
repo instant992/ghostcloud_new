@@ -181,6 +181,20 @@ export default function SettingsScreen() {
   /** Подтверждение выхода из аккаунта (кнопка перенесена из профиля) */
   const [logoutOpen, setLogoutOpen] = useState(false);
 
+  /** Расширенные настройки — как в старом приложении: переключатель с
+   *  предупреждением открывает дополнительные функции (журнал ядра и т.п.).
+   *  Каждый заход в настройки начинается с выключенного состояния. */
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedConfirm, setAdvancedConfirm] = useState(false);
+  const toggleAdvanced = (on: boolean) => {
+    if (on) {
+      setAdvancedConfirm(true);
+      return;
+    }
+    setAdvancedOpen(false);
+    Haptics.selectionAsync().catch(() => {});
+  };
+
   /** Иконка приложения на рабочем столе: "default" (призрак) / "foxcloud" (лиса) */
   const [appIcon, setAppIcon] = useState<string>(() => getLauncherIcon());
 
@@ -1140,8 +1154,29 @@ export default function SettingsScreen() {
         onToggle={() => toggleGroup("other")}
         icon="apps-outline"
         title="Прочее"
-        sub="Игра, о программе"
+        sub="Запросы, игра, о программе"
       >
+      {/* ─── Запросы: журнал сетевых запросов через VPN (как в старом приложении) ─── */}
+      <Card>
+        <PressableScale
+          style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
+          onPress={() => nav.navigate("Requests")}
+          accessibilityRole="button"
+          accessibilityLabel="Запросы. Просмотр последних записей запросов"
+        >
+          <Ionicons name="pulse-outline" size={18} color={colors.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>
+              Запросы
+            </Text>
+            <Text style={{ color: colors.textFaint, fontSize: 11, marginTop: 1 }}>
+              Просмотр последних записей запросов
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+        </PressableScale>
+      </Card>
+
       <Card>
         <PressableScale
           style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
@@ -1180,6 +1215,53 @@ export default function SettingsScreen() {
           <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
         </PressableScale>
       </Card>
+
+      {/* ─── Расширенные настройки (как в старом приложении): переключатель
+          с предупреждением открывает дополнительные функции ─── */}
+      <Card>
+        <View style={styles.themeRowLine}>
+          <Ionicons
+            name="build-outline"
+            size={20}
+            color={advancedOpen ? colors.accent : colors.textFaint}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.themeRowTitle}>Расширенные настройки</Text>
+            <Text style={styles.themeRowSub}>
+              {advancedOpen ? "Показаны дополнительные параметры" : "Для опытных пользователей"}
+            </Text>
+          </View>
+          <Switch
+            value={advancedOpen}
+            onValueChange={toggleAdvanced}
+            trackColor={{ false: colors.border, true: colors.accent }}
+            thumbColor="#fff"
+            accessibilityLabel="Расширенные настройки — показать дополнительные функции"
+          />
+        </View>
+
+        {advancedOpen && (
+          <View style={{ marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 }}>
+            <PressableScale
+              style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 2 }}
+              onPress={() => nav.navigate("Requests", { tab: "core" })}
+              accessibilityRole="button"
+              accessibilityLabel="Журнал ядра — ошибки и диагностика VPN-ядра"
+            >
+              <Ionicons name="terminal-outline" size={18} color={colors.accent} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>
+                  Журнал ядра
+                </Text>
+                <Text style={{ color: colors.textFaint, fontSize: 11, marginTop: 1 }}>
+                  Ошибки и диагностика VPN-ядра
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+            </PressableScale>
+          </View>
+        )}
+      </Card>
       </SettingsGroup>
 
       {/* Выход из аккаунта — вне групп, всегда виден в конце экрана */}
@@ -1194,6 +1276,35 @@ export default function SettingsScreen() {
           <Text style={styles.logoutText}>Выйти из аккаунта</Text>
         </PressableScale>
       </Card>
+
+      {/* Подтверждение включения расширенных настроек — как в старом приложении */}
+      {advancedConfirm && <Modal visible={advancedConfirm} transparent animationType="fade" onRequestClose={() => setAdvancedConfirm(false)}>
+        <Pressable style={styles.modalBackdrop} onPress={() => setAdvancedConfirm(false)}>
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Text style={styles.modalTitle}>Расширенные настройки</Text>
+            <Text style={styles.modalText}>
+              Расширенные настройки предназначены для опытных пользователей.
+              Неправильная конфигурация может нарушить работу VPN.{"\n\n"}
+              Включить расширенные настройки?
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+              <View style={{ flex: 1 }}>
+                <Button title="Отмена" variant="ghost" onPress={() => setAdvancedConfirm(false)} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Button
+                  title="Включить"
+                  onPress={() => {
+                    setAdvancedConfirm(false);
+                    setAdvancedOpen(true);
+                    Haptics.selectionAsync().catch(() => {});
+                  }}
+                />
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>}
 
       {/* Подтверждение выхода из аккаунта */}
       {logoutOpen && <Modal visible={logoutOpen} transparent animationType="fade" onRequestClose={() => setLogoutOpen(false)}>

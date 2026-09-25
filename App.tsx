@@ -29,6 +29,7 @@ import SupportTicketScreen from "./src/screens/SupportTicketScreen";
 import SponsorLeaderboardScreen from "./src/screens/SponsorLeaderboardScreen";
 import AboutScreen from "./src/screens/AboutScreen";
 import GameScreen from "./src/screens/GameScreen";
+import RequestsScreen from "./src/screens/RequestsScreen";
 import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
@@ -185,6 +186,7 @@ function AuthStack() {
  *  быстро попасть на главную. */
 function BackOverlay({ children }: { children: React.ReactNode }) {
   const nav = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   useTheme();
   const backToHome = !themeHasQuickNav(getThemeName());
   return (
@@ -194,13 +196,14 @@ function BackOverlay({ children }: { children: React.ReactNode }) {
         pointerEvents="box-none"
         style={{
           position: "absolute",
-          top: 0,
+          // Ниже статус-бара/выреза: раньше стрелка рисовалась от top:0 и
+          // наезжала на системный статус-бар (и тапы съедала системная зона).
+          top: insets.top,
           left: 0,
           right: 0,
           height: 64,
           flexDirection: "row",
-          alignItems: "flex-end",
-          paddingBottom: 4,
+          alignItems: "center",
           paddingHorizontal: 2,
         }}
       >
@@ -284,6 +287,11 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
         name="Game"
         component={GameScreen}
         options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Requests"
+        component={RequestsScreen}
+        options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
     </Stack.Navigator>
   );
@@ -548,6 +556,11 @@ function DockedThemedFlow({
         component={GameScreen}
         options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen
+        name="Requests"
+        component={RequestsScreen}
+        options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
     </Stack.Navigator>
   );
 }
@@ -661,6 +674,11 @@ function Root() {
         name="Game"
         component={GameScreen}
         options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+      />
+      <Stack.Screen
+        name="Requests"
+        component={RequestsScreen}
+        options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
         </>
       )}

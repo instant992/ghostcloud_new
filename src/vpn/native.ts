@@ -303,6 +303,62 @@ export async function tcpPing(host: string, port: number, timeoutMs = 5000): Pro
   return typeof res === "number" ? res : Number(res || -1);
 }
 
+/** QUIC-пинг (hysteria2): Version Negotiation RTT до сервера, мс.
+ *  TCP к hysteria2 неприменим — это UDP/QUIC. */
+export async function quicPing(host: string, port: number, timeoutMs = 5000): Promise<number> {
+  if (!XrayNative || typeof XrayNative.quicPing !== "function") throw new Error("модуль недоступен");
+  const res: any = await XrayNative.quicPing(host, port, timeoutMs);
+  return typeof res === "number" ? res : Number(res || -1);
+}
+
+// ── Журнал запросов (access-лог ядра) ──────────────────────────────────────
+// Ядро пишет access/error лог в filesDir — нативный путь нужен и для конфига
+// (Xray принимает только абсолютный путь), и для чтения хвоста файла.
+export const ACCESS_LOG_NAME = "gc_access.log";
+export const ERROR_LOG_NAME = "gc_error.log";
+
+/** Нативный каталог filesDir ("" — модуль недоступен/не Android). */
+export function getLogDir(): string {
+  try {
+    const d = XrayNative?.getLogDir?.();
+    return typeof d === "string" ? d : "";
+  } catch {
+    return "";
+  }
+}
+
+export function accessLogPath(): string {
+  const d = getLogDir();
+  return d ? `${d}/${ACCESS_LOG_NAME}` : "";
+}
+
+export function errorLogPath(): string {
+  const d = getLogDir();
+  return d ? `${d}/${ERROR_LOG_NAME}` : "";
+}
+
+/** Хвост текстового файла (последние maxBytes байт). */
+export async function readTextFileTail(path: string, maxBytes = 512 * 1024): Promise<string> {
+  if (!path) return "";
+  if (!XrayNative || typeof XrayNative.readTextFileTail !== "function") return "";
+  try {
+    const s = await XrayNative.readTextFileTail(path, maxBytes);
+    return typeof s === "string" ? s : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Обнуляет файл журнала (новое подключение / кнопка «Очистить»). */
+export function truncateTextFile(path: string): boolean {
+  if (!path) return false;
+  try {
+    return !!XrayNative?.truncateTextFile?.(path);
+  } catch {
+    return false;
+  }
+}
+
 export type UidTraffic = {
   uid: number;
   packageName: string;

@@ -1,4 +1,4 @@
-import { tcpPing, pingNodesBatch, isVpnRunning } from "./native";
+import { tcpPing, quicPing, pingNodesBatch, isVpnRunning } from "./native";
 import { getPingMethod } from "../settings";
 import { buildOutbound } from "./xrayConfig";
 import type { VpnNode } from "./parse";
@@ -106,6 +106,10 @@ async function urlPingOne(n: VpnNode): Promise<PingState> {
 }
 
 async function tcpPingOne(n: VpnNode): Promise<PingState> {
+  // hysteria2 = QUIC/UDP: TCP-рукопожатие сервер не слушает вовсе, поэтому
+  // для него отдельный зонд — QUIC Version Negotiation RTT (нативный quicPing).
+  // Таймаут/политика повторов те же, что для TCP.
+  const probe = n.protocol === "hysteria2" ? quicPing : tcpPing;
   // Таймаут пробы 5 с — живые серверы отвечают за 10–400 мс, НО медленные
   // узлы (RF-хостинги) соединяются за 2–4 с; при 2.5 с они ложно
   // помечались «недоступен». Скорость волны дают 8 воркеров, а не короткий таймаут.
@@ -122,7 +126,7 @@ async function tcpPingOne(n: VpnNode): Promise<PingState> {
     const t0 = Date.now();
     let delay = -1;
     try {
-      delay = await withTimeout(tcpPing(n.address, n.port, 5000), TCP_PROBE_TIMEOUT_MS, -1);
+      delay = await withTimeout(probe(n.address, n.port, 5000), TCP_PROBE_TIMEOUT_MS, -1);
     } catch {
       // ошибка пробы — быстрый сбой, пробуем ещё раз
     }
@@ -138,7 +142,7 @@ async function tcpPingOne(n: VpnNode): Promise<PingState> {
  *  LTE OPEN: только URL-тест через прокси и только при выключенном VPN —
  *  прямой TCP к LTE-нодам физически невозможен (см. комментарий pingAll). */
 export async function pingOne(node: VpnNode): Promise<void> {
-  if (!node.supportedByXray && getPingMethod() === "url") {
+  if (!node.supportedByXray && node.protocol !== "hysteria2" && getPingMethod() === "url") {
     map[node.id] = { status: "done", delay: -1, error: "URL-тест только для Xray-узлов" };
     emit();
     return;
@@ -151,6 +155,7 @@ export async function pingOne(node: VpnNode): Promise<void> {
   }
   map[node.id] = { status: "pending" };
   emit();
+  // hysteria2: всегда QUIC-зонд напрямую (URL-тест через Xray невозможен)
   const useUrl = node.source === "lte" || (getPingMethod() === "url" && canUrlTest(node));
   map[node.id] = useUrl ? await urlPingOne(node) : await tcpPingOne(node);
   emit();
@@ -227,7 +232,9 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
  *  VPN pingBatch ядром запрещён (один инстанс Xray на процесс) — LTE помечается
  *  «не проверить при вкл. VPN» вместо бесполезного 5-секундного таймаута. */
 export async function pingAll(nodes: VpnNode[]): Promise<void> {
-  const targets = nodes.filter((n) => n.supportedByXray);
+  // hysteria2 не поддерживается Xray (работает на sing-box), но замерить
+  // задержку можно напрямую: QUIC Version Negotiation RTT (см. tcpPingOne).
+  const targets = nodes.filter((n) => n.supportedByXray || n.protocol === "hysteria2");
   if (targets.length === 0) return;
 
   // Новая волна вытесняет старую: старая выйдет на ближайшей проверке токена.

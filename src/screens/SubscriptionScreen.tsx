@@ -49,7 +49,8 @@ export default function SubscriptionScreen() {
       style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={{
         padding: 20,
-        paddingTop: 84,
+        // стрелка «назад» рисуется ниже статус-бара (insets.top + 64) — контент начинается под ней
+        paddingTop: insets.top + 84,
         // Плавающий док тем: контент не должен залезать под меню
         paddingBottom: inTabs ? insets.bottom + 116 : 40,
       }}

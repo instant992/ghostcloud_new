@@ -2,6 +2,7 @@ import { VpnNode } from "./parse";
 import { getDnsProvider, type DnsProvider } from "./dns";
 import { getAntiDpi } from "../settings";
 import { xrayRoscomRules, type RoscomMode } from "./roscomRouting";
+import { accessLogPath, errorLogPath } from "./native";
 
 /** Маскировка трафика (анти-DPI) средствами finalmask ядра Xray.
  *  Fragment «tlshello» режет TLS ClientHello на несколько TCP-пакетов со
@@ -245,7 +246,17 @@ export function buildXrayConfig(
   }));
 
   const config: Record<string, any> = {
-    log: { loglevel: "warning" },
+    // Журнал запросов (экран «Запросы»): access-лог ядра в filesDir.
+    // loglevel error — в access попадают соединения, а не отладка ядра.
+    log: (() => {
+      const access = accessLogPath();
+      const error = errorLogPath();
+      return {
+        loglevel: "error",
+        ...(access ? { access } : {}),
+        ...(error ? { error } : {}),
+      };
+    })(),
     dns: {
       servers: provider.xray,
       queryStrategy: "UseIPv4",

@@ -655,6 +655,95 @@ class XrayCoreModule : Module() {
       }
     }
 
+    /** QUIC-зонд задержки для hysteria2 (UDP/QUIC — TCP-рукопожатие к нему
+     *  неприменимо, сервер его просто не слушает). Шлём QUIC long-header пакет
+     *  с заведомо неподдерживаемой версией (0x0a0a0a0a), добитый мусором до
+     *  1200 байт. RFC 9000 §6.1: любой QUIC-сервер ОБЯЗАН ответить пакетом
+     *  Version Negotiation, при этом никакого TLS/ключа не нужно — это честный
+     *  RTT до сервера (включая UDP-путь). Возвращает задержку в мс.
+     *  UDP-пакеты регулярно теряются (до ~20% на живых серверах) — поэтому
+     *  внутри одного вызова до 3 проб с коротким таймаутом, берём лучшую. */
+    AsyncFunction("quicPing") { host: String, port: Int, timeoutMs: Int, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-quic-ping") {
+        val total = timeoutMs.coerceIn(900, 10000)
+        val perAttempt = (total / 3).coerceAtLeast(700)
+        var best = -1L
+        var lastErr: Throwable? = null
+        try {
+          val addr = java.net.InetAddress.getByName(host)
+          for (attempt in 0 until 3) {
+            var socket: java.net.DatagramSocket? = null
+            try {
+              val dcid = ByteArray(8).also { java.security.SecureRandom().nextBytes(it) }
+              val scid = ByteArray(8).also { java.security.SecureRandom().nextBytes(it) }
+              val pkt = java.io.ByteArrayOutputStream(1200)
+              pkt.write(0xC0)                                  // long header + fixed bit
+              pkt.write(byteArrayOf(0x0a, 0x0a, 0x0a, 0x0a))   // неподдерживаемая версия → Version Negotiation
+              pkt.write(dcid.size); pkt.write(dcid)
+              pkt.write(scid.size); pkt.write(scid)
+              val pad = ByteArray(1200 - pkt.size())
+              java.security.SecureRandom().nextBytes(pad)
+              pkt.write(pad)
+              socket = java.net.DatagramSocket().apply { soTimeout = perAttempt }
+              val t0 = android.os.SystemClock.elapsedRealtime()
+              socket.send(java.net.DatagramPacket(pkt.toByteArray(), pkt.size(), addr, port))
+              val buf = ByteArray(4096)
+              socket.receive(java.net.DatagramPacket(buf, buf.size))  // ждём Version Negotiation
+              val rtt = android.os.SystemClock.elapsedRealtime() - t0
+              if (best < 0 || rtt < best) best = rtt
+              break  // получили ответ — достаточно
+            } catch (e: java.net.SocketTimeoutException) {
+              lastErr = e  // пакет потерялся — пробуем ещё раз
+            } catch (e: java.net.PortUnreachableException) {
+              lastErr = e  // ICMP port-unreachable — порт точно закрыт, повтор бесполезен
+              break
+            } finally {
+              runCatching { socket?.close() }
+            }
+          }
+          if (best >= 0) promise.resolve(best.toInt())
+          else promise.reject("ERR_QUIC_PING", lastErr?.message ?: "недоступен", lastErr)
+        } catch (e: Throwable) {
+          promise.reject("ERR_QUIC_PING", e.message ?: "недоступен", e)
+        }
+      }
+    }
+
+    /** Каталог filesDir — нативный путь для лог-файлов ядра (access/error). */
+    Function("getLogDir") { context.filesDir.absolutePath }
+
+    /** Хвост текстового файла (последние maxBytes) — журнал запросов/лог ядра. */
+    AsyncFunction("readTextFileTail") { path: String, maxBytes: Int, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-read-tail") {
+        try {
+          val f = File(path)
+          if (!f.exists() || f.length() == 0L) {
+            promise.resolve("")
+            return@thread
+          }
+          val len = f.length()
+          val start = maxOf(0L, len - maxBytes.coerceIn(1024, 4 * 1024 * 1024))
+          java.io.RandomAccessFile(f, "r").use { raf ->
+            raf.seek(start)
+            val buf = ByteArray((len - start).toInt())
+            raf.readFully(buf)
+            promise.resolve(String(buf, Charsets.UTF_8))
+          }
+        } catch (e: Throwable) {
+          promise.reject("ERR_READ_TAIL", e.message ?: "не удалось прочитать", e)
+        }
+      }
+    }
+
+    /** Обнуляет файл (ротация журнала перед новым VPN-подключением). */
+    Function("truncateTextFile") { path: String ->
+      runCatching {
+        val f = File(path)
+        if (f.exists()) java.io.FileOutputStream(f).use { it.channel.truncate(0) }
+        true
+      }.getOrDefault(false)
+    }
+
     Function("getTrafficSnapshot") {
       val uid = android.os.Process.myUid()
       mapOf(

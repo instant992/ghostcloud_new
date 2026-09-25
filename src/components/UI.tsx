@@ -25,10 +25,11 @@ export function useInTabArea(): boolean {
 
 /** Верхний отступ экрана: во вкладках отступ добавляет сам <Screen>
  *  (safe-area + 12), а в стеке под плавающей кнопкой «назад» нужен
- *  фиксированный отступ 64, чтобы контент не залезал под неё. */
+ *  отступ insets.top + 64 — стрелка рисуется ниже статус-бара. */
 export function useScreenTopPad(): ViewStyle {
   const inTabs = useInTabArea();
-  return inTabs ? {} : { paddingTop: 64 };
+  const insets = useSafeAreaInsets();
+  return inTabs ? {} : { paddingTop: insets.top + 64 };
 }
 
 export function Screen({
