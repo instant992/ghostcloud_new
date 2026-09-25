@@ -90,12 +90,24 @@ export default function GameScreen() {
         ref={webRef}
         source={{ uri: src }}
         onMessage={onMessage}
-        originWhitelist={["*"]}
+        // Игра — локальный файл из assets: разрешаем только file://-источники
+        // (раньше было ["*"] — любая страница могла бы обращаться к мосту RN).
+        originWhitelist={["file://*"]}
+        // Блокируем любые переходы вне file:// — локальной игре сеть не нужна
+        // (запросы на сервер делает RN-сторона), а подмена страницы не пройдёт.
+        onShouldStartLoadWithRequest={(req) => req.url.startsWith("file:")}
         javaScriptEnabled
         domStorageEnabled
         allowFileAccess
+        // Чтение соседних file://-ресурсов нужно для локальных моделей игры.
         allowFileAccessFromFileURLs
-        allowUniversalAccessFromFileURLs
+        // allowUniversalAccessFromFileURLs ОТКЛЮЧЁН: он снимает same-origin
+        // для file://-страниц (доступ к любому сайту/данным) — игре не нужен.
+        allowUniversalAccessFromFileURLs={false}
+        // Никаких самовольно открываемых окон и смешанного контента.
+        javaScriptCanOpenWindowsAutomatically={false}
+        setSupportMultipleWindows={false}
+        mixedContentMode="never"
         mediaPlaybackRequiresUserAction={false}
         scalesPageToFit={false}
         overScrollMode="never"

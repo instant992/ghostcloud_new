@@ -628,9 +628,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const { Linking } = await import("react-native");
           const initial = await Linking.getInitialURL();
           if (initial) {
-            const { parseTgAuthUrl } = await import("./screens/auth/TelegramLoginScreen");
+            const { parseTgAuthUrl, isTrustedSubscriptionUrl } = await import("./screens/auth/TelegramLoginScreen");
             const p = parseTgAuthUrl(initial);
-            if (p && p.subscription_url && !p.error) {
+            // Deep link может подделать любое приложение: принимаем
+            // subscription_url только с доверенных https-доменов (иначе
+            // злоумышленник увёл бы весь VPN-трафик через свой прокси).
+            if (p && p.subscription_url && !p.error && isTrustedSubscriptionUrl(p.subscription_url)) {
               await signInViaTokenRef.current(
                 p.subscription_url,
                 { login: p.tg_id ? `tg_${p.tg_id}` : undefined },

@@ -24,6 +24,30 @@ type TgAuthParams = {
   error?: string;
 };
 
+/** Доверенные домены адресов подписки. Deep link с кастомной схемой
+ *  (ghostcloud:// / foxcloud://) может отправить ЛЮБОЕ приложение на
+ *  устройстве — подписывать сессию по subscription_url из непроверенного
+ *  источника нельзя: злоумышленник перехватил бы весь VPN-трафик жертвы
+ *  через свой прокси. Разрешены только https и наши домены (Bedolaga/FoxCloud
+ *  выдают подписки на них). */
+const TRUSTED_SUB_DOMAINS = ["vpnghost.space", "ghostcloud.space", "foxcloud.space"];
+
+/** Проверка адреса подписки из deep link: только https + доверенный домен
+ *  (совпадение по границе домена, чтобы `evil-vpnghost.space` и
+ *  `evil.com/?x=vpnghost.space` не прошли). */
+export function isTrustedSubscriptionUrl(raw: string): boolean {
+  try {
+    const m = raw.match(/^(https):\/\/([^/?#:]+)/i);
+    if (!m) return false; // http/cleartext и прочие схемы — отклоняем
+    const host = m[2].toLowerCase();
+    return TRUSTED_SUB_DOMAINS.some(
+      (d) => host === d || host.endsWith("." + d)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Разбор deep link ghostcloud://tg-auth?... / foxcloud://tg-auth?...
  *  ВНИМАНИЕ: глобального URL в React Native нет (без полифилла) — парсим
  *  query-строку вручную. */
@@ -89,6 +113,14 @@ export default function TelegramLoginScreen() {
     if (!subUrl) {
       setWaiting(false);
       setError("Подписка не получена от FoxCloud");
+      return;
+    }
+    // Защита от перехвата deep link: любое приложение может прислать
+    // ghostcloud://tg-auth?subscription_url=<свой прокси>. Принимаем адрес
+    // подписки только с доверенных https-доменов.
+    if (!isTrustedSubscriptionUrl(subUrl)) {
+      setWaiting(false);
+      setError("Получен недоверенный адрес подписки — вход отменён");
       return;
     }
     setWaiting(false);
