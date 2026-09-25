@@ -30,6 +30,8 @@ import SponsorLeaderboardScreen from "./src/screens/SponsorLeaderboardScreen";
 import AboutScreen from "./src/screens/AboutScreen";
 import GameScreen from "./src/screens/GameScreen";
 import RequestsScreen from "./src/screens/RequestsScreen";
+import AppearanceScreen from "./src/screens/settings/AppearanceScreen";
+import VpnNetworkScreen from "./src/screens/settings/VpnNetworkScreen";
 import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
@@ -183,12 +185,15 @@ function AuthStack() {
  *  навигация одноэкранная, как во Flutter-версии).
  *  В темах без нижнего меню стрелка возвращает сразу на главный экран
  *  (popToTop) — иначе она вела бы в промежуточный экран без возможности
- *  быстро попасть на главную. */
-function BackOverlay({ children }: { children: React.ReactNode }) {
+ *  быстро попасть на главную.
+ *  toParent=true — для вложенных разделов настроек («Внешний вид», «VPN и
+ *  сеть»): стрелка возвращает на уровень выше (в хаб «Настройки»), а не на
+ *  главную, иначе иерархия настроек ломается. */
+function BackOverlay({ children, toParent }: { children: React.ReactNode; toParent?: boolean }) {
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
   useTheme();
-  const backToHome = !themeHasQuickNav(getThemeName());
+  const backToHome = !toParent && !themeHasQuickNav(getThemeName());
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       {children}
@@ -237,6 +242,16 @@ const StatsWithBack = () => (
 const SubscriptionWithBack = () => (
   <BackOverlay>
     <SubscriptionScreen />
+  </BackOverlay>
+);
+const AppearanceWithBack = () => (
+  <BackOverlay toParent>
+    <AppearanceScreen />
+  </BackOverlay>
+);
+const VpnNetworkWithBack = () => (
+  <BackOverlay toParent>
+    <VpnNetworkScreen />
   </BackOverlay>
 );
 
@@ -293,6 +308,8 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
         component={RequestsScreen}
         options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen name="Appearance" component={AppearanceWithBack} />
+      <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
     </Stack.Navigator>
   );
 }
@@ -561,6 +578,8 @@ function DockedThemedFlow({
         component={RequestsScreen}
         options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen name="Appearance" component={AppearanceWithBack} />
+      <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
     </Stack.Navigator>
   );
 }
@@ -680,6 +699,8 @@ function Root() {
         component={RequestsScreen}
         options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen name="Appearance" component={AppearanceWithBack} />
+      <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
         </>
       )}
     </Stack.Navigator>
