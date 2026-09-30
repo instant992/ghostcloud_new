@@ -2,7 +2,7 @@
   "expo": {
     "name": "GhostCloud",
     "slug": "ghostcloud",
-    "version": "1.1.6",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0F0B1E",
@@ -13,14 +13,14 @@
         "expo-channel-name": "production"
       }
     },
-    "runtimeVersion": "1.1.6",
+    "runtimeVersion": "1.0.0",
     "android": {
-      "package": "space.ghostcloud.app",
+      "package": "com.ghostcloud.app",
       "googleServicesFile": "./android/app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "monochromeImage": "./assets/monochrome-icon.png",
-        "backgroundColor": "#202020"
+        "backgroundImage": "./assets/adaptive-icon-background.png"
       },
       "permissions": [
         "android.permission.INTERNET",

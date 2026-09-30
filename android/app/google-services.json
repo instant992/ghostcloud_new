@@ -28,7 +28,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:282550460811:android:9868d413712321a95bcf8e",
         "android_client_info": {
-          "package_name": "space.ghostcloud.app"
+          "package_name": "com.ghostcloud.app"
         }
       },
       "oauth_client": [],

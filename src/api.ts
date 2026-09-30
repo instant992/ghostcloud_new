@@ -426,7 +426,7 @@ export async function getAnnouncements(): Promise<Announcement[]> {
 export type GameLeaderRow = { login: string; best_coins: number; best_distance: number };
 
 export async function gameRunStart(clientVer?: string) {
-  return request("POST", "/api/auth/mobile/game/run-start", { client_ver: clientVer || "1.1.6" });
+  return request("POST", "/api/auth/mobile/game/run-start", { client_ver: clientVer || "1.0.0" });
 }
 
 export async function gameRunSubmit(roundToken: string, coins: number, distance: number, durationMs: number, powerupsUsed?: string[]) {

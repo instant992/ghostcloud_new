@@ -18,7 +18,7 @@ process.chdir(ROOT);
 
   const projectId = "610ee1ee-ed79-4bbc-93f4-f14e3e05c3e3";
   const projectName = "ghostcloud";
-  const applicationId = "space.ghostcloud.app";
+  const applicationId = "com.ghostcloud.app";
 
   // 1. Авторизация из сохранённой сессии
   const analyticsStub = { setActor() {}, addEvent() {} };

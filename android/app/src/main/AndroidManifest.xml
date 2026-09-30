@@ -49,14 +49,14 @@
     </activity>
     <!-- Стандартная иконка-призрак (по умолчанию). Переключается нативным
          методом setLauncherIcon из модуля XrayCore (activity-alias). -->
-    <activity-alias android:name=".DEFAULT" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:enabled="true" android:exported="true" android:targetActivity="space.ghostcloud.app.MainActivity">
+    <activity-alias android:name=".DEFAULT" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round" android:enabled="true" android:exported="true" android:targetActivity="com.ghostcloud.app.MainActivity">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity-alias>
     <!-- Вторая иконка — лисья (перенесена из старого приложения). -->
-    <activity-alias android:name=".icon_foxcloud" android:label="@string/app_name" android:icon="@mipmap/ic_launcher_fox" android:roundIcon="@mipmap/ic_launcher_fox_round" android:enabled="false" android:exported="true" android:targetActivity="space.ghostcloud.app.MainActivity">
+    <activity-alias android:name=".icon_foxcloud" android:label="@string/app_name" android:icon="@mipmap/ic_launcher_fox" android:roundIcon="@mipmap/ic_launcher_fox_round" android:enabled="false" android:exported="true" android:targetActivity="com.ghostcloud.app.MainActivity">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
@@ -64,7 +64,7 @@
     </activity-alias>
     <!-- Вход с домашнего экрана Android TV / Google TV: категория
          LEANBACK_LAUNCHER + баннер 16:9 (обязателен для TV-лаунчеров). -->
-    <activity-alias android:name=".MainActivityTV" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:banner="@drawable/tv_banner" android:enabled="true" android:exported="true" android:targetActivity="space.ghostcloud.app.MainActivity">
+    <activity-alias android:name=".MainActivityTV" android:label="@string/app_name" android:icon="@mipmap/ic_launcher" android:banner="@drawable/tv_banner" android:enabled="true" android:exported="true" android:targetActivity="com.ghostcloud.app.MainActivity">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
