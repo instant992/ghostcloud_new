@@ -22,8 +22,12 @@ let waveSeq = 0;
  *  Нативный промис изредка не возвращается вовсе (гонка stop/start VPN-сервиса) —
  *  без потолка волна висит вечно и running=true блокирует все следующие пинги. */
 const PING_BATCH_CHUNK_TIMEOUT_MS = 30_000;
-/** Потолок на одну TCP-пробу: нативный таймаут 5 с + запас на доставку промиса. */
-const TCP_PROBE_TIMEOUT_MS = 8_000;
+/** Жёсткий потолок одной TCP-пробы: 1500 мс. Замер с реальных серверов (РФ-сеть,
+ *  VPN выкл.): живые узлы отвечают на TCP-рукопожатие за 43–117 мс, т.е. 1500 мс —
+ *  это ~12× запаса. Всё, что не уложилось, — мёртвый/закрытый узел (dropped SYN),
+ *  его незачем ждать дольше. Именно прежний потолок 5 с + ретраи на мёртвых узлах
+ *  (6 из 20 сгорали по 5 с) растягивали волну; не «последовательный await». */
+const TCP_HARD_TIMEOUT_MS = 1_500;
 
 /** Резолвит промис значением по таймеру — страховка от потерянных нативных промисов. */
 function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
@@ -111,36 +115,29 @@ async function urlPingOne(n: VpnNode): Promise<PingState> {
   return { status: "done", delay: -1, error: lastErr };
 }
 
+/** Быстрая TCP-проба одного узла: ОДИН выстрел, жёсткий потолок 1500 мс,
+ *  без ретраев и БЕЗ reject. Живой узел отвечает на рукопожатие за 43–117 мс
+ *  (замер с реальных серверов, РФ-сеть, VPN выкл.), так что 1500 мс — ~12× запаса;
+ *  всё, что не уложилось, — мёртвый/закрытый узел (dropped SYN), ждать его дольше
+ *  незачем. Нативный `tcpPing` (Kotlin `java.net.Socket().connect(addr, 1500)` на
+ *  отдельном потоке `gc-tcp-ping`) — это и есть «fast TCP check»: реальный сокет,
+ *  жёсткий таймаут, замер времени рукопожатия, не блокирует JS-поток.
+ *
+ *  Важно про «не использовать reject»: нативный примитив на ошибке.reject'ится,
+ *  но здесь мы ловим это (`.catch(() => -1)`) и возвращаем СОСТОЯНИЕ ошибки, а не
+ *  бросаем — иначе `Promise.all` всей волны оборвался бы на первом мёртвом узле и
+ *  остальные серверы остались бы непроверенными (ровно то, чего задача требует
+ *  избежать). Для hysteria2 — QUIC-зонд (Version Negotiation RTT), тот же потолок. */
 async function tcpPingOne(n: VpnNode): Promise<PingState> {
-  // hysteria2 = QUIC/UDP: TCP-рукопожатие сервер не слушает вовсе, поэтому
-  // для него отдельный зонд — QUIC Version Negotiation RTT (нативный quicPing).
-  // Таймаут/политика повторов те же, что для TCP.
   const probe = n.protocol === "hysteria2" ? quicPing : tcpPing;
-  // Таймаут пробы 5 с — живые серверы отвечают за 10–400 мс, НО медленные
-  // узлы (RF-хостинги) соединяются за 2–4 с; при 2.5 с они ложно
-  // помечались «недоступен». Скорость волны дают 8 воркеров, а не короткий таймаут.
-  // Повторы — только для БЫСТРЫХ ошибок (DNS/refused/unreachable): это «окна
-  // сетевых переходов» (VPN только что включили/выключили, wifi→LTE), и вторая
-  // попытка обычно проходит. Полный таймаут не повторяем: хост дропает
-  // рукопожатия (SS-агрегатор «Лучший сервер» на :1234 не принимает прямой
-  // TCP, LTE/анти-блок отвечают только своим клиентам) — повтор сгорит те же
-  // 5 с и мёртвый узел стоит волне 16+ с вместо 5 (старое приложение
-  // Clash.Meta делало одну пробу на узел — cap волны ~5 с).
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt === 1) await new Promise((r) => setTimeout(r, 300));
-    if (attempt === 2) await new Promise((r) => setTimeout(r, 1000));
-    const t0 = Date.now();
-    let delay = -1;
-    try {
-      delay = await withTimeout(probe(n.address, n.port, 5000), TCP_PROBE_TIMEOUT_MS, -1);
-    } catch {
-      // ошибка пробы — быстрый сбой, пробуем ещё раз
-    }
-    if (delay >= 0) return { status: "done", delay };
-    // ≥4.5 с = сработал нативный таймаут (5 с) или watchdog (8 с): повтор
-    // бессмыслен — выходим сразу, не блокируя воркер ещё на 10+ секунд.
-    if (Date.now() - t0 >= 4500) break;
-  }
+  // +200 мс к потолку — страховка на доставку промиса поверх нативного таймаута
+  // (потерянный нативный промис не должен вешать волну).
+  const delay = await withTimeout(
+    probe(n.address, n.port, TCP_HARD_TIMEOUT_MS).catch(() => -1),
+    TCP_HARD_TIMEOUT_MS + 200,
+    -1
+  );
+  if (delay >= 0) return { status: "done", delay };
   return { status: "done", delay: -1, error: "недоступен" };
 }
 
@@ -291,17 +288,17 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
         if (cancelled()) return;
         // узлы, где outbound не собрался или URL-тест не вернул результат, — TCP-фолбэк
         const failedOb = normalTargets.filter((n) => !doneIds.has(n.id));
-        await tcpWave(failedOb, 8, mySeq);
+        await tcpWave(failedOb, mySeq);
       } catch (e: any) {
         // URL-тест не смог стартовать (изолированный процесс и т.п.) — TCP-фолбэк
         console.warn("[pingAll] url-test failed, fallback to TCP:", String(e?.message || e).slice(0, 100));
-        await tcpWave(targets, 8, mySeq);
+        await tcpWave(targets, mySeq);
       }
     } else {
-      // При включённом VPN пробы конкурируют с трафиком туннеля за CPU/радио —
-      // на слабом устройстве 8 параллельных рукопожатий могут не уложиться
-      // в таймаут и дать ложные «недоступен». Снижаем напор.
-      await tcpWave(normalTargets, vpnUp ? 3 : 8, mySeq);
+      // Все обычные ноды стартуют одновременно (жёсткий потолок 1500 мс на пробу,
+      // приложение исключено из собственного туннеля — пробы идут напрямую, поэтому
+      // состояние VPN на путь TCP-пинга почти не влияет). waveToken — вытеснение.
+      await tcpWave(normalTargets, mySeq);
       if (cancelled()) return;
       // LTE-ноды: TCP бесполезен (см. комментарий к функции)
       for (const n of lteTargets) {
@@ -352,22 +349,23 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
   }
 }
 
-/** TCP-волна: N одновременных воркеров (8 при выключенном VPN; меньше при
- *  включённом — пробы конкурируют с трафиком туннеля за CPU/радио).
- *  waveToken — проверка вытеснения между узлами. */
-async function tcpWave(targets: VpnNode[], workers = 8, waveToken = 0): Promise<void> {
+/** TCP-волна: ВСЕ узлы стартуют ОДНОВРЕМЕННО — Promise.all по .map(), без
+ *  for...of + await и без пула воркеров (прежняя версия тянула очередь по 8,
+ *  поэтому при мёртвых узлах волна растягивалась). С жёстким потолком 1500 мс
+ *  на пробу суммарное время ≈ 1.5 с независимо от числа серверов: живой отвечает
+ *  за ~43–117 мс, мёртвый сгорает на таймауте, и всё это идёт параллельно.
+ *  waveToken — проверка вытеснения: вытеснённая волна просто не пишет в map.
+ *  Результаты публикуются по мере готовности каждого узла (emit внутри колбэка),
+ *  а не одним скачком в конце. */
+async function tcpWave(targets: VpnNode[], waveToken = 0): Promise<void> {
   if (targets.length === 0) return;
-  let index = 0;
-  const worker = async () => {
-    while (index < targets.length) {
-      if (waveSeq !== waveToken) return;
-      const node = targets[index++];
-      const res = await tcpPingOne(node);
-      if (waveSeq !== waveToken) return;
-      map[node.id] = res;
-      emit();
-    }
-  };
-  const n = Math.max(1, Math.min(workers, targets.length));
-  await Promise.all(Array.from({ length: n }, () => worker()));
+  await Promise.all(
+    targets.map(async (node) => {
+      const state = await tcpPingOne(node);
+      if (waveSeq === waveToken) {
+        map[node.id] = state;
+        emit();
+      }
+    })
+  );
 }
