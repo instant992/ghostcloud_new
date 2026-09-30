@@ -578,13 +578,38 @@ export const typo: Record<
 /** Минимальный размер тач-таргета (44 — гайдлайн; 40 допустимо в плотных списках). */
 export const hit = { min: 44, dense: 40 };
 
-/** Единые пороги и цвета пинга для всех экранов. */
-export const PING_GOOD = 80;
-export const PING_WARN = 200;
+/** Единые пороги и цвета пинга для всех экранов.
+ *  4 уровня: до 150 мс — отлично (зелёный), до 300 мс — приемлемо (жёлтый),
+ *  свыше — медленно (оранжевый); таймаут/ошибка рисуется красным отдельно
+ *  (см. pingFailLabel). */
+export const PING_GOOD = 150;
+export const PING_WARN = 300;
+
+/** Средний (жёлтый) и медленный (оранжевый) уровни шкалы пинга.
+ *  Задаются явно, а не через палитры: в палитрах нет поля yellow, а
+ *  `orange` там янтарный (#FBBF24/#D97706) и почти не отличим от жёлтого —
+ *  уровни сливались бы. Плюс в pickme `orange` вообще розовый #FF69B4.
+ *  Вариант для светлых палитр — по образцу powerButtonColors(). */
+export function pingWarnColor(): string {
+  return isLightPalette() ? "#CA8A04" : "#FDE047";
+}
+export function pingBadColor(): string {
+  return isLightPalette() ? "#C2410C" : "#FB923C";
+}
+
 export function pingColor(delay: number): string {
   if (delay < PING_GOOD) return colors.green;
-  if (delay < PING_WARN) return colors.orange;
-  return colors.red;
+  if (delay < PING_WARN) return pingWarnColor();
+  return pingBadColor();
+}
+
+/** Подпись непроверенного узла рядом со значением пинга (красным).
+ *  «Timeout» — для недоступных/не отвечавших узлов; для честного ограничения
+ *  (URL-тест невозможен при включённом VPN) — отдельный короткий текст,
+ *  иначе «Timeout» вводил бы в заблуждение. */
+export function pingFailLabel(error?: string): string {
+  if (error && /вкл\. VPN/i.test(error)) return "нет при VPN";
+  return "Timeout";
 }
 
 export function formatBytes(bytes: number): string {

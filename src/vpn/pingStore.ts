@@ -1,5 +1,5 @@
 import { tcpPing, quicPing, pingNodesBatch, isVpnRunning } from "./native";
-import { getPingMethod } from "../settings";
+import { getPingMethod, getPingUrlCandidates } from "../settings";
 import { buildOutbound } from "./xrayConfig";
 import type { VpnNode } from "./parse";
 
@@ -90,19 +90,25 @@ function canUrlTest(n: VpnNode): boolean {
   return n.supportedByXray;
 }
 
-/** URL-тест одного узла протоколом (работает только при выключенном VPN —
- *  pingBatch не поднимается, пока в процессе живёт Xray-инстанс туннеля). */
+/** URL-тест одного узла протоколом (True Ping; работает только при выключенном
+ *  VPN — pingBatch не поднимается, пока в процессе живёт Xray-инстанс туннеля).
+ *  При отказе перебирает пул резервных URL: падение probe-URL не должно
+ *  выглядеть как мёртвый узел. */
 async function urlPingOne(n: VpnNode): Promise<PingState> {
   const ob = buildOutbound(n);
   if (!ob) return { status: "done", delay: -1, error: "конфиг не собирается" };
-  const res = await withTimeout(
-    pingNodesBatch([{ xrayJson: JSON.stringify({ outbounds: [ob] }) }]),
-    PING_BATCH_CHUNK_TIMEOUT_MS,
-    []
-  );
-  const r = res[0];
-  if (r?.success && r.delay >= 0) return { status: "done", delay: r.delay };
-  return { status: "done", delay: -1, error: r?.error || "недоступен" };
+  const payload = [{ xrayJson: JSON.stringify({ outbounds: [ob] }) }];
+  const candidates = getPingUrlCandidates();
+  let lastErr = "недоступен";
+  for (let i = 0; i < candidates.length; i++) {
+    const res = await withTimeout(pingNodesBatch(payload, candidates[i]), PING_BATCH_CHUNK_TIMEOUT_MS, []);
+    const r = res[0];
+    if (r?.success && r.delay >= 0) return { status: "done", delay: r.delay };
+    lastErr = r?.error || lastErr;
+    // полный таймаут пробы нет смысла повторять на другом URL
+    if (/timeout|deadline exceeded/i.test(lastErr)) break;
+  }
+  return { status: "done", delay: -1, error: lastErr };
 }
 
 async function tcpPingOne(n: VpnNode): Promise<PingState> {
@@ -161,20 +167,29 @@ export async function pingOne(node: VpnNode): Promise<void> {
   emit();
 }
 
-/** URL-волна: порции по 5, публикация результатов после каждой порции.
+/** URL-волна (True Ping): порции по 5, публикация результатов после каждой порции.
  *  waveToken — проверка вытеснения: если стартовала новая волна, эта
- *  прекращает работу между чанками. Возвращает id узлов с результатом. */
+ *  прекращает работу между чанками. Возвращает id узлов с результатом.
+ *  Пул резервных URL: если порция упала ЦЕЛИКОМ, вероятная причина —
+ *  недоступность самого probe-URL (блокировка/сбой), а не смерть всех узлов;
+ *  волна переключается на следующий URL пула (не более 2 переключений) и
+ *  в конце добивает упавшие узлы уже рабочим URL. */
 async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> {
   const doneIds = new Set<string>();
   const withOb = targets
     .map((n) => ({ n, ob: buildOutbound(n) }))
     .filter((x): x is { n: VpnNode; ob: Record<string, any> } => !!x.ob);
-  for (let i = 0; i < withOb.length; i += 5) {
-    if (waveSeq !== waveToken) return doneIds;
-    const chunk = withOb.slice(i, i + 5);
-    const results = await withTimeout(
+  if (withOb.length === 0) return doneIds;
+
+  const candidates = getPingUrlCandidates();
+  let urlIdx = 0;
+  let switchesLeft = Math.min(2, candidates.length - 1);
+
+  const runChunk = (chunk: typeof withOb, url: string) =>
+    withTimeout(
       pingNodesBatch(
-        chunk.map((x) => ({ xrayJson: JSON.stringify({ outbounds: [x.ob] }) }))
+        chunk.map((x) => ({ xrayJson: JSON.stringify({ outbounds: [x.ob] }) })),
+        url
       ),
       // нативный промис может не вернуться вовсе (потеря при гонке
       // stop/start сервиса) — жёсткий потолок на порцию, иначе волна
@@ -182,6 +197,21 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
       PING_BATCH_CHUNK_TIMEOUT_MS,
       []
     );
+
+  for (let i = 0; i < withOb.length; i += 5) {
+    if (waveSeq !== waveToken) return doneIds;
+    const chunk = withOb.slice(i, i + 5);
+    let results = await runChunk(chunk, candidates[urlIdx]);
+    // Порция упала целиком — пробуем следующий URL пула (один раз на порцию,
+    // всего ≤2 переключений на волну, чтобы не утроить длительность).
+    const allFailed = !results || results.length === 0 || results.every((r) => !r?.success);
+    if (allFailed && switchesLeft > 0) {
+      urlIdx++;
+      switchesLeft--;
+      if (waveSeq !== waveToken) return doneIds;
+      await new Promise((r) => setTimeout(r, 200));
+      results = await runChunk(chunk, candidates[urlIdx]);
+    }
     for (let j = 0; j < chunk.length; j++) {
       const r = results?.[j];
       const st: PingState =
@@ -193,25 +223,25 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
     }
     emit(); // результаты этой порции — сразу в UI
   }
-  // Один ретрай-проход по транзиентным сбоям ядра: временный инстанс Xray
-  // для pingBatch дерётся за общую блокировку с предыдущим чанком —
-  // «io: read/write on closed pipe» не означает, что узел мёртв.
+  // Ретрай-проход: (а) транзиентные сбои ядра — временный инстанс Xray для
+  // pingBatch дерётся за общую блокировку с предыдущим чанком, поэтому
+  // «io: read/write on closed pipe» не означает, что узел мёртв;
+  // (б) если URL переключался, узлы из ранних порций проверялись мёртвым URL
+  // — добиваем их уже рабочим.
   const retry = withOb.filter((x) => {
     const s = map[x.n.id];
-    return s?.status === "done" && !!s.error && /pipe|deadline|EOF|reset/i.test(s.error);
+    return (
+      s?.status === "done" &&
+      !!s.error &&
+      (urlIdx > 0 || /pipe|deadline|EOF|reset/i.test(s.error))
+    );
   });
   if (retry.length > 0) {
     for (let i = 0; i < retry.length; i += 3) {
       if (waveSeq !== waveToken) return doneIds;
       await new Promise((r) => setTimeout(r, 400));
       const chunk = retry.slice(i, i + 3);
-      const results = await withTimeout(
-        pingNodesBatch(
-          chunk.map((x) => ({ xrayJson: JSON.stringify({ outbounds: [x.ob] }) }))
-        ),
-        PING_BATCH_CHUNK_TIMEOUT_MS,
-        []
-      );
+      const results = await runChunk(chunk, candidates[urlIdx]);
       for (let j = 0; j < chunk.length; j++) {
         const r = results?.[j];
         if (r?.success && r.delay >= 0) {

@@ -25,7 +25,7 @@ import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, BRAND_PURPLE } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, pingFailLabel, BRAND_PURPLE } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
@@ -634,6 +634,7 @@ function HappServerTile({
   const styles = makeStyles();
   const info = splitNameFlag(node.name);
   const delay = ping?.status === "done" && ping.delay > 0 ? ping.delay : null;
+  const failed = ping?.status === "done" && delay == null;
 
   return (
     <View>
@@ -672,6 +673,11 @@ function HappServerTile({
           {delay != null && (
             <Text style={{ color: pingColor(delay), fontSize: 10, fontWeight: "700", marginRight: 2 }}>
               {delay} мс
+            </Text>
+          )}
+          {failed && (
+            <Text style={{ color: colors.red, fontSize: 10, fontWeight: "700", marginRight: 2 }}>
+              {pingFailLabel(ping?.error)}
             </Text>
           )}
           <Pressable

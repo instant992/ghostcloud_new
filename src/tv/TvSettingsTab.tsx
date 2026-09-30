@@ -166,11 +166,11 @@ export function TvSettingsTab() {
             <Text style={s.rowSub}>
               {pingMethod === "tcp"
                 ? "TCP-подключение к серверу — работает всегда"
-                : "Via Proxy Get: HTTP-запрос через прокси — точнее, но только при выключенном VPN"}
+                : "True Ping (через прокси): HTTP-запрос через прокси-туннель — точнее, но только при выключенном VPN"}
             </Text>
           </View>
           <View style={s.valuePill}>
-            <Text style={s.valuePillText}>{pingMethod === "tcp" ? "TCP" : "Via Proxy Get"}</Text>
+            <Text style={s.valuePillText} numberOfLines={1}>{pingMethod === "tcp" ? "TCP" : "True Ping"}</Text>
           </View>
         </View>
       </TvFocusable>

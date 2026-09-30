@@ -2,7 +2,7 @@ import React, { useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as pingStore from "../../vpn/pingStore";
-import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColorFor } from "../../theme";
+import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColorFor, pingFailLabel } from "../../theme";
 import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
 
@@ -115,7 +115,7 @@ export function ServerSheet({
               const pingLabel =
                 ping?.status === "done"
                   ? ping.error
-                    ? ", пинг не проверен"
+                    ? `, ${pingFailLabel(ping.error)}`
                     : ping.delay > 0
                       ? `, пинг ${ping.delay} мс`
                       : ""
@@ -142,8 +142,10 @@ export function ServerSheet({
                   )}
                   {ping?.status === "done" &&
                     (ping.error ? (
-                      // Не удалось проверить пинг — красный прочерк там же, где значение пинга
-                      <Text style={{ color: colors.red, fontWeight: "700", fontSize: 12 }}>—</Text>
+                      // Не удалось проверить — красным текстом там же, где значение пинга
+                      <Text style={{ color: colors.red, fontWeight: "700", fontSize: 11 }}>
+                        {pingFailLabel(ping.error)}
+                      </Text>
                     ) : ping.delay > 0 ? (
                       <Text
                         style={{

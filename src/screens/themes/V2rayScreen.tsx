@@ -22,7 +22,7 @@ import { pickBestNode } from "../../vpn/manager";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
-import { colors, splitNameFlag, useTheme, useThemeSwitcher, type ThemeMode, BRAND_PURPLE } from "../../theme";
+import { colors, splitNameFlag, useTheme, useThemeSwitcher, pingColor as pingColorFor, pingFailLabel, type ThemeMode, BRAND_PURPLE } from "../../theme";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
@@ -249,7 +249,7 @@ export default function V2rayScreen() {
     statusText = "Подключено";
     if (selPing?.status === "pending") statusText += " • Проверяем...";
     else if (selPing?.status === "done" && selPing.delay > 0) statusText += ` • Пинг: ${selPing.delay} ms`;
-    else if (selPing?.status === "done") statusText += " • недоступен";
+    else if (selPing?.status === "done") statusText += ` • ${pingFailLabel(selPing.error)}`;
   }
 
   const daysColor = daysLeft <= 0 ? colors.red : daysLeft <= 3 ? colors.orange : colors.text;
@@ -653,13 +653,16 @@ function ServerRow({
   const info = splitNameFlag(node.name);
 
   let pingText = "n/a";
-  let pingColor = colors.red;
+  let pingColor = colors.textFaint;
   if (ping?.status === "pending") {
     pingText = "...";
     pingColor = colors.textDim;
   } else if (ping?.status === "done" && ping.delay > 0) {
     pingText = `${ping.delay} ms`;
-    pingColor = colors.green;
+    pingColor = pingColorFor(ping.delay);
+  } else if (ping?.status === "done") {
+    pingText = pingFailLabel(ping.error);
+    pingColor = colors.red;
   }
 
   return (

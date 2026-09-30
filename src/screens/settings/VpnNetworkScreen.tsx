@@ -16,6 +16,7 @@ import {
   getKillSwitch,
   getPingMethod,
   getPingUrl,
+  getPingUrlRaw,
   getSelectedCore,
   getSetting,
   setAntiDpi,
@@ -25,7 +26,7 @@ import {
   setPingMethod,
   setPingUrl,
   setSetting,
-  DEFAULT_PING_URL,
+  PING_URL_POOL,
   type CoreName,
   type PingMethod,
 } from "../../settings";
@@ -95,8 +96,8 @@ export default function VpnNetworkScreen() {
   const [autoBoot, setAutoBootState] = useState(getAutoConnectBoot());
   const [pingMethod, setPingMethodState] = useState<PingMethod>(getPingMethod());
   const [pingOpen, setPingOpen] = useState(false);
-  const [pingUrl, setPingUrlState] = useState(() => getPingUrl());
-  const [pingUrlInput, setPingUrlInput] = useState(() => getPingUrl());
+  const [pingUrl, setPingUrlState] = useState(() => getPingUrlRaw());
+  const [pingUrlInput, setPingUrlInput] = useState(() => getPingUrlRaw());
 
   const isSponsor = me?.is_sponsor === true;
 
@@ -416,7 +417,7 @@ export default function VpnNetworkScreen() {
               <Text style={styles.themeRowTitle}>Метод проверки пинга</Text>
               <Text style={styles.themeRowSub}>
                 {pingMethod === "url"
-                  ? "Via Proxy Get: HTTP-запрос через прокси (полный тест протокола) — точнее, но дольше и не работает при включённом VPN"
+                  ? "True Ping (через прокси): HTTP-запрос через прокси-туннель сервера (полный тест протокола) — точнее, но дольше и не работает при включённом VPN"
                   : "TCP: рукопожатие с сервером — быстро, работает всегда"}
               </Text>
             </View>
@@ -424,18 +425,21 @@ export default function VpnNetworkScreen() {
               style={styles.styleDropdownBtn}
               onPress={() => setPingOpen(true)}
               accessibilityRole="button"
-              accessibilityLabel={`Метод проверки пинга: ${pingMethod === "url" ? "Via Proxy Get" : "TCP"}. Нажмите, чтобы выбрать`}
+              accessibilityLabel={`Метод проверки пинга: ${pingMethod === "url" ? "True Ping через прокси" : "TCP"}. Нажмите, чтобы выбрать`}
             >
-              <Text style={styles.styleDropdownText}>{pingMethod === "url" ? "Via Proxy Get" : "TCP"}</Text>
+              <Text style={styles.styleDropdownText} numberOfLines={1}>
+                {pingMethod === "url" ? "True Ping" : "TCP"}
+              </Text>
               <Ionicons name="chevron-down" size={14} color={colors.accent} />
             </PressableScale>
           </View>
 
-          {/* URL для Via Proxy Get — можно заменить на свой */}
+          {/* Свой URL для True Ping — можно заменить; если пустой, используется пул */}
           {pingMethod === "url" && (
             <View style={{ marginTop: 12, gap: 8 }}>
               <Text style={styles.themeRowSub}>
-                URL для проверки (HTTP/HTTPS). Сервер должен отвечать 204/200 без тела.
+                Свой URL проверки (HTTP/HTTPS), необязательно. Если оставить пустым —
+                используется встроенный пул адресов с автопереключением при недоступности.
               </Text>
               <TextInput
                 style={styles.coreInput}
@@ -444,7 +448,7 @@ export default function VpnNetworkScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
-                placeholder={DEFAULT_PING_URL}
+                placeholder="пусто = пул адресов (miui, apple, microsoft…)"
                 placeholderTextColor={colors.textFaint}
               />
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -452,13 +456,13 @@ export default function VpnNetworkScreen() {
                   <PressableScale
                     style={styles.modalBtnGhost}
                     onPress={() => {
-                      setPingUrlInput(DEFAULT_PING_URL);
-                      setPingUrl(DEFAULT_PING_URL);
-                      setPingUrlState(DEFAULT_PING_URL);
-                      showToast("URL по умолчанию восстановлен", "top");
+                      setPingUrlInput("");
+                      setPingUrl("");
+                      setPingUrlState("");
+                      showToast("Включён встроенный пул адресов", "top");
                     }}
                   >
-                    <Text style={styles.modalBtnGhostText}>По умолчанию</Text>
+                    <Text style={styles.modalBtnGhostText}>Авто (пул)</Text>
                   </PressableScale>
                 </View>
                 <View style={{ flex: 1 }}>
@@ -466,24 +470,29 @@ export default function VpnNetworkScreen() {
                     style={styles.modalBtnPrimary}
                     onPress={() => {
                       const v = pingUrlInput.trim();
-                      if (!/^https?:\/\/\S+$/i.test(v)) {
+                      // Пустое значение — разрешено: это «авто (пул адресов)»
+                      if (v && !/^https?:\/\/\S+$/i.test(v)) {
                         showToast("Некорректный URL — нужен http(s)://…", "top");
                         return;
                       }
                       setPingUrl(v);
                       setPingUrlState(v);
-                      showToast("URL проверки сохранён", "top");
+                      showToast(v ? "URL проверки сохранён" : "Включён встроенный пул адресов", "top");
                     }}
                   >
                     <Text style={styles.modalBtnPrimaryText}>Сохранить</Text>
                   </PressableScale>
                 </View>
               </View>
-              <Text style={styles.hint}>Сейчас: {pingUrl}</Text>
+              <Text style={styles.hint}>
+                Сейчас: {pingUrl ? pingUrl : "встроенный пул адресов"}
+                {"\n"}Пул ({PING_URL_POOL.length + 1} адресов): miui, apple, microsoft, firefox,
+                gstatic, cloudflare — переключаются по очереди, если основной не ответил.
+              </Text>
             </View>
           )}
           <Text style={styles.hint}>
-            UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и Via Proxy Get.
+            UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и True Ping (через прокси).
           </Text>
         </Card>
 
@@ -535,7 +544,7 @@ export default function VpnNetworkScreen() {
               <PressableScale style={styles.stylePanel} onPress={() => {}}>
                 <Text style={styles.themeSheetTitle}>Метод проверки пинга</Text>
                 {([
-                  { key: "url" as PingMethod, title: "Via Proxy Get", sub: "HTTP-запрос через прокси (полный тест протокола VLESS/REALITY). Точнее, но дольше; при включённом VPN автоматически используется TCP." },
+                  { key: "url" as PingMethod, title: "True Ping (через прокси)", sub: "HTTP-запрос через прокси-туннель сервера (полный тест протокола VLESS/REALITY). Точнее, но дольше; при включённом VPN автоматически используется TCP." },
                   { key: "tcp" as PingMethod, title: "TCP", sub: "Рукопожатие с портом сервера. Быстро, работает при включённом VPN." },
                 ]).map((o) => (
                   <PressableScale
@@ -546,7 +555,7 @@ export default function VpnNetworkScreen() {
                       setPingMethod(o.key);
                       setPingOpen(false);
                       Haptics.selectionAsync().catch(() => {});
-                      showToast(o.key === "url" ? "Метод: Via Proxy Get" : "Метод: TCP", "top");
+                      showToast(o.key === "url" ? "Метод: True Ping (через прокси)" : "Метод: TCP", "top");
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={`${o.title}: ${o.sub}`}
@@ -564,7 +573,7 @@ export default function VpnNetworkScreen() {
                   </PressableScale>
                 ))}
                 <Text style={styles.hint}>
-                  UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и Via Proxy Get.
+                  UDP/ICMP-пинг на Android недоступен приложениям без root — поэтому методы два: TCP и True Ping (через прокси).
                 </Text>
               </PressableScale>
             </PressableScale>

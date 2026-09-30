@@ -22,7 +22,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor, BRAND_PURPLE } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor, pingFailLabel, BRAND_PURPLE } from "../../theme";
 import { PowerButton } from "../../components/PowerButton";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { transportLabel } from "../../utils/transportLabel";
@@ -286,11 +286,17 @@ export default function GlassScreen() {
 
   const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
-  const pingText =
-    selPing?.status === "done" && selPing.delay > 0 ? `${selPing.delay} мс` : null;
-  const pingColor =
-    selPing?.status === "done" && selPing.delay > 0
-      ? pingColorFor(selPing.delay)
+  const pingDone = selPing && selPing.status === "done" ? selPing : null;
+  const pingOk = Boolean(pingDone && pingDone.delay > 0);
+  const pingText = pingOk
+    ? `${pingDone!.delay} мс`
+    : pingDone
+      ? pingFailLabel(pingDone.error)
+      : null;
+  const pingColor = pingOk
+    ? pingColorFor(pingDone!.delay)
+    : pingDone
+      ? colors.red
       : colors.textDim;
 
   const expireStr = me?.expire_at

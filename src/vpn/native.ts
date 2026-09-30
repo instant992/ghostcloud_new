@@ -409,11 +409,15 @@ export function getXrayVersion(): string {
   }
 }
 
-/** configs: [{xrayJson, outboundTag}] — максимум 5 за один вызов */
+/** configs: [{xrayJson, outboundTag}] — максимум 5 за один вызов.
+ *  url — адрес пробы True Ping; по умолчанию из настроек (getPingUrl).
+ *  Пул резервных URL перебирает вызывающий (pingStore.urlWave). */
 export async function pingNodesBatch(
-  outbounds: Array<{ xrayJson: string }>
+  outbounds: Array<{ xrayJson: string }>,
+  url?: string
 ): Promise<Array<{ success: boolean; delay: number; error?: string }>> {
   if (!XrayNative) return [];
+  const probeUrl = url || getPingUrl();
   const results: Array<{ success: boolean; delay: number; error?: string }> = [];
   for (let i = 0; i < outbounds.length; i += 5) {
     const chunk = outbounds.slice(i, i + 5).map((c) => ({
@@ -430,9 +434,9 @@ export async function pingNodesBatch(
       // Ниже 8 нельзя: медленные узлы РФ-хостингов дают TCP-коннект 2–4 с,
       // плюс REALITY-рукопожатие и HTTP 204 через прокси — при 5 с рабочие
       // серверы ложно помечались «недоступен».
-      // URL — из настроек (по умолчанию connectivity-check MIUI): gstatic
+      // URL — из настроек/пула (по умолчанию connectivity-check MIUI): gstatic
       // из российских сетей периодически недоступен, и весь URL-тест падал.
-      const res = await XrayNative.pingBatch(payload, 8, getPingUrl());
+      const res = await XrayNative.pingBatch(payload, 8, probeUrl);
       const parsed = JSON.parse(res);
       if (!parsed?.success) throw new Error(parsed?.error || "ping failed");
       const items = parsed?.data?.results || [];

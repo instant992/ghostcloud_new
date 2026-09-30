@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as pingStore from "../vpn/pingStore";
 import { connect, disconnect } from "../vpn/manager";
 import { useApp } from "../context";
-import { colors, pingColor, splitNameFlag } from "../theme";
+import { colors, pingColor, pingFailLabel, splitNameFlag } from "../theme";
 import { transportLabel } from "../utils/transportLabel";
 import type { VpnNode } from "../vpn/parse";
 import { TvFocusable } from "./TvFocusable";
@@ -220,7 +220,7 @@ export function TvServerSheet({ visible, onClose }: { visible: boolean; onClose:
                     ) : ping?.status === "done" && ping.delay > 0 ? (
                       <Text style={[s.cellPing, { color: pingColor(ping.delay) }]}>{ping.delay} ms</Text>
                     ) : ping?.status === "done" ? (
-                      <Text style={[s.cellPing, { color: colors.red }]}>недоступен</Text>
+                      <Text style={[s.cellPing, { color: colors.red }]}>{pingFailLabel(ping.error)}</Text>
                     ) : (
                       <Text style={[s.cellPing, { color: colors.textFaint }]}>—</Text>
                     )}

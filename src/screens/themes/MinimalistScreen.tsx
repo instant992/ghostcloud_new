@@ -19,7 +19,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting } from "../../settings";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, BRAND_PURPLE } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, pingFailLabel, BRAND_PURPLE } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
@@ -485,7 +485,9 @@ export default function MinimalistScreen() {
               ) : ping?.status === "done" && ping.delay > 0 ? (
                 <Text style={[styles.otherPing, { color: pingColor(ping.delay) }]}>{ping.delay}</Text>
               ) : ping?.status === "done" ? (
-                <Text style={[styles.otherPing, { color: colors.red }]}>✕</Text>
+                <Text style={[styles.otherPing, { color: colors.red, fontSize: 10 }]}>
+                  {pingFailLabel(ping.error)}
+                </Text>
               ) : null}
             </Pressable>
           );

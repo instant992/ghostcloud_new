@@ -6,7 +6,7 @@ import { connect, disconnect } from "../vpn/manager";
 import { getTrafficSnapshot } from "../vpn/native";
 import * as pingStore from "../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
-import { colors, formatBytes, pingColor, splitNameFlag, useTheme } from "../theme";
+import { colors, formatBytes, pingColor, pingFailLabel, splitNameFlag, useTheme } from "../theme";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
 import { TvFocusable } from "./TvFocusable";
@@ -299,7 +299,9 @@ function TvDashboardTab() {
                   {selectedPing.delay} ms
                 </Text>
               ) : selectedPing?.status === "done" ? (
-                <Text style={[s.chipPing, { color: colors.red }]}>—</Text>
+                <Text style={[s.chipPing, { color: colors.red }]} numberOfLines={1}>
+                  {pingFailLabel(selectedPing.error)}
+                </Text>
               ) : (
                 <Text style={[s.chipPing, { color: colors.textFaint }]}>…</Text>
               )}

@@ -27,7 +27,7 @@ import { getNetworkType } from "../vpn/native";
 import { resolveNodeCountry } from "../vpn/geoIp";
 import { transportLabel } from "../utils/transportLabel";
 import * as stats from "../stats";
-import { colors, splitNameFlag, formatBytes, useTheme, pingColor, isLightPalette, countryFromName, countryFromFlag, BRAND_PURPLE } from "../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor, pingFailLabel, isLightPalette, countryFromName, countryFromFlag, BRAND_PURPLE } from "../theme";
 import { WorldMap, type MapMarker } from "../components/worldMap/WorldMap";
 import { buildMapMarkers } from "../components/worldMap/markers";
 
@@ -524,8 +524,10 @@ function ServerPicker({
                   )}
                   {ping?.status === "done" &&
                     (ping.error ? (
-                      // Не удалось проверить пинг — красный прочерк там же, где значение пинга
-                      <Text style={{ color: colors.red, fontWeight: "700", fontSize: 12 }}>—</Text>
+                      // Не удалось проверить — красным текстом там же, где значение пинга
+                      <Text style={{ color: colors.red, fontWeight: "700", fontSize: 11 }}>
+                        {pingFailLabel(ping.error)}
+                      </Text>
                     ) : (
                       <Text
                         style={{
