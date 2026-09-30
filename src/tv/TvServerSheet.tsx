@@ -43,13 +43,7 @@ export function TvServerSheet({ visible, onClose }: { visible: boolean; onClose:
     reloadNodes().catch(() => {});
   }, [visible, nodes.length, reloadNodes]);
 
-  // Стартовая волна пинга — один раз за сессию панели
-  const didPing = useRef(false);
-  useEffect(() => {
-    if (!visible || didPing.current || shown.length === 0) return;
-    didPing.current = true;
-    pingStore.pingAll(shown).catch(() => {});
-  }, [visible, shown]);
+  // Пинг — только по кнопке «Пинг» в панели выбора серверов, без автопроверки
 
   // Анимация выезда/скрытия
   useEffect(() => {

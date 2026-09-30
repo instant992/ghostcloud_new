@@ -100,12 +100,7 @@ export default function V2rayScreen() {
     [nodes, selectedNodeId, mainNodes, lteNodes]
   );
 
-  const didPing = useRef(false);
-  useEffect(() => {
-    if (didPing.current || nodes.length === 0) return;
-    didPing.current = true;
-    pingStore.pingAll(nodes).catch(() => {});
-  }, [nodes]);
+  // Пинг — только по кнопке «Пинг» в меню выбора серверов, без автопроверки
 
   const daysLeft = useMemo(() => {
     if (!me?.expire_at) return 0;

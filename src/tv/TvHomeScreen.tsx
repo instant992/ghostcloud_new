@@ -153,16 +153,9 @@ function TvDashboardTab() {
     [visibleNodes, selectedNodeId]
   );
 
-  // Пинг выбранного сервера для чипа на главной: если результата ещё нет —
-  // разово измеряем (например, после перезапуска приложения).
+  // Пинг чипа — только из панели выбора серверов (кнопка «Пинг»),
+  // автоматически ничего не измеряем
   const selectedPing = selectedNode ? pings[selectedNode.id] : undefined;
-  useEffect(() => {
-    if (!selectedNode) return;
-    if (selectedPing) return;
-    if (pingStore.isRunning()) return;
-    pingStore.pingOne(selectedNode).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedNode?.id, selectedPing, nodes.length]);
 
   // Живая скорость: дельта счётчиков трафика раз в секунду
   const lastRef = useRef<{ tx: number; rx: number } | null>(null);

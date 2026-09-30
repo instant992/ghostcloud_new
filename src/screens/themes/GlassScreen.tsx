@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -196,12 +196,7 @@ export default function GlassScreen() {
     return () => clearInterval(t);
   }, []);
 
-  const didPing = useRef(false);
-  useEffect(() => {
-    if (didPing.current || nodes.length === 0) return;
-    didPing.current = true;
-    pingStore.pingAll(nodes).catch(() => {});
-  }, [nodes]);
+  // Пинг — только по кнопке «Пинг» в меню выбора серверов, без автопроверки
 
   // Пульс и свечение — внутри общего компонента <PowerButton />
 

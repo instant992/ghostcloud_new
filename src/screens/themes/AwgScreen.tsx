@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import React, { useMemo, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -162,12 +162,7 @@ export default function AwgScreen() {
     [allVisible, selectedNodeId]
   );
 
-  const didPing = useRef(false);
-  React.useEffect(() => {
-    if (didPing.current || nodes.length === 0) return;
-    didPing.current = true;
-    pingStore.pingAll(nodes).catch(() => {});
-  }, [nodes]);
+  // Пинг — только по кнопке «Пинг» в меню выбора серверов, без автопроверки
 
   const toggle = async () => {
     if (busy) return;

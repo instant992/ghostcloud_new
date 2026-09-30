@@ -116,12 +116,7 @@ export default function HappScreen() {
     return () => clearInterval(t);
   }, []);
 
-  const didPing = useRef(false);
-  useEffect(() => {
-    if (didPing.current || nodes.length === 0) return;
-    didPing.current = true;
-    pingStore.pingAll(nodes).catch(() => {});
-  }, [nodes]);
+  // Пинг — только по кнопке «Пинг» в меню выбора серверов, без автопроверки
 
   // Пульс кольца кнопки подключения (только пока подключено)
   const pulse = useRef(new Animated.Value(0)).current;
