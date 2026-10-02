@@ -201,6 +201,45 @@ export function buildOutbound(node: VpnNode): Record<string, any> | null {
         },
         streamSettings,
       };
+    case "hysteria2": {
+      // Xray-core v26.9.9 поддерживает hysteria2 нативно — протокол/транспорт
+      // «hysteria» с обязательным version:2 (QUIC). Форма подтверждена по
+      // upstream infra/conf/hysteria.go (HysteriaClientConfig{version,address,port})
+      // и transport_method.go (HysteriaConfig{version,auth,...}).
+      // Generic buildStreamSettings не годится (hysteria2 — QUIC, не tcp),
+      // поэтому собираем streamSettings отдельно.
+      const hyStream: Record<string, any> = {
+        network: "hysteria",
+        security: "tls",
+        tlsSettings: {
+          serverName: node.sni || node.address,
+          // allowInsecure в этой версии Xray удалён (бросает RemovedFeatureError) —
+          // наши серверы имеют валидные сертификаты на реальные SNI.
+          fingerprint: node.fingerprint || "chrome",
+          alpn: node.alpn,
+        },
+        hysteriaSettings: {
+          version: 2,
+          auth: node.password || node.uuid || "",
+        },
+      };
+      // Salamander-obfs (если задан в ссылке) — через udpmask finalmask.
+      if (node.obfs && node.obfsPassword) {
+        hyStream.finalmask = {
+          udp: [{ type: "salamander", settings: { password: node.obfsPassword } }],
+        };
+      }
+      return {
+        tag: "proxy",
+        protocol: "hysteria",
+        settings: {
+          version: 2,
+          address: node.address,
+          port: node.port,
+        },
+        streamSettings: hyStream,
+      };
+    }
     case "ss":
       return {
         tag: "proxy",

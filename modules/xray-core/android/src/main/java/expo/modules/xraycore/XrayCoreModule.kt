@@ -548,6 +548,12 @@ class XrayCoreModule : Module() {
           if (!home.exists()) home.mkdirs()
           val version = when (lib) {
             "singbox" -> {
+              // Второй Go-рантайм в процессе запрещён: если уже загружено
+              // другое скачиваемое ядро — сообщаем явно (нужен перезапуск приложения).
+              if (GcUwuCore.loaded || GcCore.loaded) {
+                promise.reject("ERR_CORE_CONFLICT", "Другое ядро уже загружено — перезапустите приложение", null)
+                return@thread
+              }
               GcSbCore.load(file.absolutePath)
               val err = GcSbCore.gcInit(home.absolutePath)
               if (err.isNotEmpty()) {

@@ -396,6 +396,40 @@ async function ensureUwuRayLoaded(): Promise<void> {
   }
 }
 
+/** Sing-box — скачиваемое ядро (libsingbox.so), и после перезапуска приложения
+ *  оно НЕ загружено в процесс: startLibCoreVpn сразу отклоняет запуск с
+ *  ERR_NO_CORE «Ядро не загружено: singbox» (баг: подключение через sing-box
+ *  не работало, пока пользователь заново не скачает ядро в настройках).
+ *  Грузим лениво перед подключением — симметрично ensureUwuRayLoaded.
+ *  Идемпотентно: GcSbCore.load кэширует путь, gcInit лёгкий. */
+let singBoxLoadPromise: Promise<void> | null = null;
+async function ensureSingBoxLoaded(): Promise<void> {
+  if (singBoxLoadPromise) return singBoxLoadPromise;
+  singBoxLoadPromise = (async () => {
+    const st = getCoreStatus("libsingbox.so");
+    if (!st?.downloaded) {
+      throw new Error("Ядро Sing-box не скачано — загрузите его в настройках");
+    }
+    try {
+      await loadLibCore("singbox");
+    } catch (e: any) {
+      const msg = String(e?.message || e || "");
+      // ERR_CORE_CONFLICT: в этом процессе уже загружено другое скачиваемое
+      // ядро (Go-рантайм один на процесс) — нужен перезапуск приложения.
+      if (msg.includes("ERR_CORE_CONFLICT") || msg.includes("перезапустите")) {
+        throw new Error("Переключено ядро — перезапустите приложение, чтобы применить Sing-box");
+      }
+      throw new Error(msg || "Не удалось загрузить ядро Sing-box");
+    }
+  })();
+  try {
+    await singBoxLoadPromise;
+  } catch (e) {
+    singBoxLoadPromise = null; // разрешить повторную попытку после перезапуска
+    throw e;
+  }
+}
+
 export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise<void> {
   const granted = await ensurePermission();
   if (!granted) throw new Error("Нет разрешения на создание VPN-подключения");
@@ -471,6 +505,9 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   };
   if (core === "sing-box") {
     const config = buildSingBoxConfig(node, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
+    // Ядро скачиваемое — грузим .so лениво перед стартом (иначе нативный
+    // гейт отклонит: ERR_NO_CORE «Ядро не загружено: singbox»).
+    await ensureSingBoxLoaded();
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
@@ -480,9 +517,6 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   if (core === "uwuray") {
     // UwuRay — форк Xray-core: конфиг и анти-DPI (finalmask) как у Xray,
     // но ядро скачиваемое (System.load) — стартует через LibCoreVpnService.
-    if (!node.supportedByXray) {
-      throw new Error("Hysteria2 доступен только на ядре sing-box — выберите его в настройках");
-    }
     await ensureUwuRayLoaded();
     const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
     saveTileConfig(config, "uwuray");
@@ -490,9 +524,6 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     lastConnectedNodeId = node.id;
     markVpnConnected();
     return;
-  }
-  if (!node.supportedByXray) {
-    throw new Error("Hysteria2 доступен только на ядре sing-box — выберите его в настройках");
   }
   const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
   saveTileConfig(config, "xray");

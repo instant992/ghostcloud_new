@@ -29,6 +29,10 @@ export type VpnNode = {
   alpn?: string[];
   extra?: string;
   source?: "sub" | "wifi" | "lte";
+  // hysteria2 (ссылки hy2://): obfs=salamander + пароль, pin сертификата
+  obfs?: string;
+  obfsPassword?: string;
+  pinSha256?: string;
 };
 
 function b64decode(input: string): string {
@@ -400,7 +404,12 @@ function parseHysteria2(link: string): VpnNode | null {
       password: auth,
       sni: p.sni,
       security: "tls",
-      supportedByXray: false,
+      // Xray-core v26.9.9 поддерживает hysteria2 нативно (протокол «hysteria»,
+      // version 2) — см. buildOutbound в xrayConfig.ts. sing-box тоже умеет.
+      supportedByXray: true,
+      obfs: p.obfs,
+      obfsPassword: p["obfs-password"] || p.obfspassword,
+      pinSha256: p.pinsha256,
       raw: link,
     };
   } catch {
@@ -660,7 +669,13 @@ export function clashProxyToNode(px: any): VpnNode | null {
         password: px.password || px.auth,
         sni: px.sni || px.servername,
         security: "tls",
-        supportedByXray: false,
+        // Xray v26.9.9 поддерживает hysteria2 нативно (протокол «hysteria»,
+        // version 2) — см. buildOutbound в xrayConfig.ts.
+        supportedByXray: true,
+        // Salamander-obfs: mihomo отдаёт строкой + obfs-password, sing-box — объектом
+        obfs: typeof px.obfs === "string" ? px.obfs : px.obfs?.type,
+        obfsPassword:
+          px["obfs-password"] || (typeof px.obfs === "object" ? px.obfs?.password : undefined),
       } as VpnNode;
     default:
       return null;

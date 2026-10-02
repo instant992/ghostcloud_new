@@ -539,7 +539,7 @@ function ServerPicker({
                         {ping.delay} мс
                       </Text>
                     ))}
-                  {!item.supportedByXray && !ping && (
+                  {item.protocol === "hysteria2" && !ping && (
                     <Text style={{ color: colors.orange, fontSize: 11 }}>HY2</Text>
                   )}
                   {selected && (

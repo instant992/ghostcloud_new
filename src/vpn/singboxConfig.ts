@@ -62,8 +62,8 @@ function buildOutbound(node: VpnNode): Record<string, any> | null {
   const transport = transportBlock(node);
 
   switch (node.protocol) {
-    case "hysteria2":
-      return {
+    case "hysteria2": {
+      const hy: Record<string, any> = {
         type: "hysteria2",
         tag: "proxy",
         server: node.address,
@@ -73,6 +73,12 @@ function buildOutbound(node: VpnNode): Record<string, any> | null {
         down_mbps: 100,
         tls: tls || { enabled: true, server_name: node.sni || node.address, insecure: true },
       };
+      // Salamander-obfs из ссылки hy2://?obfs=salamander&obfs-password=...
+      if (node.obfs === "salamander" && node.obfsPassword) {
+        hy.obfs = { type: "salamander", password: node.obfsPassword };
+      }
+      return hy;
+    }
     case "vless":
       return {
         type: "vless",
@@ -166,7 +172,10 @@ export function buildSingBoxConfig(
         mtu: 1500,
         auto_route: false,
         strict_route: false,
-        stack: "mixed",
+        // «system», не «mixed»: раздаточный libsingbox.so собран без тега
+        // with_gvisor — mixed/gvisor-стек падает с «gVisor is not included in
+        // this build». system-стек работает на чистом Linux-стеке ядра.
+        stack: "system",
       },
     ],
     outbounds: [
@@ -186,7 +195,13 @@ export function buildSingBoxConfig(
       ],
       rule_set: roscom.ruleSets,
       final: "proxy",
-      auto_detect_interface: true,
+      // БЕЗ auto_detect_interface: на Android sing-box создаёт сетевой монитор
+      // через netlink-сокет, что запрещено Google для обычных приложений —
+      // старт падал с «initialize network manager: create network monitor:
+      // netlink socket in Android is banned by Google». Авто-детект не нужен:
+      // TUN создан VpnService'ом (fd передаётся в ядро), а исходящий трафик
+      // ядра идёт через интерфейс процесса по умолчанию; наше приложение
+      // исключено из собственного туннеля (addDisallowedApplication).
     },
   };
 

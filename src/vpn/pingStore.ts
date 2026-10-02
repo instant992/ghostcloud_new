@@ -89,9 +89,11 @@ export function isRunning(): boolean {
 
 /** Узлы, для которых возможен URL-тест (полный протокол через Xray pingBatch).
  *  UDP/ICMP-пинг на Android без root невозможен — «по чему проверять пинг»
- *  это TCP-рукопожатие или URL-тест через прокси (настройка ping_method). */
+ *  это TCP-рукопожатие или URL-тест через прокси (настройка ping_method).
+ *  hysteria2 исключён: его проверяем прямым QUIC-зондом (tcpPingOne), а не
+ *  через pingBatch — путь не проверен для hysteria-outbound'ов. */
 function canUrlTest(n: VpnNode): boolean {
-  return n.supportedByXray;
+  return n.supportedByXray && n.protocol !== "hysteria2";
 }
 
 /** URL-тест одного узла протоколом (True Ping; работает только при выключенном
@@ -145,7 +147,7 @@ async function tcpPingOne(n: VpnNode): Promise<PingState> {
  *  LTE OPEN: только URL-тест через прокси и только при выключенном VPN —
  *  прямой TCP к LTE-нодам физически невозможен (см. комментарий pingAll). */
 export async function pingOne(node: VpnNode): Promise<void> {
-  if (!node.supportedByXray && node.protocol !== "hysteria2" && getPingMethod() === "url") {
+  if (!node.supportedByXray && getPingMethod() === "url") {
     map[node.id] = { status: "done", delay: -1, error: "URL-тест только для Xray-узлов" };
     emit();
     return;
@@ -259,8 +261,9 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
  *  VPN pingBatch ядром запрещён (один инстанс Xray на процесс) — LTE помечается
  *  «не проверить при вкл. VPN» вместо бесполезного 5-секундного таймаута. */
 export async function pingAll(nodes: VpnNode[]): Promise<void> {
-  // hysteria2 не поддерживается Xray (работает на sing-box), но замерить
-  // задержку можно напрямую: QUIC Version Negotiation RTT (см. tcpPingOne).
+  // hysteria2 поддерживается встроенным Xray v26.9.9 (протокол «hysteria»,
+  // version 2), но прямая TCP-проба к QUIC-серверу бесполезна — для него
+  // отдельный QUIC Version Negotiation RTT (см. tcpPingOne).
   const targets = nodes.filter((n) => n.supportedByXray || n.protocol === "hysteria2");
   if (targets.length === 0) return;
 
@@ -284,7 +287,12 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
       // при 20 узлах это ~40 с сплошного спиннера («не работает»). Поэтому режем
       // на порции здесь и публикуем результаты после каждой.
       try {
-        const doneIds = await urlWave(targets, mySeq);
+        // hysteria2-узлы не в URL-волну (см. canUrlTest) — они добьются
+        // TCP/QUIC-волной ниже через failedOb.
+        const doneIds = await urlWave(
+          targets.filter((n) => n.source === "lte" || canUrlTest(n)),
+          mySeq
+        );
         if (cancelled()) return;
         // узлы, где outbound не собрался или URL-тест не вернул результат, — TCP-фолбэк
         const failedOb = normalTargets.filter((n) => !doneIds.has(n.id));

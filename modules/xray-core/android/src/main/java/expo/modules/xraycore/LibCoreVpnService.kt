@@ -142,6 +142,15 @@ class LibCoreVpnService : VpnService() {
         throw IllegalStateException("Не удалось создать TUN-интерфейс")
       }
       tunInterface = pfd
+      // Ядру передаём ДУБЛИКАТ fd (ParcelFileDescriptor.dup): Go-рантайм при
+      // ошибке/остановке закрывает свой fd сам, а Java закрывает оригинал через
+      // tunInterface. Без дубля на ошибке старта получался double-close одного fd →
+      // fdsan abort (SIGABRT «double-close of file descriptor») — краш процесса,
+      // который к тому же терял текст ошибки ядра (pendingPromise.reject не успевал).
+      val coreFd = run {
+        val dup = pfd.dup()
+        dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
+      }
 
       // Geo rule-set'ы RoscomVPN: распаковываем в домашний каталог ядра
       // (тот же, что задан в loadLibCore: filesDir/singbox, filesDir/mihomo или
@@ -176,12 +185,15 @@ class LibCoreVpnService : VpnService() {
       ensureLibLoaded(lib)
 
       val err = when (lib) {
-        "mihomo" -> GcCore.gcStart(configRef.get(), pfd.fd)
-        "singbox" -> GcSbCore.gcStart(configRef.get(), pfd.fd)
-        "uwuray" -> GcUwuCore.gcStart(configRef.get(), pfd.fd)
+        "mihomo" -> GcCore.gcStart(configRef.get(), coreFd)
+        "singbox" -> GcSbCore.gcStart(configRef.get(), coreFd)
+        "uwuray" -> GcUwuCore.gcStart(configRef.get(), coreFd)
         else -> "неизвестное ядро: $lib"
       }
       if (err.isNotEmpty()) {
+        // НЕ закрываем coreFd здесь: Go-обёртка при неудаче старта сама
+        // закрывает переданный dup (inst.Close → tunFile.Close). Повторное
+        // закрытие из Java = fdsan double-close → SIGABRT всего процесса.
         throw IllegalStateException("$lib: $err")
       }
 
@@ -193,6 +205,7 @@ class LibCoreVpnService : VpnService() {
       pendingPromise?.resolve(true)
       pendingPromise = null
     } catch (e: Throwable) {
+      android.util.Log.e("GhostCloud", "startCore($lib) failed: ${e.message}", e)
       runCatching { stopLibCore(lib) }
       closeTun()
       notifyState(false)
@@ -293,13 +306,20 @@ class LibCoreVpnService : VpnService() {
         } catch (_: Throwable) {
         }
       }
+      // Дубликат fd — как при первом старте: ядро закрывает свой fd само
+      // (inst.Close), оригинал остаётся у Java (см. комментарий в startCore).
+      val coreFd = run {
+        val dup = pfd.dup()
+        dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
+      }
       val err = when (currentLib) {
-        "mihomo" -> GcCore.gcStart(cfg, pfd.fd)
-        "singbox" -> GcSbCore.gcStart(cfg, pfd.fd)
-        "uwuray" -> GcUwuCore.gcStart(cfg, pfd.fd)
+        "mihomo" -> GcCore.gcStart(cfg, coreFd)
+        "singbox" -> GcSbCore.gcStart(cfg, coreFd)
+        "uwuray" -> GcUwuCore.gcStart(cfg, coreFd)
         else -> "неизвестное ядро: $currentLib"
       }
       if (err.isNotEmpty()) {
+        // coreFd не закрываем — его закрыла Go-обёртка (см. startCore)
         android.util.Log.e("GhostCloud", "failover restart: $currentLib: $err")
         false
       } else {
