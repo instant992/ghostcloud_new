@@ -407,7 +407,31 @@ async function ensureSingBoxLoaded(): Promise<void> {
   if (singBoxLoadPromise) return singBoxLoadPromise;
   singBoxLoadPromise = (async () => {
     const st = getCoreStatus("libsingbox.so");
-    if (!st?.downloaded) {
+    // Self-heal: .so на устройстве может быть СТАРОЙ сборки (без тегов
+    // with_utls/with_quic — REALITY/hysteria2 падали с «not included in this
+    // build»). Клиент скачивает ядро только если файла нет, версию не сверяет,
+    // поэтому здесь сравниваем размер с манифестом раздачи и при расхождении
+    // молча перекачиваем актуальную сборку (sha256 проверяет downloadCore).
+    let meta: { url: string; sha256: string; size: number } | null = null;
+    try {
+      const { fetchCoreMeta, FALLBACK } = await import("../screens/settings/cores");
+      const { getCpuAbi } = await import("./native");
+      const abi = getCpuAbi();
+      meta = (await fetchCoreMeta("sing-box", abi)) || FALLBACK["sing-box"]?.[abi] || null;
+    } catch {
+      meta = null;
+    }
+    if (st?.downloaded && meta && meta.size > 0 && st.size !== meta.size) {
+      try {
+        const { downloadCore } = await import("./native");
+        await downloadCore("libsingbox.so", meta.url, meta.sha256, meta.size);
+      } catch {
+        // Сеть недоступна — пробуем старое .so: лучше «старое ядро с
+        // ограничением», чем полный отказ подключения.
+      }
+    }
+    const st2 = getCoreStatus("libsingbox.so");
+    if (!st2?.downloaded) {
       throw new Error("Ядро Sing-box не скачано — загрузите его в настройках");
     }
     try {

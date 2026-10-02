@@ -23,18 +23,23 @@ export const FALLBACK: Record<string, Record<string, { url: string; sha256: stri
   "sing-box": {
     "arm64-v8a": {
       url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/sing-box-2/arm64-v8a/libsingbox.so",
-      sha256: "4e2c79b5b1d721ba957afd9815868f95439e7e1ea989cfded49de09f234ff286",
-      size: 35185576,
+      sha256: "56cfe9a22fadd4029c24b5db5b45a10a93bd61688aae7094b365b4e37fd34958",
+      size: 28855696,
     },
     "armeabi-v7a": {
       url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/sing-box-2/armeabi-v7a/libsingbox.so",
-      sha256: "e775d76a702a90e0d0285d07bcb388d09d9fab0b199afbff793aed7f07509a65",
-      size: 33308520,
+      sha256: "4fa931fc252553577cd31c16d3427cea9af64b2a198c3a12a99098414921789f",
+      size: 27316004,
     },
     x86_64: {
       url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/sing-box-2/x86_64/libsingbox.so",
-      sha256: "100ce32a90b74f98156ad3406ee099ff6359188c1042efa4917c420b385d40e3",
-      size: 37628544,
+      sha256: "6a8924603fd73aea9da8db68c8d8a9300316f6f640e5bad57eb49a006958a3dc",
+      size: 31023024,
+    },
+    x86: {
+      url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/sing-box-2/x86/libsingbox.so",
+      sha256: "1f93e72b2f2c187fa16dba3fba2bb4338a61c2ea449eb83d591ddea79b2c490e",
+      size: 27846700,
     },
   },
   uwuray: {
