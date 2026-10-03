@@ -33,6 +33,11 @@ export type VpnNode = {
   obfs?: string;
   obfsPassword?: string;
   pinSha256?: string;
+  // xhttp/splithttp: опции транспорта в JSON-форме Xray (SplitHTTPConfig).
+  // Заполняется из Clash «xhttp-opts» и query-параметров vless-ссылок;
+  // без них теряется path сервера (например /stream/v2/frames/) и ядро
+  // стучится на «/» → туннель поднимается, но интернет не работает.
+  xhttpOpts?: Record<string, any>;
 };
 
 function b64decode(input: string): string {
@@ -529,6 +534,24 @@ export function parseClashYamlProxies(text: string): any[] {
   const result: any[] = [];
   let current: any = null;
   const stack: Array<{ indent: number; path: string[] }> = [];
+  // Отступ, на котором начинаются ЭЛЕМЕНТЫ списка proxies. Определяется по
+  // первой seq-строке и дальше служит единственным признаком «новая нода».
+  // Без этого вложенные списки ломают разбор (см. комментарий у isSeqEntry).
+  let entryIndent = -1;
+
+  /** Дописывает значение в массив по пути (создаёт массив при необходимости).
+   *  Возвращает индекс добавленного элемента. */
+  const appendToList = (path: string[], value: any): number => {
+    let cur = current;
+    for (let i = 0; i < path.length - 1; i++) {
+      if (typeof cur[path[i]] !== "object" || cur[path[i]] === null) cur[path[i]] = {};
+      cur = cur[path[i]];
+    }
+    const last = path[path.length - 1];
+    if (!Array.isArray(cur[last])) cur[last] = [];
+    cur[last].push(value);
+    return cur[last].length - 1;
+  };
 
   const applyField = (raw: string, fieldIndent: number) => {
     const m = raw.match(/^([^:#\s][^:]*):\s?(.*)$/);
@@ -550,27 +573,57 @@ export function parseClashYamlProxies(text: string): any[] {
     const line = lines[i];
     if (!line.trim()) continue;
     const indent = yamlIndent(line);
+    const leftTrim = line.slice(indent);
+    // seq-строка: «- value» или «-» (элемент списка YAML)
+    const dashMatch = /^-(?:\s+(.*))?$/.exec(leftTrim);
+    const isSeqEntry = dashMatch !== null;
+
     // Remnawave v3 (и re-dump бэкенда через yaml.dump) отдаёт элементы списка
-    // proxies БЕЗ отступа: `- name:` стоит в колонке 0, на одном уровне с самим
-    // `proxies:`. Старое условие `indent <= baseIndent` обрывало блок на ПЕРВОЙ
-    // же такой строке -> 0 прокси. Прерываемся только на реальном деденте
-    // (< baseIndent) или на соседнем ключе того же уровня (=== baseIndent, не
-    // элемент списка). Классический отступ (`  - name:`) работает как раньше.
-    const isSeqEntry = /^ *- /.test(line);
+    // proxies БЕЗ отступа: «- name:» стоит в колонке 0, на одном уровне с самим
+    // `proxies:`. Прерываемся только на реальном деденте (< baseIndent) или на
+    // соседнем ключе того же уровня (=== baseIndent, не элемент списка).
     if (indent < baseIndent) break;
     if (indent === baseIndent && !isSeqEntry) break;
 
-    const dashIdx = line.indexOf("- ");
-    if (indent <= (stack.length > 0 ? stack[stack.length - 1].indent : indent) && dashIdx !== -1 && dashIdx < indent + 4) {
-      current = {};
-      result.push(current);
-      stack.length = 0;
-      const rest = line.slice(dashIdx + 2);
-      if (rest.trim()) {
-        applyField(rest, indent + (dashIdx - indent) + 2);
+    if (isSeqEntry) {
+      // Отступ элементов списка proxies фиксируется по ПЕРВОЙ seq-строке.
+      // PyYAML печатает ВЛОЖЕННЫЕ списки (alpn, заголовки) на том же уровне,
+      // что и их ключ: «  alpn:\n  - h2». Такие строки имеют indent > entryIndent
+      // и НЕ должны открывать новую ноду — иначе разбор обрывается на alpn и
+      // все поля после него (xhttp-opts.path и т.п.) теряются.
+      if (entryIndent === -1) entryIndent = indent;
+
+      if (indent === entryIndent) {
+        // Новая нода списка proxies.
+        current = {};
+        result.push(current);
+        stack.length = 0;
+        const rest = (dashMatch![1] || "").trim();
+        if (rest) {
+          // «- name: X» — поле ноды; отступ subsequent-полей = dashIdx + 2
+          const dashIdx = line.indexOf("- ");
+          applyField(rest, dashIdx + 2);
+        }
+      } else if (current) {
+        // Элемент вложенного списка: дописываем в массив текущего ключа.
+        // ВЛОЖЕННЫЕ элементы в формате PyYAML стоят на ТОМ ЖЕ отступе, что и
+        // их ключ («  alpn:\n  - h2»), поэтому выбрасываем из стека только
+        // ключи с отступом БОЛЬШЕ текущего — родительский ключ остаётся.
+        while (stack.length > 0 && stack[stack.length - 1].indent > indent) stack.pop();
+        const parentPath = stack.length > 0 ? stack[stack.length - 1].path : [];
+        const content = (dashMatch![1] || "").trim();
+        const kv = /^([^:]+):\s?(.*)$/.exec(content);
+        if (kv && /^[\w.-]+:/.test(content)) {
+          // элемент-объект «key: value» (редко в proxies) — кладём как {key: value}
+          const obj: Record<string, any> = {};
+          obj[kv[1].trim()] = yamlValue(kv[2].trim());
+          appendToList(parentPath, obj);
+        } else {
+          appendToList(parentPath, yamlValue(content));
+        }
       }
     } else if (current) {
-      applyField(line.trim(), indent);
+      applyField(leftTrim, indent);
     }
   }
   return result;
@@ -612,6 +665,82 @@ function jsonToNode(ob: any): VpnNode | null {
   }
 }
 
+/** Clash «xhttp-opts»/«splithttp-opts» (kebab-case, формат mihomo) → поля
+ *  Xray SplitHTTPConfig (camelCase). Таблица явная: авто-camelCase ломает
+ *  имена с аббревиатурами (sessionIDPlacement, uplinkHTTPMethod, noGRPCHeader).
+ *  «reuse-settings» в Clash = «xmux» в Xray. */
+const XHTTP_FIELD_MAP: Record<string, string> = {
+  path: "path",
+  host: "host",
+  mode: "mode",
+  headers: "headers",
+  "x-padding-bytes": "xPaddingBytes",
+  "x-padding-obfs-mode": "xPaddingObfsMode",
+  "x-padding-key": "xPaddingKey",
+  "x-padding-header": "xPaddingHeader",
+  "x-padding-placement": "xPaddingPlacement",
+  "x-padding-method": "xPaddingMethod",
+  "uplink-http-method": "uplinkHTTPMethod",
+  "session-id-placement": "sessionIDPlacement",
+  "session-id-key": "sessionIDKey",
+  "session-id-table": "sessionIDTable",
+  "session-id-length": "sessionIDLength",
+  "seq-placement": "seqPlacement",
+  "seq-key": "seqKey",
+  "uplink-data-placement": "uplinkDataPlacement",
+  "uplink-data-key": "uplinkDataKey",
+  "uplink-chunk-size": "uplinkChunkSize",
+  "no-grpc-header": "noGRPCHeader",
+  "no-sse-header": "noSSEHeader",
+  "sc-max-each-post-bytes": "scMaxEachPostBytes",
+  "sc-min-posts-interval-ms": "scMinPostsIntervalMs",
+  "sc-max-buffered-posts": "scMaxBufferedPosts",
+  "sc-stream-up-server-secs": "scStreamUpServerSecs",
+  "server-max-header-bytes": "serverMaxHeaderBytes",
+  extra: "extra",
+};
+
+const XMUX_FIELD_MAP: Record<string, string> = {
+  "max-concurrency": "maxConcurrency",
+  "max-connections": "maxConnections",
+  "c-max-reuse-times": "cMaxReuseTimes",
+  "h-max-request-times": "hMaxRequestTimes",
+  "h-max-reusable-secs": "hMaxReusableSecs",
+  "h-keep-alive-period": "hKeepAlivePeriod",
+};
+
+/** Приводит Clash-опции xhttp к JSON-форме Xray. Пустые значения не
+ *  переносятся — ядро подставит свои дефолты (например X-Data для header). */
+export function clashXhttpOptsToXray(opts: any): Record<string, any> | null {
+  if (!opts || typeof opts !== "object") return null;
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(opts)) {
+    if (v === undefined || v === null || v === "") continue;
+    if (k === "reuse-settings" || k === "xmux") {
+      const xmux: Record<string, any> = {};
+      for (const [mk, mv] of Object.entries((v || {}) as Record<string, any>)) {
+        const mapped = XMUX_FIELD_MAP[mk] || mk;
+        if (mv === undefined || mv === null || mv === "") continue;
+        xmux[mapped] = mv;
+      }
+      if (Object.keys(xmux).length) out.xmux = xmux;
+      continue;
+    }
+    if (k === "download-settings" || k === "downloadSettings") {
+      out.downloadSettings = v;
+      continue;
+    }
+    const mapped = XHTTP_FIELD_MAP[k];
+    if (mapped) out[mapped] = v;
+    else if (/^[a-z0-9]+(-[a-z0-9]+)*$/.test(k)) {
+      // неизвестное kebab-поле — переводим в camelCase (best effort)
+      const camel = k.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase());
+      out[camel] = v;
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 // Clash.Meta proxy → VpnNode
 export function clashProxyToNode(px: any): VpnNode | null {
   const type = String(px.type || "").toLowerCase();
@@ -622,16 +751,27 @@ export function clashProxyToNode(px: any): VpnNode | null {
   const grpcOpts = px["grpc-opts"] || {};
   const realityOpts = px["reality-opts"] || {};
   const hasReality = Boolean(realityOpts["public-key"]);
+  const network = String(px.network || (grpcOpts["grpc-service-name"] ? "grpc" : "tcp")).toLowerCase();
+  // xhttp (mihomo: xhttp-opts) / splithttp (splithttp-opts): path/host/mode
+  // лежат в СВОЁМ блоке — без них Xray стучится на «/» вместо реального
+  // пути сервера: TLS поднимается («подключено»), но интернет не работает.
+  const xhttpOpts =
+    network === "xhttp" || network === "splithttp"
+      ? clashXhttpOptsToXray(px["xhttp-opts"] || px["splithttp-opts"] || null)
+      : null;
   const base = {
     id: `${type}-${address}-${port}`,
     name: String(px.name || type),
     address,
     port,
-    network: String(px.network || (grpcOpts["grpc-service-name"] ? "grpc" : "tcp")),
+    network,
     sni: px.servername || px.sni,
     security: hasReality ? "reality" : px.tls ? "tls" : undefined,
-    path: wsOpts?.path,
-    host: Array.isArray(wsOpts?.headers?.Host) ? wsOpts.headers.Host[0] : wsOpts?.headers?.Host,
+    path: xhttpOpts?.path || wsOpts?.path,
+    host: xhttpOpts?.host || (Array.isArray(wsOpts?.headers?.Host) ? wsOpts.headers.Host[0] : wsOpts?.headers?.Host),
+    mode: xhttpOpts?.mode ? String(xhttpOpts.mode) : undefined,
+    fingerprint: px["client-fingerprint"],
+    xhttpOpts: xhttpOpts || undefined,
     serviceName: grpcOpts?.["grpc-service-name"],
     supportedByXray: true,
     raw: "",

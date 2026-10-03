@@ -52,6 +52,14 @@ function transportBlock(node: VpnNode): Record<string, any> | null {
         path: node.path || "/",
         host: node.host || node.address,
       };
+    case "xhttp":
+    case "splithttp":
+      // sing-box не знает транспорт xhttp/splithttp. Молча вернуть null нельзя:
+      // тогда outbound уйдёт plain-TCP без xhttp-обвязки → туннель поднимется,
+      // но интернета не будет (непонятный симптом для пользователя).
+      throw new Error(
+        "Транспорт XHTTP поддерживается только ядром Xray — переключите ядро в Настройки → VPN и сеть"
+      );
     default:
       return null;
   }

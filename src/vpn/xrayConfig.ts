@@ -114,11 +114,16 @@ export function buildStreamSettings(node: VpnNode): Record<string, any> {
       break;
     case "xhttp":
     case "splithttp": {
-      const settings: Record<string, any> = {
-        host: node.host || node.sni || "",
-        path: node.path || "/",
-        mode: node.mode || (node.typeParam === "splithttp" ? "packet-up" : "auto"),
-      };
+      // xhttp-ноды из Clash несут настройки в xhttp-opts (path, host, mode,
+      // uplink-*, x-padding-*, xmux...). Потерянный path — главная причина
+      // «подключается, но интернет не работает»: ядро стучится на «/».
+      // node.xhttpOpts уже приведён к JSON-форме Xray (clashXhttpOptsToXray).
+      const settings: Record<string, any> = { ...(node.xhttpOpts || {}) };
+      // host/path/mode: поля ноды приоритетны (могли прийти из vless-ссылок),
+      // иначе значения из xhttpOpts, иначе дефолты.
+      settings.host = node.host || node.sni || settings.host || "";
+      settings.path = node.path || settings.path || "/";
+      settings.mode = node.mode || settings.mode || (node.typeParam === "splithttp" ? "packet-up" : "auto");
       if (node.extra) {
         try {
           settings.extra = JSON.parse(node.extra);
