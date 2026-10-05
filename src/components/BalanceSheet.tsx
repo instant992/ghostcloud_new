@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { autoRenewGet, autoRenewSet, balanceHistory } from "../api";
 import { useApp } from "../context";
 import { colors, sheetSurfaceBg, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
+import { ThemeSwitch } from "./ThemeSwitch";
 import { showToast } from "./Toast";
 
 type Tx = {
@@ -220,11 +221,10 @@ export function BalanceSheet({
                     <Ionicons name="refresh" size={17} color={colors.accent} />
                     <Text style={styles.autoTitle}>Автопродление</Text>
                     <View style={{ flex: 1 }} />
-                    <Switch
+                    <ThemeSwitch
                       value={autoRenew.enabled}
                       onValueChange={toggleAutoRenew}
-                      trackColor={{ false: colors.border, true: colors.accent }}
-                      thumbColor="#fff"
+                      accessibilityLabel="Автопродление"
                     />
                   </View>
                   {!!autoRenew.enabled && autoRenew.plans.length > 0 && (

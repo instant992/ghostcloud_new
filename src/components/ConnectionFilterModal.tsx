@@ -3,13 +3,13 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { ThemeSwitch } from "./ThemeSwitch";
 import { AppFilterContent } from "./AppFilterModal";
 import { PressableScale } from "./PressableScale";
 import { showToast } from "./Toast";
@@ -294,11 +294,10 @@ export function ConnectionFilterModal({
                         </Text>
                         )}
                       </View>
-                      <Switch
+                      <ThemeSwitch
                         value={isActive}
                         onValueChange={() => toggleActive(p.id)}
-                        trackColor={{ false: colors.border, true: colors.accent }}
-                        thumbColor="#fff"
+                        accessibilityLabel={`Профиль ${p.name}`}
                       />
                     </View>
 

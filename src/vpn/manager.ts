@@ -255,6 +255,36 @@ function mergeNodes(a: VpnNode[], b: VpnNode[]): VpnNode[] {
   return ensureUniqueIds(merged);
 }
 
+/** Канонический «отпечаток» узла: не зависит от формата подписки.
+ *  Один и тот же сервер приходит то share-ссылками (id `proto-host-port-cred8`),
+ *  то Clash YAML / sing-box JSON (id `proto-host-port`) — какой формат победит
+ *  в mergeNodes, зависит от того, какая подписка ответила первой. Поэтому id
+ *  НЕЛЬЗЯ использовать как единственный ключ сохранённого выбора. */
+export function nodeFingerprint(n: VpnNode): string {
+  return `${n.protocol}|${n.address}|${n.port}|${(n.uuid || n.password || n.method || "").slice(0, 8)}`;
+}
+
+/** Разрешает сохранённый выбор в узел из свежего списка.
+ *  Три уровня: точный id → «отпечаток» (если при выборе сохранили его) →
+ *  совместимость со старыми сохранёнными id обоих форматов. */
+export function resolveSavedNode(savedId: string | null, nodes: VpnNode[]): VpnNode | null {
+  if (!savedId || nodes.length === 0) return null;
+  const exact = nodes.find((n) => n.id === savedId);
+  if (exact) return exact;
+  if (savedId.includes("|")) {
+    return nodes.find((n) => nodeFingerprint(n) === savedId) || null;
+  }
+  // Старый формат с креденшелом: `trojan-host-443-abcd1234` → короткий `trojan-host-443`
+  const lastDash = savedId.lastIndexOf("-");
+  if (lastDash > 0) {
+    const shortId = savedId.slice(0, lastDash);
+    const m = nodes.find((n) => n.id === shortId || n.id.startsWith(`${savedId}-`));
+    if (m) return m;
+  }
+  // Короткий формат → полный с креденшелом (`trojan-host-443` → `…-abcd1234`)
+  return nodes.find((n) => n.id.startsWith(`${savedId}-`)) || null;
+}
+
 /** Гарантирует уникальность id. Подписка отдаёт один сервер под двумя именами
  *  («🚀 Лучший сервер» и «🇪🇪 Эстония» — одинаковые address/port/uuid):
  *  одинаковый id ломает React-ключи FlatList (строки рендерятся неверно) и

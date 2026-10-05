@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, PermissionsAndroid, Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Easing, PermissionsAndroid, Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { NavigationContainer, DefaultTheme, useNavigation } from "@react-navigation/native";
@@ -156,6 +156,8 @@ function MainTabs() {
       <Tabs.Navigator
         screenOptions={{
           headerShown: false,
+          transitionSpec: DOCK_SHIFT_SPEC,
+          sceneStyleInterpolator: DOCK_SHIFT_INTERPOLATOR as any,
         }}
         tabBar={(props) => <CustomTabBar {...props} />}
       >
@@ -509,6 +511,28 @@ const makeDockStyles = () =>
   },
 });
 
+/** Плавный слайд-переход между вкладками дока: экраны «листаются» влево/вправо
+ *  (как forShift из bottom-tabs, но шире — 96px — и мягче: 260 мс ease-out).
+ *  Дефолтный 'shift' слишком резкий (±50px, 150 мс ease-in), пользователь
+ *  просил ощущение плавного листа вкладок.
+ *  Знаки как в forShift: progress +1 (вкладка правее текущей) → translateX +96,
+ *  т.е. правая вкладка въезжает СПРАВА; progress -1 (левее) → -96, уходит влево. */
+const DOCK_SHIFT_INTERPOLATOR = ({ current }: { current: { progress: any } }) => ({
+  sceneStyle: {
+    opacity: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [0.35, 1, 0.35] }),
+    transform: [
+      {
+        translateX: current.progress.interpolate({ inputRange: [-1, 0, 1], outputRange: [-96, 0, 96] }),
+      },
+    ],
+  },
+});
+
+const DOCK_SHIFT_SPEC = {
+  animation: "timing" as const,
+  config: { duration: 260, easing: Easing.out(Easing.cubic) },
+};
+
 /** Поток темы с доком: Главная / Подписка / Профиль — вкладки,
  *  остальные разделы — стеком поверх.
  *  transparent=true: стек и вкладки прозрачные — фон рисует провайдер темы
@@ -534,6 +558,8 @@ function DockedThemedFlow({
             <DockTabs.Navigator
               screenOptions={{
                 headerShown: false,
+                transitionSpec: DOCK_SHIFT_SPEC,
+                sceneStyleInterpolator: DOCK_SHIFT_INTERPOLATOR as any,
                 ...(transparent ? { sceneStyle: { backgroundColor: "transparent" } } : null),
               }}
               tabBar={(props) => <DockBar {...props} />}

@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { PanResponder, Pressable, StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
+  interpolateColor,
   ReduceMotion,
 } from "react-native-reanimated";
 import { Canvas, Circle, Fill, Group, BlurMask } from "@shopify/react-native-skia";
@@ -157,13 +158,22 @@ export interface LiquidToggleProps {
 }
 
 /**
- * Тумблер-переключатель (порт LiquidToggle).
+ * Тумблер-переключатель — порт LiquidToggle из каталога Backdrop.
  *
- * Поведение из каталога: дорожка lerp(trackColor, accentColor, fraction);
- * ручка едет translationX = lerp(pad, pad+dragWidth, fraction) и «дышит» при
- * движении: blur 8dp→0 и scale (2/3,0)→(0.75,0.75)→(1,1). Упрощение:
- * combinedBackdrop дорожки (ручка семплит её) не переносим — ручка стеклянная
- * по фону темы; дыхание передано пружиной scale+opacity.
+ * Точные параметры каталога:
+ *  - дорожка 64×28dp, цвет lerp(trackColor, accentColor, fraction):
+ *    track = #787878@0.2 (светлая) / #787880@0.36 (тёмная),
+ *    accent = #34C759 (светлая) / #30D158 (тёмная);
+ *  - ручка 40×24dp, белая капсула, translationX = lerp(2dp, 22dp, fraction)
+ *    (dragWidth = 20dp);
+ *  - DRAG: fraction += dx/dragWidth, на отпускании ≥0.5 → вкл (аналог
+ *    DampedDragAnimation); короткий тап без сдвига = переключение;
+ *  - «дыхание» ручки при движении: scale ±8% по синусу пути + пружина нажатия;
+ *  - тень ручки 4dp black@0.05 → усилено (0.12/0.3): в RN иначе не читается.
+ *
+ * Ручка — `standalone`-стекло (белая подложка + ambient-хайлайт): тумблеры
+ * живут и в модалках (отдельное окно), где сэмплить фон провайдера нельзя,
+ * а белая капсула выглядит одинаково в обоих случаях.
  */
 export function LiquidToggle({
   value,
@@ -175,20 +185,28 @@ export function LiquidToggle({
 }: LiquidToggleProps) {
   useTheme();
   const light = isLightPalette();
-  const accent = colors.green || (light ? "#34C759" : "#30D158");
+  // Точные цвета каталога LiquidToggle (colors.green другой — #34D399).
+  const accent = light ? "#34C759" : "#30D158";
   const track = light ? "rgba(120,120,120,0.2)" : "rgba(120,120,128,0.36)";
 
   const knobW = width * 0.625; // 40/64 из каталога
   const knobH = height * (24 / 28);
   const pad = 2;
-  const travel = width - knobW - pad * 2;
+  const travel = width - knobW - pad * 2; // = dragWidth (20dp)
 
   const fraction = useSharedValue(value ? 1 : 0);
   const pressProgress = useSharedValue(0);
+  const dragStart = useRef(0);
+  const didDrag = useRef(false);
 
   useEffect(() => {
     fraction.value = withTiming(value ? 1 : 0, { duration: 240, reduceMotion: ReduceMotion.System });
   }, [value, fraction]);
+
+  // Дорожка: цвет lerp(track → accent) по fraction — как drawBehind каталога.
+  const trackStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(fraction.value, [0, 1], [track, accent]),
+  }));
 
   const knobStyle = useAnimatedStyle(() => {
     const f = fraction.value;
@@ -205,52 +223,101 @@ export function LiquidToggle({
     };
   });
 
-  const onPress = useCallback(() => {
-    if (disabled) return;
-    onValueChange(!value);
-  }, [disabled, onValueChange, value]);
+  const commit = useCallback(
+    (next: boolean) => {
+      if (disabled) return;
+      fraction.value = withSpring(next ? 1 : 0, LIQUID_SPRING);
+      onValueChange(next);
+    },
+    [disabled, fraction, onValueChange]
+  );
 
-  const trackBg = value ? accent : track;
+  // Жесты: тап ловит внутренний Pressable (он корректно отдаёт responder
+  // ScrollView при вертикальном скролле), горизонтальный drag — PanResponder
+  // на контейнере (DampedDragAnimation из каталога: fraction += dx/dragWidth).
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        // CAPTURE: тап-Pressable внутри уже держит responder — перехватываем
+        // жест в фазе capture, когда он явно горизонтальный (drag ручки).
+        onMoveShouldSetPanResponderCapture: (_, g) =>
+          !disabled && Math.abs(g.dx) > 6 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: (_, g) => {
+          dragStart.current = fraction.value;
+          // Capture срабатывает уже при dx>6 — помечаем drag сразу, иначе
+          // терминация Pressable (onPressOut) сбросит pressProgress и
+          // «дыхание» ручки мигнёт во время перетаскивания.
+          didDrag.current = Math.abs(g.dx) > 6;
+          pressProgress.value = withSpring(1, LIQUID_SPRING);
+        },
+        onPanResponderMove: (_, g) => {
+          if (Math.abs(g.dx) <= 4 && !didDrag.current) return;
+          didDrag.current = true;
+          fraction.value = Math.min(1, Math.max(0, dragStart.current + g.dx / travel));
+        },
+        onPanResponderRelease: () => {
+          pressProgress.value = withSpring(0, LIQUID_SPRING);
+          if (didDrag.current) commit(fraction.value >= 0.5);
+          else fraction.value = withSpring(value ? 1 : 0, LIQUID_SPRING);
+        },
+        onPanResponderTerminate: () => {
+          pressProgress.value = withSpring(0, LIQUID_SPRING);
+          fraction.value = withSpring(value ? 1 : 0, LIQUID_SPRING);
+        },
+      }),
+    [disabled, fraction, pressProgress, travel, commit, value]
+  );
 
   return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={() => {
-        pressProgress.value = withSpring(1, LIQUID_SPRING);
-      }}
-      onPressOut={() => {
-        pressProgress.value = withSpring(0, LIQUID_SPRING);
-      }}
-      disabled={disabled}
+    <Animated.View
+      {...panResponder.panHandlers}
+      accessible
       accessibilityRole="switch"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ checked: value, disabled }}
+      accessibilityState={{ checked: value, disabled: !!disabled }}
       hitSlop={6}
       style={{ width, height, opacity: disabled ? 0.5 : 1 }}
     >
-      {/* Дорожка: capsule с плавным цветом. */}
+      {/* Дорожка: capsule с lerp-цветом. */}
       <Animated.View
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width,
-          height,
-          borderRadius: height / 2,
-          backgroundColor: trackBg,
-        }}
+        style={[
+          {
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width,
+            height,
+            borderRadius: height / 2,
+          },
+          trackStyle,
+        ]}
       />
-      {/* Ручка — стеклянная капсула с ambient-хайлайтом и тенью 4dp. */}
+      {/* Ручка — белая стеклянная капсула с ambient-хайлайтом и тенью 4dp. */}
       <Animated.View style={[{ position: "absolute", top: (height - knobH) / 2, left: 0 }, knobStyle]}>
         <LiquidGlassSurface
           radius={knobH / 2}
           preset="knob"
+          standalone
           surfaceColor="#FFFFFF"
-          shadow={{ radius: 4, dy: 1, color: "#000000", alpha: 0.12 }}
+          shadow={{ radius: 4, dy: 1, color: "#000000", alpha: light ? 0.12 : 0.3 }}
           highlight={{ ambient: true, width: 0.5, blur: 0.3, alpha: 0.6 }}
           style={{ flex: 1 }}
         />
       </Animated.View>
-    </Pressable>
+      {/* Прозрачная зона тапа поверх всего. */}
+      <Pressable
+        disabled={disabled}
+        onPress={() => commit(!value)}
+        onPressIn={() => {
+          pressProgress.value = withSpring(1, LIQUID_SPRING);
+        }}
+        onPressOut={() => {
+          pressProgress.value = withSpring(0, LIQUID_SPRING);
+        }}
+        style={StyleSheet.absoluteFill}
+      />
+    </Animated.View>
   );
 }

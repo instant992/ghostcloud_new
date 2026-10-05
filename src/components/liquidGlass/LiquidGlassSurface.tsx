@@ -1,5 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image as RNImage, PixelRatio, Pressable, StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Animated,
+  AppState,
+  Image as RNImage,
+  PixelRatio,
+  Pressable,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 import {
   BlendMode,
   BlurStyle,
@@ -14,6 +25,25 @@ import { buildGlassFilter, GLASS_PRESETS, type GlassPresetName, type LensParams 
 import { HIGHLIGHT_SHADER, AMBIENT_HIGHLIGHT_SHADER } from "./shaders";
 import { useGlassBackdrop } from "./GlassBackdrop";
 import { isLightPalette } from "../../theme";
+
+/**
+ * Кэш готовых снимков стекла между монтированиями (модульный, не per-instance).
+ * Переход между вкладками/возврат из фона перемонтирует экраны: без кэша каждая
+ * карточка заново проходит путь «onLayout → Skia-рендер → PNG-encode», и рамки
+ * «подгружаются резко» через 100–300 мс. С кэшем повторное монтирование того же
+ * блока (та же геометрия/позиция/тема) получает готовый data-URI синхронно —
+ * стекло появляется вместе с первым кадром контента.
+ */
+const glassUriCache = new Map<string, { uri: string; w: number; h: number; pad: number }>();
+const GLASS_CACHE_MAX = 48;
+
+function cachePut(key: string, val: { uri: string; w: number; h: number; pad: number }) {
+  glassUriCache.set(key, val);
+  if (glassUriCache.size > GLASS_CACHE_MAX) {
+    const oldest = glassUriCache.keys().next().value;
+    if (oldest !== undefined) glassUriCache.delete(oldest);
+  }
+}
 
 /**
  * Стеклянная поверхность Liquid Glass — RN Skia порт `Modifier.drawBackdrop`
@@ -104,6 +134,29 @@ export function LiquidGlassSurface({
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [win, setWin] = useState({ x: 0, y: 0 });
   const hostRef = useRef<View>(null);
+
+  /** Плавное первое появление стекла: без него рамки «вспыхивают» резко через
+   *  100–300 мс после контента (путь onLayout → Skia-рендер → PNG-encode).
+   *  Кэш-хит (перемонтирование знакомой карточки) показываем мгновенно. */
+  const fade = useRef(new Animated.Value(1)).current;
+  const fadeShown = useRef(false);
+  /** Последний успешный снимок: если пересчёт не удался (Skia-поверхность не
+   *  создалась, фон momentarily null), держим прежнее стекло — рамки не пропадают. */
+  const lastGoodUri = useRef<{ uri: string; w: number; h: number; pad: number; fromCache?: boolean } | null>(null);
+
+  // Возврат из фона: позиция окна могла измениться (статус-бар, поворот, скролл) —
+  // без перезамера стекло показывало бы «чужой» срез фона или теряло его вовсе.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state !== "active") return;
+      const v = hostRef.current;
+      if (!v) return;
+      v.measureInWindow((x, y) => {
+        setWin((p) => (Math.abs(p.x - x) > 0.5 || Math.abs(p.y - y) > 0.5 ? { x, y } : p));
+      });
+    });
+    return () => sub.remove();
+  }, []);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -215,7 +268,23 @@ export function LiquidGlassSurface({
   // Все входные параметры снимка стекла — в одном memo. Пересчёт только при
   // реальном изменении геометрии/позиции/темы/пропсов.
   const glassUri = useMemo(() => {
-    if (size.w <= 0 || size.h <= 0) return null;
+    if (size.w <= 0 || size.h <= 0) return lastGoodUri.current;
+
+    // 0. Кэш-хит: та же карточка уже отрендерена (перемонтирование при возврате
+    // на вкладку/из фона). Синхронный data-URI — стекло в первом же кадре.
+    const cacheKey = [
+      Math.round(size.w), Math.round(size.h), Math.round(win.x), Math.round(win.y),
+      pad, radius, saturation, blur, light, backdrop?.imageUri ? backdrop.imageUri.length : 0,
+      surfaceColor ?? "", effBorderColor ?? "", effBorderWidth,
+      shadowCfg ? `${shadowCfg.radius}|${shadowCfg.dy}|${shadowCfg.color}|${shadowCfg.alpha}` : "",
+    ].join("|");
+    const cached = glassUriCache.get(cacheKey);
+    if (cached) {
+      fadeShown.current = true;
+      fade.setValue(1);
+      lastGoodUri.current = cached;
+      return cached;
+    }
 
     // Работаем в device-px: канва = (size + 2*pad) dp × PixelRatio.
     const pr = PixelRatio.get();
@@ -327,11 +396,23 @@ export function LiquidGlassSurface({
     const shot = surface.makeImageSnapshot();
     const b64 = shot.encodeToBase64(ImageFormat.PNG);
     surface.dispose();
-    return { uri: `data:image/png;base64,${b64}`, w: canvasW, h: canvasH, pad };
+    const val = { uri: `data:image/png;base64,${b64}`, w: canvasW, h: canvasH, pad };
+    cachePut(cacheKey, val);
+    lastGoodUri.current = val;
+
+    // Первый снимок этой карточки появляется плавно (120 мс): контент виден
+    // сразу, стекло «всплывает» вместо резкого скачка.
+    if (!fadeShown.current) {
+      fadeShown.current = true;
+      fade.setValue(0);
+      Animated.timing(fade, { toValue: 1, duration: 120, useNativeDriver: true }).start();
+    }
+    return val;
   }, [
     size.w, size.h, win.x, win.y, pad, radius, saturation, blur, lens,
     surfaceColor, effBorderColor, effBorderWidth, hl, hlEffect, outlinePath,
     shadowCfg, shadowBlur, bgImage, backdrop?.width, backdrop?.height,
+    fade, light,
   ]);
 
   // Early-return ПОСЛЕ всех хуков: до первого измерения контент виден сразу
@@ -349,18 +430,20 @@ export function LiquidGlassSurface({
   const glassLayer = (
     <View pointerEvents="none" style={styles.glassHost}>
       {glassUri && (
-        <RNImage
-          source={{ uri: glassUri.uri }}
-          style={{
-            position: "absolute",
-            left: -glassUri.pad,
-            top: -glassUri.pad,
-            width: glassUri.w,
-            height: glassUri.h,
-          }}
-          resizeMode="stretch"
-          fadeDuration={0}
-        />
+        <Animated.View style={{ opacity: fade, position: "absolute", left: 0, top: 0, right: 0, bottom: 0 }}>
+          <RNImage
+            source={{ uri: glassUri.uri }}
+            style={{
+              position: "absolute",
+              left: -glassUri.pad,
+              top: -glassUri.pad,
+              width: glassUri.w,
+              height: glassUri.h,
+            }}
+            resizeMode="stretch"
+            fadeDuration={0}
+          />
+        </Animated.View>
       )}
     </View>
   );

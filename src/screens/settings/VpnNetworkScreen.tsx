@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Modal, Platform, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Platform, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Card, Screen, Title, useScreenTopPad } from "../../components/UI";
+import { ThemeSwitch } from "../../components/ThemeSwitch";
 import { PressableScale } from "../../components/PressableScale";
 import { SponsorBenefitsSheet } from "../../components/SponsorBenefits";
 import { SponsorHeart } from "../../components/Badges";
@@ -258,7 +259,7 @@ export default function VpnNetworkScreen() {
                   : "Только на ядрах Xray/UwuRay"}
               </Text>
             </View>
-            <Switch
+            <ThemeSwitch
               value={antiDpi}
               disabled={core !== "xray" && core !== "uwuray"}
               onValueChange={(v) => {
@@ -267,8 +268,6 @@ export default function VpnNetworkScreen() {
                 Haptics.selectionAsync().catch(() => {});
                 showToast(v ? "Маскировка включена — применится при подключении" : "Маскировка выключена", "top");
               }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor="#fff"
               accessibilityLabel="Маскировка трафика (анти-DPI)"
             />
           </View>
@@ -313,7 +312,7 @@ export default function VpnNetworkScreen() {
                   : "При обрыве туннеля трафик пойдёт напрямую (утечка)"}
               </Text>
             </View>
-            <Switch
+            <ThemeSwitch
               value={killSwitch}
               onValueChange={(v) => {
                 setKillSwitchState(v);
@@ -321,8 +320,6 @@ export default function VpnNetworkScreen() {
                 Haptics.selectionAsync().catch(() => {});
                 showToast(v ? "Kill Switch включён — применится при подключении" : "Kill Switch выключен", "top");
               }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor="#fff"
               accessibilityLabel="Kill Switch — блокировать интернет при обрыве VPN"
             />
           </View>
@@ -336,7 +333,7 @@ export default function VpnNetworkScreen() {
                 VPN включается сам при открытии приложения
               </Text>
             </View>
-            <Switch
+            <ThemeSwitch
               value={autoConnect}
               onValueChange={(v) => {
                 setAutoConnectState(v);
@@ -344,8 +341,6 @@ export default function VpnNetworkScreen() {
                 Haptics.selectionAsync().catch(() => {});
                 showToast(v ? "Автоподключение при запуске включено" : "Автоподключение при запуске выключено", "top");
               }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor="#fff"
               accessibilityLabel="Автоподключение VPN при запуске приложения"
             />
           </View>
@@ -361,7 +356,7 @@ export default function VpnNetworkScreen() {
                   : "После включения телефона VPN нужно включить вручную"}
               </Text>
             </View>
-            <Switch
+            <ThemeSwitch
               value={autoBoot}
               onValueChange={async (v) => {
                 Haptics.selectionAsync().catch(() => {});
@@ -392,8 +387,6 @@ export default function VpnNetworkScreen() {
                 setAutoConnectBoot(true);
                 showToast("Автоподключение при загрузке включено", "top");
               }}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor="#fff"
               accessibilityLabel="Автоподключение VPN при загрузке устройства"
             />
           </View>

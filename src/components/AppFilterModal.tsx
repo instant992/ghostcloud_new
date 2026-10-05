@@ -4,7 +4,6 @@ import {
   FlatList,
   Image,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -12,6 +11,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { PressableScale } from "./PressableScale";
+import { ThemeSwitch } from "./ThemeSwitch";
 import * as appFilterMod from "../vpn/appFilter";
 import { getInstalledApps, getAppIcon, type AppInfo } from "../vpn/native";
 import { colors, sheetSurfaceBg, useTheme } from "../theme";
@@ -166,11 +166,10 @@ export function AppFilterContent({
               Показывать службы Android в списке
             </Text>
           </View>
-          <Switch
+          <ThemeSwitch
             value={includeSystem}
             onValueChange={setIncludeSystem}
-            trackColor={{ false: colors.border, true: colors.accent }}
-            thumbColor="#fff"
+            accessibilityLabel="Показывать службы Android в списке"
           />
         </View>
 

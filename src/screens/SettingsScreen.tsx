@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Modal, Pressable, Switch, Text, View } from "react-native";
+import { Modal, Pressable, Text, View } from "react-native";
+import { ThemeSwitch } from "../components/ThemeSwitch";
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
@@ -96,11 +97,9 @@ export default function SettingsScreen() {
           <Text style={styles.navRowTitle}>{title}</Text>
           <Text style={styles.navRowSub}>{sub}</Text>
         </View>
-        <Switch
+        <ThemeSwitch
           value={value}
           onValueChange={onValueChange}
-          trackColor={{ false: colors.border, true: colors.accent }}
-          thumbColor="#fff"
           accessibilityLabel={title}
         />
       </View>

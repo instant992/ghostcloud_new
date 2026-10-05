@@ -168,30 +168,51 @@ export function renderBackground(
   return raster;
 }
 
+/** Последний валидный снимок фона. `useWindowDimensions` при сворачивании/
+ *  разворачивании приложения и поворотах может на мгновение выдать 0×0 —
+ *  тогда фон пересчитался бы в null и ВСЕ стеклянные поверхности потеряли бы
+ *  подложку (рамки «пропадают»). Держим прежний снимок, пока не получим новый. */
+let lastGoodBackdrop: { w: number; h: number; light: boolean; image: SkImage } | null = null;
+
 /** Провайдер фона Liquid Glass: держит один снимок фона для всех поверхностей. */
 export function GlassBackdropProvider({ children }: { children: React.ReactNode }) {
   useTheme();
   const light = isLightPalette();
-  const { width, height } = useWindowDimensions();
+  const dims = useWindowDimensions();
 
-  const image = useMemo(
-    () => renderBackground(width, height, light),
-    [width, height, light]
-  );
+  const image = useMemo(() => {
+    const w = dims.width;
+    const h = dims.height;
+    if (w > 0 && h > 0) {
+      const fresh = renderBackground(w, h, light);
+      if (fresh) {
+        lastGoodBackdrop = { w, h, light, image: fresh };
+        return fresh;
+      }
+    }
+    // Нулевые/невалидные размеры или сбой отрисовки — reuse последнего снимка.
+    return lastGoodBackdrop?.image ?? null;
+  }, [dims.width, dims.height, light]);
 
   // Видимый слой фона — обычный RN <Image> из PNG data-URI, а НЕ Skia <Canvas>:
   // TextureView Skia теряет содержимое после ухода приложения в фон/force-stop,
   // и экран оставался плоским colors.bg — стеклянным карточкам тогда нечего
   // преломлять, и они выглядят прозрачными/чёрными. RN <Image> композитится
   // обычным слоём и не зависит от жизненного цикла Skia-поверхности.
+  // Размеры, соответствующие снимку: если в этом кадре dimensions нулевые и мы
+  // берём предыдущий снимок, размеры тоже берём прежние — иначе поверхности
+  // получат сдвиг фона по 0×0 и стекло «поплывёт»/исчезнет на один кадр.
+  const effW = dims.width > 0 ? dims.width : lastGoodBackdrop?.w ?? 0;
+  const effH = dims.height > 0 ? dims.height : lastGoodBackdrop?.h ?? 0;
+
   const imageUri = useMemo(() => {
     if (!image) return null;
     return `data:image/png;base64,${image.encodeToBase64(ImageFormat.PNG)}`;
   }, [image]);
 
   const value = useMemo<GlassBackdropValue>(
-    () => ({ width, height, light, image, scale: BG_SCALE, imageUri }),
-    [width, height, light, image, imageUri]
+    () => ({ width: effW, height: effH, light, image, scale: BG_SCALE, imageUri }),
+    [effW, effH, light, image, imageUri]
   );
 
   return (

@@ -1,7 +1,8 @@
 import React, { useRef, useState } from "react";
-import { ActivityIndicator, Image, Modal, Pressable, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, Screen, Title, useScreenTopPad } from "../../components/UI";
+import { ThemeSwitch } from "../../components/ThemeSwitch";
 import { PressableScale } from "../../components/PressableScale";
 import { SponsorBenefitsSheet } from "../../components/SponsorBenefits";
 import { SponsorHeart } from "../../components/Badges";
@@ -234,11 +235,10 @@ export default function AppearanceScreen() {
                   <Text style={styles.themeRowTitle}>Смена темы по времени</Text>
                   <Text style={styles.themeRowSub}>Светлая днём, тёмная ночью</Text>
                 </View>
-                <Switch
+                <ThemeSwitch
                   value={mode === "auto"}
                   onValueChange={(v) => changeMode(v ? "auto" : "dark")}
-                  trackColor={{ false: colors.border, true: colors.accent }}
-                  thumbColor="#fff"
+                  accessibilityLabel="Смена темы по времени"
                 />
               </View>
             ) : (

@@ -10,7 +10,7 @@ import React, {
 import * as api from "./api";
 import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session, loadDismissedAlerts, addDismissedAlerts } from "./storage";
 import { VpnNode } from "./vpn/parse";
-import { isVpnRunning, onVpnStateChanged } from "./vpn/manager";
+import { isVpnRunning, onVpnStateChanged, nodeFingerprint, resolveSavedNode } from "./vpn/manager";
 import { clearVpnConnected } from "./vpn/timer";
 import type { SecurityAlert } from "./components/SecurityAlertModal";
 import { useTheme, useThemeSwitcher } from "./theme";
@@ -289,6 +289,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     nodesRef.current = nodes;
     meRef.current = me;
   }, [nodes, me]);
+  // Список серверов мог обновиться (reloadNodes): формат id одного и того же
+  // узла зависит от того, какая подписка ответила (share-link ↔ Clash YAML),
+  // поэтому сохранённый выбор переразрешаем в актуальный id — иначе экраны
+  // не найдут узел и откатятся на первый.
+  useEffect(() => {
+    if (nodes.length === 0) return;
+    const sel = selectedNodeIdRef.current;
+    if (!sel || nodes.some((n) => n.id === sel)) return;
+    const resolved = resolveSavedNode(sel, nodes);
+    if (resolved) {
+      setSelectedNodeId(resolved.id);
+      saveSelectedNodeId(nodeFingerprint(resolved)).catch(() => {});
+    }
+  }, [nodes]);
   useEffect(() => {
     let off: () => void = () => {};
     let cancelled = false;
@@ -580,7 +594,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           freshNodes = await reloadNodes();
         } catch {}
-        const savedId = await loadSelectedNodeId();
+        // Восстановление выбора сервера. Сохранено может быть как каноническим
+        // «отпечатком» (новый формат), так и id в любом из двух форматов
+        // подписки (старые сохранения) — resolveSavedNode приводит к реальному
+        // узлу из списка. Без этого id из share-ссылки не совпадал с id из
+        // Clash YAML, и приложение прыгало на первый сервер.
+        const savedRaw = await loadSelectedNodeId();
+        let savedId: string | null = savedRaw;
+        {
+          const pool = freshNodes || cachedNodes?.nodes || [];
+          const resolved = resolveSavedNode(savedRaw, pool);
+          if (resolved) savedId = resolved.id;
+          if (resolved && savedRaw !== nodeFingerprint(resolved)) {
+            // Нормализуем сохранение до отпечатка, чтобы в следующий раз
+            // совпадение было прямым.
+            saveSelectedNodeId(nodeFingerprint(resolved)).catch(() => {});
+          }
+        }
         if (savedId) setSelectedNodeId(savedId);
         if (mounted.current) setLoading(false);
 
@@ -601,7 +631,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               const subActive = exp > Date.now();
               const pool = freshNodes || cachedNodes?.nodes || [];
               if (subActive && pool.length > 0) {
-                let node = pool.find((n) => n.id === savedId) || null;
+                let node = resolveSavedNode(savedId, pool) || pool.find((n) => n.id === savedId) || null;
                 if (!node) {
                   try {
                     const best = await mgr.pickBestNode(pool, { max: 1 });
@@ -802,7 +832,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const selectNode = useCallback((id: string) => {
     setSelectedNodeId(id);
-    saveSelectedNodeId(id).catch(() => {});
+    // Сохраняем канонический «отпечаток» узла, а не id: id одного и того же
+    // сервера различается у share-ссылок (`proto-host-port-cred8`) и Clash/sing-box
+    // (`proto-host-port`), и какой формат придёт при следующем запуске — не
+    // гарантировано. Отпечаток (protocol|address|port|cred8) стабилен.
+    const node = nodesRef.current.find((n) => n.id === id);
+    saveSelectedNodeId(node ? nodeFingerprint(node) : id).catch(() => {});
   }, []);
 
   const subscriptionActive = useMemo(() => {
