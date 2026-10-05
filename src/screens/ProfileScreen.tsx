@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
+import { GlassCard, GlassButton } from "../components/liquidGlass";
 import { QuickNavBar, themeHasQuickNav } from "../components/QuickNavBar";
 import { getThemeName } from "../settings";
 import { PressableScale } from "../components/PressableScale";
@@ -54,8 +55,47 @@ import {
 import { colors, sheetSurfaceBg, useTheme } from "../theme";
 import { showToast } from "../components/Toast";
 
+/** Обёртки блоков экрана: в теме Liquid Glass — уникальные стеклянные блоки
+ *  (те же GlassCard/GlassButton, что на главной и в меню), в остальных темах —
+ *  общие Card/Button из UI.tsx. Модульные компоненты (не инлайн) — стабильная
+ *  идентичность, без ремаунтов при ре-рендере. */
+function ThemeCard({ glass, children, style }: { glass: boolean; children: React.ReactNode; style?: any }) {
+  return glass ? <GlassCard radius={20} style={style}>{children}</GlassCard> : <Card style={style}>{children}</Card>;
+}
+
+function ThemeButton(p: {
+  glass: boolean;
+  title: string;
+  onPress: () => void;
+  variant?: "primary" | "ghost" | "danger";
+  size?: "sm" | "md";
+  loading?: boolean;
+}) {
+  const { glass, ...rest } = p;
+  return glass ? <GlassButton {...rest} /> : <Button {...rest} />;
+}
+
+/** Оболочка без внутреннего отступа (меню): glass → GlassCard radius 16,
+ *  иначе — обычный View со стилями menuCard вызывающей стороны. */
+function ShellBlock({
+  glass,
+  children,
+  plainStyle,
+}: {
+  glass: boolean;
+  children: React.ReactNode;
+  plainStyle?: any;
+}) {
+  return glass ? (
+    <GlassCard radius={16} style={{ marginBottom: 12 }}>{children}</GlassCard>
+  ) : (
+    <View style={plainStyle}>{children}</View>
+  );
+}
+
 export default function ProfileScreen() {
-  useTheme();
+  const { style: themeStyle } = useTheme();
+  const isGlass = themeStyle === "glass";
   const styles = makeStyles();
   const insets = useSafeAreaInsets();
   const inTabs = useInTabArea();
@@ -472,9 +512,15 @@ export default function ProfileScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: isGlass ? "transparent" : colors.bg }}>
       {/* Закреплённая шапка: назад + «Профиль» + шестерёнка */}
-      <View style={[styles.stickyHeader, { paddingTop: insets.top + 6 }]}>
+      <View
+        style={[
+          styles.stickyHeader,
+          { paddingTop: insets.top + 6 },
+          isGlass ? { backgroundColor: "transparent", borderBottomWidth: 0 } : null,
+        ]}
+      >
         {nav.canGoBack() ? (
           <Pressable
             onPress={() => (themeHasQuickNav(getThemeName()) ? nav.goBack() : nav.popToTop())}
@@ -514,7 +560,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ─── Карточка аккаунта ─── */}
-        <Card>
+        <ThemeCard glass={isGlass}>
           <View style={styles.accRow}>
             <PressableScale onPress={isFoxcloud ? undefined : openEditor} accessibilityLabel="Изменить профиль">
               {avatarUri ? (
@@ -589,7 +635,7 @@ export default function ProfileScreen() {
                   <Text style={styles.bonusTitle}>Бонусное устройство (+1)</Text>
                   <Text style={styles.bonusSub}>Спонсорам — бесплатно</Text>
                 </View>
-                <Button size="sm" title="Забрать" loading={busy} onPress={claimDeviceBonus} />
+                <ThemeButton glass={isGlass} size="sm" title="Забрать" loading={busy} onPress={claimDeviceBonus} />
               </View>
             )}
           </View>
@@ -602,20 +648,20 @@ export default function ProfileScreen() {
           ) : (
             <View style={styles.chipsRow}>
               <View style={{ flex: 1 }}>
-                <Button size="sm" title="Продлить" onPress={() => nav.navigate("Тарифы")} />
+                <ThemeButton glass={isGlass} size="sm" title="Продлить" onPress={() => nav.navigate("Тарифы")} />
               </View>
               <View style={{ flex: 1 }}>
-                <Button size="sm" title="Подарить" variant="ghost" onPress={openPaidGift} />
+                <ThemeButton glass={isGlass} size="sm" title="Подарить" variant="ghost" onPress={openPaidGift} />
               </View>
               <View style={{ flex: 1 }}>
-                <Button size="sm" title="Промокод" variant="ghost" onPress={() => setPromoOpen(true)} />
+                <ThemeButton glass={isGlass} size="sm" title="Промокод" variant="ghost" onPress={() => setPromoOpen(true)} />
               </View>
             </View>
           )}
-        </Card>
+        </ThemeCard>
 
         {/* ─── Меню ─── */}
-        <View style={styles.menuCard}>
+        <ShellBlock glass={isGlass} plainStyle={styles.menuCard}>
           {!isFoxcloud && (
             <>
               <MenuItem
@@ -695,17 +741,28 @@ export default function ProfileScreen() {
               onPress={() => {}}
             />
           )}
-        </View>
+        </ShellBlock>
 
         {/* ─── Переход в настройки (кнопка выхода перенесена в Настройки → Прочее) ─── */}
-        <PressableScale
-          style={styles.settingsBtn}
-          onPress={() => nav.navigate("Настройки")}
-          accessibilityRole="button"
-        >
-          <Ionicons name="settings" size={19} color="#fff" />
-          <Text style={styles.settingsBtnText}>Перейти в настройки</Text>
-        </PressableScale>
+        {isGlass ? (
+          <GlassButton
+            title="Перейти в настройки"
+            variant="primary"
+            onPress={() => nav.navigate("Настройки")}
+            icon={<Ionicons name="settings" size={19} color="#DDD6FE" />}
+            style={{ marginBottom: 8 }}
+            accessibilityLabel="Перейти в настройки"
+          />
+        ) : (
+          <PressableScale
+            style={styles.settingsBtn}
+            onPress={() => nav.navigate("Настройки")}
+            accessibilityRole="button"
+          >
+            <Ionicons name="settings" size={19} color="#fff" />
+            <Text style={styles.settingsBtnText}>Перейти в настройки</Text>
+          </PressableScale>
+        )}
       </ScrollView>
 
       {/* Быстрое нижнее меню — видно когда экран открыт стеком поверх темы

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
   Image,
   Pressable,
   ScrollView,
@@ -10,8 +9,6 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
-import Svg, { Circle, Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
-import { BlurView } from "expo-blur";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as Application from "expo-application";
@@ -22,7 +19,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
-import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, pingColor as pingColorFor, pingFailLabel, BRAND_PURPLE } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor as pingColorFor, pingFailLabel, BRAND_PURPLE } from "../../theme";
 import { PowerButton } from "../../components/PowerButton";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { transportLabel } from "../../utils/transportLabel";
@@ -30,124 +27,28 @@ import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
+import { LiquidGlassSurface, GlassCard } from "../../components/liquidGlass";
 import * as stats from "../../stats";
 
 const PURPLE = "#7C3AED";
 
-/** Стеклянная карточка в духе iOS Liquid Glass: настоящий блюр того, что под ней,
- *  полупрозрачная тонировка и светлая граница. На Android < 12 BlurView
- *  автоматически откатывается к полупрозрачной подложке. */
-export function GlassCard({
-  radius = 20,
-  intensity = 50,
-  overlay,
-  style,
-  children,
-  onPress,
-  accessibilityLabel,
-}: {
-  radius?: number;
-  intensity?: number;
-  overlay?: string;
-  style?: any;
-  children?: React.ReactNode;
-  onPress?: () => void;
-  accessibilityLabel?: string;
-}) {
-  useTheme();
-  const light = isLightPalette();
-  const outer = {
-    borderRadius: radius,
-    overflow: "hidden" as const,
-    borderWidth: 1,
-    borderColor: light ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.22)",
-  };
-  const body = (
-    <>
-      <BlurView intensity={intensity} tint={light ? "light" : "dark"} style={StyleSheet.absoluteFill} />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: overlay ?? (light ? "rgba(255,255,255,0.30)" : "rgba(255,255,255,0.05)") },
-        ]}
-        pointerEvents="none"
-      />
-      {children}
-    </>
-  );
-  if (onPress) {
-    return (
-      <Pressable
-        onPress={onPress}
-        style={[outer, style]}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-      >
-        {body}
-      </Pressable>
-    );
-  }
-  return <View style={[outer, style]}>{body}</View>;
-}
+/** Стеклянная карточка темы Liquid Glass.
+ *
+ * Раньше — BlurView из expo-blur (только гауссов блюр того, что под карточкой).
+ * Теперь — LiquidGlassSurface: настоящий порт эффекта Backdrop
+ * (Kyant0/AndroidLiquidGlass, Apache-2.0): vibrancy ⇒ blur ⇒ lens (рефракция по
+ * краям скругления) + блик по контуру + тень. Фон семплируется из контекста
+ * GlassBackdropProvider (градиент + блобы темы), поэтому карточка «преломляет»
+ * именно фон темы, как в референсе.
+ *
+ * `intensity` сохранён для совместимости вызовов: маппится в силу блюра.
+ * Каноническая реализация — в components/liquidGlass/GlassCard, здесь
+ * реэкспорт, чтобы у всех разделов темы был один и тот же блок. */
+export { GlassCard } from "../../components/liquidGlass";
 
-/** Фон темы: диагональный градиент + пять цветных «блобов» — как в Flutter-версии */
-function GlassBackground() {
-  useTheme();
-  const light = isLightPalette();
-  const { width, height } = Dimensions.get("window");
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      <Svg width={width} height={height}>
-        <Defs>
-          <LinearGradient id="gcGlassBg" x1="0" y1="0" x2="1" y2="1">
-            {light
-              ? [
-                  <Stop key="l0" offset="0" stopColor="#E8E2F0" />,
-                  <Stop key="l1" offset="0.35" stopColor="#DDD6EA" />,
-                  <Stop key="l2" offset="0.65" stopColor="#E2DCF0" />,
-                  <Stop key="l3" offset="1" stopColor="#D8D2E6" />,
-                ]
-              : [
-                  <Stop key="d0" offset="0" stopColor="#08080E" />,
-                  <Stop key="d1" offset="0.35" stopColor="#0E0C16" />,
-                  <Stop key="d2" offset="0.65" stopColor="#0A0A14" />,
-                  <Stop key="d3" offset="1" stopColor="#060610" />,
-                ]}
-          </LinearGradient>
-          <RadialGradient id="gcBlob1">
-            <Stop offset="0" stopColor={light ? "#9B59B6" : "#7B2FBE"} stopOpacity={light ? "0.35" : "0.25"} />
-            <Stop offset="1" stopColor={light ? "#9B59B6" : "#7B2FBE"} stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="gcBlob2">
-            <Stop offset="0" stopColor={light ? "#5B9CF6" : "#3B82F6"} stopOpacity={light ? "0.3" : "0.2"} />
-            <Stop offset="1" stopColor={light ? "#5B9CF6" : "#3B82F6"} stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="gcBlob3">
-            <Stop offset="0" stopColor="#EC4899" stopOpacity={light ? "0.25" : "0.18"} />
-            <Stop offset="1" stopColor="#EC4899" stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="gcBlob4">
-            <Stop offset="0" stopColor="#06B6D4" stopOpacity={light ? "0.22" : "0.15"} />
-            <Stop offset="1" stopColor="#06B6D4" stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="gcBlob5">
-            <Stop offset="0" stopColor="#8B5CF6" stopOpacity={light ? "0.2" : "0.15"} />
-            <Stop offset="1" stopColor="#8B5CF6" stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-        <Rect width={width} height={height} fill="url(#gcGlassBg)" />
-        <Circle cx={width - 120} cy={60} r={180} fill="url(#gcBlob1)" />
-        <Circle cx={60} cy={360} r={160} fill="url(#gcBlob2)" />
-        <Circle cx={width + 20} cy={height - 200} r={140} fill="url(#gcBlob3)" />
-        <Circle cx={80} cy={90} r={130} fill="url(#gcBlob4)" />
-        <Circle cx={170} cy={height - 310} r={110} fill="url(#gcBlob5)" />
-      </Svg>
-    </View>
-  );
-}
-
-/** Главный экран темы Liquid Glass: градиентный фон с блобами, стеклянные
- *  карточки и сфера питания — как в Flutter-версии. */
+/** Главный экран темы Liquid Glass: градиентный фон с блобами рисует
+ *  GlassBackdropProvider (Skia), стеклянные карточки и сфера питания — как в
+ *  референсе Backdrop. */
 export default function GlassScreen() {
   useTheme();
   const styles = makeStyles();
@@ -302,8 +203,6 @@ export default function GlassScreen() {
 
   return (
     <View style={styles.screen}>
-      <GlassBackground />
-
       <ScrollView
           bounces={false}
           overScrollMode="never"
@@ -535,7 +434,7 @@ export default function GlassScreen() {
 }
 
 const makeStyles = () => StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
+  screen: { flex: 1, backgroundColor: "transparent" },
   headerLogo: { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
     color: BRAND_PURPLE,

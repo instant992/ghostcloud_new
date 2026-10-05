@@ -8,12 +8,18 @@ import { colors, formatBytes, useTheme } from "../theme";
 import { PressableScale } from "../components/PressableScale";
 import { BalanceSheet } from "../components/BalanceSheet";
 import { useInTabArea } from "../components/UI";
+import { GlassCard, GlassButton } from "../components/liquidGlass";
 import * as stats from "../stats";
 
 /** Раздел «Подписка» — перенесён из Flutter-версии: статус подписки,
- *  дни, трафик, устройства и управление. */
+ *  дни, трафик, устройства и управление.
+ *
+ *  В теме Liquid Glass экран рисуется уникальными стеклянными блоками
+ *  (тот же GlassCard/GlassButton, что на главной и в меню), на прозрачном
+ *  фоне GlassBackdropProvider; остальные темы не затрагиваются. */
 export default function SubscriptionScreen() {
-  useTheme();
+  const { style: themeStyle } = useTheme();
+  const isGlass = themeStyle === "glass";
   const styles = makeStyles();
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
@@ -41,6 +47,122 @@ export default function SubscriptionScreen() {
     : "—";
   const balance = (me?.balance || 0) / 100;
   const periodProgress = Math.min(1, Math.max(0.03, daysLeft / 30));
+
+  // ─── Уникальный glass-вариант: те же блоки/кнопки, что на главной ───
+  if (isGlass) {
+    return (
+      <ScrollView
+        bounces={false}
+        overScrollMode="never"
+        style={{ flex: 1, backgroundColor: "transparent" }}
+        contentContainerStyle={{
+          padding: 20,
+          paddingTop: insets.top + 84,
+          paddingBottom: inTabs ? insets.bottom + 116 : 40,
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.pageTitle}>Моя подписка</Text>
+        <Text style={styles.pageSub}>Управляйте своей подпиской и меняйте параметры</Text>
+
+        {/* Статус подписки — стеклянная hero-карточка */}
+        <GlassCard radius={20} style={{ padding: 20, marginBottom: 12 }}>
+          <View
+            style={[
+              styles.statusPill,
+              { backgroundColor: subscriptionActive ? colors.green + "26" : colors.red + "26" },
+            ]}
+          >
+            <Text
+              style={[styles.statusPillText, { color: subscriptionActive ? colors.green : colors.red }]}
+            >
+              {subscriptionActive ? "Активна" : "Неактивна"}
+            </Text>
+          </View>
+          <Text style={styles.planName}>{me?.plan || "Без подписки"}</Text>
+          <Text style={styles.planHint}>
+            {subscriptionActive ? "Ваша подписка активна" : "Подписка неактивна"}
+          </Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 14 }}>
+            <Text style={styles.daysText}>Осталось дней: {daysLeft}</Text>
+            <Text style={styles.untilText}>до {expireDate}</Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${Math.round(periodProgress * 100)}%` }]} />
+          </View>
+          <GlassButton
+            size="md"
+            title={subscriptionActive ? "Продлить подписку" : "Управление подпиской"}
+            onPress={() => nav.navigate("Тарифы")}
+            style={{ marginTop: 16 }}
+          />
+        </GlassCard>
+
+        {/* Трафик */}
+        <GlassCard radius={16} style={{ padding: 16, marginBottom: 12 }}>
+          <Text style={styles.cardTitle}>Трафик подписки</Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
+            <Text style={styles.cardRow}>Использовано сегодня:</Text>
+            <Text style={styles.cardRowValue}>{formatBytes(todayStat.rx + todayStat.tx)}</Text>
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+            <Text style={styles.cardSmall}>↓ Загружено {formatBytes(todayStat.rx)}</Text>
+            <Text style={styles.cardSmall}>↑ Отправлено {formatBytes(todayStat.tx)}</Text>
+          </View>
+        </GlassCard>
+
+        {/* Устройства */}
+        <GlassCard
+          radius={16}
+          style={{ padding: 16, marginBottom: 12 }}
+          onPress={() => nav.navigate("Devices")}
+          accessibilityLabel="Мои устройства"
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={styles.devicesIcon}>
+              <Ionicons name="phone-portrait-outline" size={21} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.cardTitle}>Мои устройства</Text>
+              <Text style={styles.cardSmall}>
+                {me?.device_count ?? 0} из {me?.device_limit ?? 6}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
+          </View>
+        </GlassCard>
+
+        {/* Баланс */}
+        <GlassCard
+          radius={16}
+          style={{ padding: 16, marginBottom: 12 }}
+          onPress={() => setBalanceOpen(true)}
+          accessibilityLabel="Баланс и история операций"
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <View style={[styles.devicesIcon, { backgroundColor: colors.green + "1F" }]}>
+              <Ionicons name="wallet-outline" size={21} color={colors.green} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.cardTitle}>Баланс</Text>
+              <Text style={styles.cardSmall}>{balance.toFixed(0)} ₽ · история операций</Text>
+            </View>
+            <View style={styles.topupPill}>
+              <Ionicons name="add" size={13} color={colors.accent} />
+              <Text style={styles.topupPillText}>Пополнить</Text>
+            </View>
+          </View>
+        </GlassCard>
+
+        <BalanceSheet
+          visible={balanceOpen}
+          onClose={() => setBalanceOpen(false)}
+          balance={balance}
+          daysLeft={daysLeft}
+        />
+      </ScrollView>
+    );
+  }
 
   return (
     <ScrollView

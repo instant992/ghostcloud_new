@@ -37,6 +37,7 @@ import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
+import { GlassBackdropProvider } from "./src/components/liquidGlass";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import AwgScreen from "./src/screens/themes/AwgScreen";
 import { TabChain } from "./src/components/TabIcon";
@@ -509,22 +510,32 @@ const makeDockStyles = () =>
 });
 
 /** Поток темы с доком: Главная / Подписка / Профиль — вкладки,
- *  остальные разделы — стеком поверх. */
+ *  остальные разделы — стеком поверх.
+ *  transparent=true: стек и вкладки прозрачные — фон рисует провайдер темы
+ *  (Liquid Glass), см. GlassFlow. */
 function DockedThemedFlow({
   Home,
   DockBar,
+  transparent,
 }: {
   Home: React.ComponentType;
   DockBar: React.ComponentType<any>;
+  transparent?: boolean;
 }) {
   useTheme();
+  const screenBg = transparent ? "transparent" : colors.bg;
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+    <Stack.Navigator
+      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: screenBg } }}
+    >
       <Stack.Screen name="ThemeTabs">
         {() => (
           <TabAreaContext.Provider value={true}>
             <DockTabs.Navigator
-              screenOptions={{ headerShown: false }}
+              screenOptions={{
+                headerShown: false,
+                ...(transparent ? { sceneStyle: { backgroundColor: "transparent" } } : null),
+              }}
               tabBar={(props) => <DockBar {...props} />}
             >
               <DockTabs.Screen name="Главная" component={Home} />
@@ -534,9 +545,9 @@ function DockedThemedFlow({
           </TabAreaContext.Provider>
         )}
       </Stack.Screen>
-      <Stack.Screen name="Настройки" component={SettingsWithBack} />
-      <Stack.Screen name="Тарифы" component={PlansWithBack} />
-      <Stack.Screen name="Статистика" component={StatsWithBack} />
+      <Stack.Screen name="Настройки" component={SettingsWithBack} options={transparent ? { contentStyle: { backgroundColor: "transparent" } } : undefined} />
+      <Stack.Screen name="Тарифы" component={PlansWithBack} options={transparent ? { contentStyle: { backgroundColor: "transparent" } } : undefined} />
+      <Stack.Screen name="Статистика" component={StatsWithBack} options={transparent ? { contentStyle: { backgroundColor: "transparent" } } : undefined} />
       <Stack.Screen
         name="Devices"
         component={DevicesScreen}
@@ -589,7 +600,15 @@ function MinimalistFlow() {
 }
 
 function GlassFlow() {
-  return <DockedThemedFlow Home={GlassScreen} DockBar={GlassDockBar} />;
+  // Тема Liquid Glass: фон рисует GlassBackdropProvider (Skia Canvas на весь
+  // экран), поэтому навигация и экраны должны быть прозрачными — иначе
+  // непрозрачный colors.bg перекроет фон и стеклянным поверхностям нечего
+  // будет семплировать.
+  return (
+    <GlassBackdropProvider>
+      <DockedThemedFlow Home={GlassScreen} DockBar={GlassDockBar} transparent />
+    </GlassBackdropProvider>
+  );
 }
 
 function SimpleFlow() {
