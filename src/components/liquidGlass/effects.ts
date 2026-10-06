@@ -72,8 +72,9 @@ export interface LensParams {
   refractionAmount: number;
   /** Объёмный эффект (линза тянет к центру). */
   depthEffect?: boolean;
-  /** Хроматическая аберрация (радужные края). */
-  chromaticAberration?: boolean;
+  /** Хроматическая аберрация: true = 1.0, либо непрерывная сила 0..N
+   *  (шейдер принимает float — Glass Playground регулирует её ползунком). */
+  chromaticAberration?: boolean | number;
   /** Отступ канвы (dp) — шейдер использует его как offset. */
   padding?: number;
 }
@@ -107,7 +108,14 @@ export function buildGlassFilter(
   // 3) lens (runtime shader) — самый внешний
   const lens = opts.lens;
   if (lens && lens.refractionHeight > 0 && lens.refractionAmount > 0) {
-    const useDispersion = lens.chromaticAberration && getDispersionEffect() != null;
+    // Аберрация — непрерывная сила (float-униформ шейдера), а не флаг.
+    const aberration =
+      typeof lens.chromaticAberration === "number"
+        ? lens.chromaticAberration
+        : lens.chromaticAberration
+          ? 1
+          : 0;
+    const useDispersion = aberration > 0 && getDispersionEffect() != null;
     const effect = useDispersion ? getDispersionEffect() : getRefractionEffect();
     if (effect) {
       const builder: SkRuntimeShaderBuilder = Skia.RuntimeShaderBuilder(effect);
@@ -120,7 +128,7 @@ export function buildGlassFilter(
       // setFloatUniform("refractionAmount", -refractionAmount)).
       builder.setUniform("refractionAmount", [-lens.refractionAmount]);
       builder.setUniform("depthEffect", [lens.depthEffect ? 1 : 0]);
-      if (useDispersion) builder.setUniform("chromaticAberration", [1]);
+      if (useDispersion) builder.setUniform("chromaticAberration", [aberration]);
       // Имя child-шейдера ОБЯЗАНО совпадать с объявлением в SkSL (`uniform shader
       // content`) — Backdrop делает то же: RuntimeShaderEffect(shader, "content").
       // Пустая строка НЕ означает «единственный child»: Skia ищет child с именем ""
@@ -143,16 +151,34 @@ export interface GlassPreset {
 }
 
 export const GLASS_PRESETS: Record<string, GlassPreset> = {
+  /** Блок списка из ScrollContainerContent: RoundedRectangle(32dp),
+   *  `vibrancy()` + `lens(16dp, 32dp)` — БЕЗ blur и БЕЗ подложки.
+   *  Это канонический «блок» каталога: чистое стекло, край читается
+   *  только бликом (Highlight.Default) и тенью (Shadow.Default). */
+  scroll: { saturation: 1.5, blur: 0, refractionHeight: 16, refractionAmount: 32, depthEffect: false },
   /** Карточка/крупная поверхность (Glass Bottom Sheet из туториала). */
   card: { saturation: 1.5, blur: 4, refractionHeight: 24, refractionAmount: 48, depthEffect: true },
   /** Кнопка (LiquidButton: blur 2, lens 12/24). */
   button: { saturation: 1.5, blur: 2, refractionHeight: 12, refractionAmount: 24, depthEffect: false },
-  /** Нижний таб-бар (LiquidBottomTabs: blur 8, lens 24/24). */
+  /** Панель нижнего таб-бара (LiquidBottomTabs: blur 8, lens 24/24). */
   tabBar: { saturation: 1.5, blur: 8, refractionHeight: 24, refractionAmount: 24, depthEffect: false },
   /** Мелкий значок (blur 4, lens 16/32). */
   icon: { saturation: 1.5, blur: 4, refractionHeight: 16, refractionAmount: 32, depthEffect: false },
+  /** Индикатор активной вкладки: в каталоге `lens(10dp·progress, 14dp·progress,
+   *  chromaticAberration = true)` — стекло с дисперсией появляется при нажатии. */
+  tabIndicator: { saturation: 1.5, blur: 0, refractionHeight: 10, refractionAmount: 14, chromaticAberration: true },
   /** Тумблер/слайдер-ручка (blur 8 → lens 5/10 с дисперсией при нажатии). */
   knob: { saturation: 1.5, blur: 8, refractionHeight: 5, refractionAmount: 10, chromaticAberration: true },
+  /** Ручка LiquidSlider: `blur(8dp·(1-progress))` + `lens(10dp·p, 14dp·p, dispersion)`. */
+  sliderKnob: { saturation: 1.5, blur: 8, refractionHeight: 10, refractionAmount: 14, chromaticAberration: true },
 };
 
-export type GlassPresetName = "card" | "button" | "tabBar" | "icon" | "knob";
+export type GlassPresetName =
+  | "scroll"
+  | "card"
+  | "button"
+  | "tabBar"
+  | "icon"
+  | "tabIndicator"
+  | "knob"
+  | "sliderKnob";

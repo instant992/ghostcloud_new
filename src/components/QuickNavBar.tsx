@@ -7,7 +7,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import { colors, useTheme } from "../theme";
 import { getThemeName, type ThemeName } from "../settings";
 import { useInTabArea } from "./UI";
-import { GlassCard } from "../screens/themes/GlassScreen";
+import { LiquidBottomTabs } from "./liquidGlass";
 
 type NavItem = {
   key: string;
@@ -92,6 +92,35 @@ export function QuickNavBar() {
   const isAwg = theme === "awg";
   const isGlass = theme === "glass";
 
+  // Glass: тот же LiquidBottomTabs, что и док главной (порт каталога Backdrop).
+  if (isGlass) {
+    const glassItems = items.map((it) => ({
+      key: it.key,
+      label: it.label,
+      icon: it.icon,
+      iconActive: it.iconActive,
+    }));
+    const activeIndex = Math.max(
+      0,
+      items.findIndex((it) => it.routes.includes(route.name))
+    );
+    return (
+      <View style={styles.wrap} pointerEvents="box-none">
+        <View
+          style={[styles.bar, { paddingBottom: Math.max(8, insets.bottom), backgroundColor: "transparent", paddingHorizontal: 24 }]}
+          pointerEvents="auto"
+        >
+          <LiquidBottomTabs
+            items={glassItems}
+            selectedIndex={activeIndex}
+            onSelect={(i) => go(items[i])}
+            style={{ alignSelf: "stretch" }}
+          />
+        </View>
+      </View>
+    );
+  }
+
   const row = (
     <View style={isAwg ? styles.awgRow : styles.pillRow}>
       {items.map((it) => {
@@ -175,11 +204,7 @@ export function QuickNavBar() {
         ]}
         pointerEvents="auto"
       >
-        {isGlass ? (
-          <GlassCard radius={28} intensity={70} style={{ paddingHorizontal: 8, paddingVertical: 6, alignSelf: "stretch" }}>
-            {row}
-          </GlassCard>
-        ) : isAwg ? (
+        {isAwg ? (
           <View style={{ alignSelf: "stretch", paddingTop: 4 }}>{row}</View>
         ) : (
           <View style={[styles.minimalBar, { backgroundColor: colors.cardLight, borderColor: colors.border }]}>{row}</View>

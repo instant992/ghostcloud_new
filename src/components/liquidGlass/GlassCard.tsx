@@ -12,13 +12,15 @@ import { useTheme, isLightPalette, colors } from "../../theme";
  */
 
 export interface GlassCardProps {
-  /** Радиус скругления (dp). */
+  /** Радиус скругления (dp). Каталог ScrollContainer: 32. */
   radius?: number;
-  /** 0..100 → сила блюра (дефолт Backdrop-карточки ≈ 4). */
+  /** 0..100 → сила блюра (дефолт блока ScrollContainer = 0: чистая линза). */
   intensity?: number;
-  /** Полупрозрачная подложка поверх стекла (containerColor). */
+  /** Полупрозрачная подложка поверх стекла (containerColor). По умолчанию НЕТ:
+   *  блок ScrollContainer — прозрачное стекло без подложки. */
   overlay?: string;
-  /** Обводка; по умолчанию — лавандовая в светлой / белая в тёмной. */
+  /** Обводка; по умолчанию НЕТ — край блока читается бликом и преломлением,
+   *  как в ScrollContainerContent (drawBackdrop без бордюра). */
   borderColor?: string | null;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
@@ -26,10 +28,12 @@ export interface GlassCardProps {
   accessibilityLabel?: string;
 }
 
-/** Стеклянная карточка: vibrancy ⇒ blur ⇒ lens + блик + тень (порт Backdrop). */
+/** Стеклянный блок как в ScrollContainer каталога Backdrop:
+ *  RoundedRectangle(32dp) + vibrancy + lens(16dp, 32dp), без blur,
+ *  без подложки, без бордюра — чистое преломляющее стекло. */
 export function GlassCard({
-  radius = 20,
-  intensity = 50,
+  radius = 32,
+  intensity = 0,
   overlay,
   borderColor,
   style,
@@ -38,17 +42,13 @@ export function GlassCard({
   accessibilityLabel,
 }: GlassCardProps) {
   useTheme();
-  const light = isLightPalette();
   const blur = Math.max(0, Math.min(12, intensity / 12));
-  const surfaceColor = overlay ?? (light ? "rgba(255,255,255,0.30)" : "rgba(255,255,255,0.05)");
-  // Светлая тема: белая обводка по светлому фону невидима — вместо неё тонкий
-  // тёмно-лавандовый край (стекло читается границей + тенью + бликом).
-  const effBorder =
-    borderColor ?? (light ? "rgba(120,105,160,0.20)" : "rgba(255,255,255,0.22)");
+  const surfaceColor = overlay ?? undefined;
+  const effBorder = borderColor ?? null;
   return (
     <LiquidGlassSurface
       radius={radius}
-      preset="card"
+      preset="scroll"
       blur={blur}
       surfaceColor={surfaceColor}
       borderColor={effBorder}
@@ -65,8 +65,10 @@ export function GlassCard({
 export interface GlassButtonProps {
   title: string;
   onPress?: () => void;
-  /** primary — акцентная фиолетовая; ghost — нейтральное стекло; danger — красная. */
-  variant?: "primary" | "ghost" | "danger";
+  /** transparent — прозрачное стекло как «Transparent Liquid Button» каталога;
+   *  primary — tint-вариант (акцентный оттенок через подложку); ghost — нейтральное;
+   *  danger — красный tint. */
+  variant?: "primary" | "ghost" | "danger" | "transparent";
   size?: "sm" | "md";
   icon?: React.ReactNode;
   loading?: boolean;
@@ -76,8 +78,13 @@ export interface GlassButtonProps {
 }
 
 /**
- * Стеклянная кнопка в стиле главной/меню: translucent-подложка с акцентным
- * оттенком, обводка и блик — вместо глухого solid-fill других тем.
+ * Стеклянная кнопка-капсула — порт LiquidButton из каталога Backdrop.
+ *
+ * Каталог: `Capsule()` + `vibrancy()` + `blur(2dp)` + `lens(12dp, 24dp)`,
+ * по умолчанию tint/surfaceColor НЕ заданы → кнопка полностью прозрачная
+ * («Transparent Liquid Button»). Tint-вариант в каталоге делается как
+ * `drawRect(tint, BlendMode.Hue)` + `drawRect(tint@0.75)`; в RN Skia мы
+ * достигаем того же подложкой с насыщенным оттенком.
  */
 export function GlassButton({
   title,
@@ -93,46 +100,40 @@ export function GlassButton({
   useTheme();
   const light = isLightPalette();
 
+  const isTransparent = variant === "transparent" || variant === "ghost";
+
+  // Tint-кнопки: оттенок поверх стекла (аналог drawRect(tint) из каталога).
   const tint =
     variant === "danger"
-      ? light ? "rgba(220,38,38,0.16)" : "rgba(248,113,113,0.18)"
-      : variant === "ghost"
-      ? light ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.06)"
-      : light ? "rgba(124,58,237,0.16)" : "rgba(139,92,246,0.20)";
+      ? light ? "rgba(220,38,38,0.62)" : "rgba(220,60,60,0.60)"
+      : variant === "primary"
+      ? colors.accentDeep
+      : undefined;
 
-  const border =
-    variant === "danger"
-      ? light ? "rgba(220,38,38,0.45)" : "rgba(248,113,113,0.45)"
-      : variant === "ghost"
-      ? light ? "rgba(120,105,160,0.22)" : "rgba(255,255,255,0.24)"
-      : light ? "rgba(124,58,237,0.45)" : "rgba(167,139,250,0.45)";
+  const textColor = isTransparent
+    ? colors.text
+    : variant === "danger"
+    ? "#FFFFFF"
+    : "#FFFFFF";
 
-  const textColor =
-    variant === "danger"
-      ? light ? "#DC2626" : "#FCA5A5"
-      : variant === "ghost"
-      ? colors.text
-      : light ? "#6D28D9" : "#DDD6FE";
-
-  const padV = size === "sm" ? 10 : 14;
+  const height = size === "sm" ? 40 : 48;
   const fontSize = size === "sm" ? 13 : 15;
 
   return (
     <LiquidGlassSurface
-      radius={size === "sm" ? 12 : 14}
+      radius={height / 2}
       preset="button"
       surfaceColor={tint}
-      borderColor={border}
-      borderWidth={1}
+      borderWidth={0}
       onPress={disabled ? undefined : onPress}
       accessibilityLabel={accessibilityLabel ?? title}
       style={[
         {
+          height,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: 7,
-          paddingVertical: padV,
+          gap: 8,
           paddingHorizontal: 16,
           opacity: disabled ? 0.5 : 1,
         },

@@ -1,6 +1,7 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
 import { Card, Screen, Title, useScreenTopPad } from "../../components/UI";
 import { ThemeSwitch } from "../../components/ThemeSwitch";
 import { PressableScale } from "../../components/PressableScale";
@@ -11,6 +12,12 @@ import { useApp } from "../../context";
 import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, type ThemeName } from "../../theme";
 import { getSetting, getThemeName, getThemeMode, setSetting } from "../../settings";
 import { getLauncherIcon, setLauncherIcon } from "../../vpn/native";
+import {
+  GlassCard,
+  glassTuning,
+  GLASS_PRESET_LIST,
+  type GlassPresetId,
+} from "../../components/liquidGlass";
 import { makeStyles } from "../settingsStyles";
 
 /** Стили, доступные только спонсорам — как во Flutter-версии */
@@ -459,6 +466,10 @@ export default function AppearanceScreen() {
           </Card>
         )}
 
+        {/* Пресеты стекла — только для темы Liquid Glass: меняют ВСЕ
+            стеклянные поверхности приложения сразу (живое превью ниже). */}
+        {style === "glass" && <GlassPresetCard />}
+
         {/* Иконка приложения на рабочем столе (как в старом приложении).
             Для Telegram-авторизации (FoxiCloud) спонсорские фичи скрыты. */}
         <Card>
@@ -564,6 +575,84 @@ function themeIconAsset(t: ThemeName): string | null {
     default:
       return null;
   }
+}
+
+/**
+ * Выбор пресета стекла Liquid Glass (три готовых варианта, без ползунков).
+ * Модульный компонент — НЕ инлайн-стрелка: инлайн пересоздаёт поддеревья на
+ * каждом рендере (правило проекта).
+ *
+ * Превью живое: экран настроек сам находится внутри GlassBackdropProvider,
+ * поэтому и плитки-превью, и вся стеклянная оболочка приложения меняются
+ * мгновенно при тапе — пользователь сразу видит эффект на реальном экране.
+ */
+function GlassPresetCard() {
+  const styles = makeStyles();
+  const nav = useNavigation<any>();
+  const activeId = useSyncExternalStore(glassTuning.subscribe, glassTuning.getPreset);
+
+  return (
+    <Card>
+      <View style={styles.themeRowLine}>
+        <Ionicons name="water-outline" size={20} color={colors.accent} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.themeRowTitle}>Стекло Liquid Glass</Text>
+          <Text style={styles.themeRowSub}>Вариант применяется ко всем блокам и меню</Text>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+        {GLASS_PRESET_LIST.map((p) => {
+          const active = activeId === p.id;
+          return (
+            <PressableScale
+              key={p.id}
+              style={[styles.iconOption, active && { borderColor: colors.accent }]}
+              onPress={() => glassTuning.setPreset(p.id as GlassPresetId)}
+              accessibilityRole="radio"
+              accessibilityLabel={`Пресет стекла: ${p.label}`}
+              accessibilityState={{ selected: active }}
+            >
+              {/* Живое превью: настоящий стеклянный блок текущего пресета. */}
+              <GlassCard radius={14} style={{ width: "100%", height: 54, alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name={p.icon as any} size={20} color={active ? colors.accent : colors.textDim} />
+              </GlassCard>
+              <Text style={[styles.iconOptionText, active && { color: colors.accent }]} numberOfLines={1}>
+                {p.label}
+              </Text>
+              {active && (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={14}
+                  color={colors.accent}
+                  style={{ position: "absolute", top: 6, right: 6 }}
+                />
+              )}
+            </PressableScale>
+          );
+        })}
+      </View>
+
+      <Text style={styles.hint}>
+        {GLASS_PRESET_LIST.find((p) => p.id === activeId)?.sub ?? ""}
+      </Text>
+
+      {/* Переход в Glass Playground: тонкая ручная настройка ползунками. */}
+      <PressableScale
+        style={[styles.navRow, { marginTop: 10, paddingVertical: 12, gap: 10 }]}
+        onPress={() => nav.navigate("GlassPlayground")}
+        accessibilityRole="button"
+        accessibilityLabel="Тонкая настройка стекла — открыть Glass Playground"
+      >
+        <Ionicons name="options-outline" size={18} color={colors.accent} />
+        <Text style={{ color: colors.text, fontSize: 14, flex: 1, marginLeft: 10 }}>
+          Тонкая настройка стекла
+        </Text>
+        <Text style={{ color: colors.textDim, fontSize: 13, marginRight: 6 }}>Playground</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
+      </PressableScale>
+    </Card>
+  );
 }
 
 function ThemeGlyph({ t, size = 18 }: { t: ThemeName; size?: number }) {

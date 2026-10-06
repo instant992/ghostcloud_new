@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, Pressable, StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { PanResponder, Pressable, StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -93,9 +93,10 @@ export function LiquidButton({
       <LiquidGlassSurface
         radius={radius}
         preset="button"
-        surfaceColor={
-          variant === "filled" ? colors.accentDeep : light ? "rgba(250,250,250,0.4)" : "rgba(18,18,18,0.4)"
-        }
+        // Каталог LiquidButton: tint/surfaceColor по умолчанию НЕ заданы —
+        // «Transparent Liquid Button» — чистое стекло без подложки.
+        // filled = tint-вариант (акцент поверх стекла).
+        surfaceColor={variant === "filled" ? colors.accentDeep : undefined}
         shadow={variant === "filled" ? { radius: 12, alpha: light ? 0.14 : 0.35 } : false}
         highlight={variant === "filled" ? false : undefined}
         style={{ opacity: disabled ? 0.5 : 1 }}
@@ -319,5 +320,169 @@ export function LiquidToggle({
         style={StyleSheet.absoluteFill}
       />
     </Animated.View>
+  );
+}
+
+export interface LiquidSliderProps {
+  value: number;
+  onValueChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  /** Высота дорожки (каталог: 6dp) и ручки (24dp). */
+  trackHeight?: number;
+  knobWidth?: number;
+  knobHeight?: number;
+}
+
+/**
+ * Слайдер — порт LiquidSlider из каталога Backdrop.
+ *
+ * Точные параметры каталога:
+ *  - дорожка 6dp, capsule, trackColor = #787878@0.2 (светлая) / #787880@0.36 (тёмная);
+ *  - заполнение accentColor = #0088FF (светлая) / #0091FF (тёмная),
+ *    ширина = trackWidth · progress;
+ *  - ручка 40×24dp capsule: `translationX = (−w/2 + trackWidth·progress)`
+ *    с ограничением `[−w/4, trackWidth − 3w/4]`; в покое — белая поверхность
+ *    + тень 4dp black@0.05, при нажатии `pressedScale = 1.5`;
+ *  - drag: `value += (max−min) · dx/trackWidth` (DampedDragAnimation);
+ *    тап по дорожке переставляет значение в точку касания.
+ */
+export function LiquidSlider({
+  value,
+  onValueChange,
+  min = 0,
+  max = 1,
+  step = 0,
+  disabled,
+  accessibilityLabel,
+  trackHeight = 6,
+  knobWidth = 40,
+  knobHeight = 24,
+}: LiquidSliderProps) {
+  useTheme();
+  const light = isLightPalette();
+  // Точные цвета каталога LiquidSlider (colors.accent другой — фиолетовый).
+  const accent = light ? "#0088FF" : "#0091FF";
+  const track = light ? "rgba(120,120,120,0.2)" : "rgba(120,120,128,0.36)";
+
+  const [trackW, setTrackW] = useState(0);
+  const span = Math.max(1e-6, max - min);
+  const clamp = useCallback(
+    (v: number) => {
+      let next = Math.min(max, Math.max(min, v));
+      if (step > 0) next = min + Math.round((next - min) / step) * step;
+      // Защита от накопления плавающей точки (0.30000000000000004).
+      next = Math.round(next * 1000) / 1000;
+      return Math.min(max, Math.max(min, next));
+    },
+    [min, max, step]
+  );
+
+  const fraction = useSharedValue((value - min) / span);
+  const press = useSharedValue(0);
+  const dragStart = useRef(0);
+
+  useEffect(() => {
+    fraction.value = withTiming((clamp(value) - min) / span, { duration: 180, reduceMotion: ReduceMotion.System });
+  }, [value, min, span, fraction, clamp]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${Math.min(1, Math.max(0, fraction.value)) * 100}%`,
+  }));
+
+  // translationX каталога: −knobWidth/2 + trackWidth·progress, с ограничением.
+  const knobStyle = useAnimatedStyle(() => {
+    const p = Math.min(1, Math.max(0, fraction.value));
+    const raw = -knobWidth / 2 + trackW * p;
+    const x = Math.min(trackW - knobWidth * 0.75, Math.max(-knobWidth / 4, raw));
+    const sc = 1 + 0.5 * press.value; // pressedScale = 1.5 из каталога
+    return { transform: [{ translateX: x }, { scaleX: sc }, { scaleY: sc }] };
+  });
+
+  const emitValue = useCallback(
+    (f: number) => onValueChange(clamp(min + f * span)),
+    [onValueChange, clamp, min, span]
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => !disabled,
+        onMoveShouldSetPanResponder: () => !disabled,
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderGrant: (e) => {
+          if (trackW <= 0) return;
+          press.value = withSpring(1, LIQUID_SPRING);
+          // Тап по дорожке сразу переставляет значение в точку касания.
+          const f = Math.min(1, Math.max(0, e.nativeEvent.locationX / trackW));
+          fraction.value = withSpring(f, LIQUID_SPRING);
+          emitValue(f);
+          dragStart.current = f;
+        },
+        onPanResponderMove: (_, g) => {
+          if (trackW <= 0) return;
+          const f = Math.min(1, Math.max(0, dragStart.current + g.dx / trackW));
+          fraction.value = f;
+          emitValue(f);
+        },
+        onPanResponderRelease: () => {
+          press.value = withSpring(0, LIQUID_SPRING);
+        },
+        onPanResponderTerminate: () => {
+          press.value = withSpring(0, LIQUID_SPRING);
+        },
+      }),
+    [disabled, trackW, fraction, press, emitValue]
+  );
+
+  const hit = Math.max(28, knobHeight + 12);
+
+  return (
+    <View
+      {...panResponder.panHandlers}
+      accessible
+      accessibilityRole="adjustable"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityValue={{ min, max, now: clamp(value) }}
+      style={{ height: hit, justifyContent: "center", opacity: disabled ? 0.5 : 1 }}
+      onLayout={(e: LayoutChangeEvent) => {
+        const w = e.nativeEvent.layout.width;
+        if (w > 0) setTrackW((p) => (Math.abs(p - w) > 0.5 ? w : p));
+      }}
+    >
+      {/* Дорожка + заполнение. */}
+      <View
+        style={{
+          height: trackHeight,
+          borderRadius: trackHeight / 2,
+          backgroundColor: track,
+          overflow: "hidden",
+        }}
+      >
+        <Animated.View
+          style={[{ height: "100%", backgroundColor: accent, borderRadius: trackHeight / 2 }, fillStyle]}
+        />
+      </View>
+      {/* Ручка — белая стеклянная капсула (как в LiquidToggle). */}
+      <Animated.View
+        style={[
+          { position: "absolute", left: 0, top: (hit - knobHeight) / 2, width: knobWidth, height: knobHeight },
+          knobStyle,
+        ]}
+      >
+        <LiquidGlassSurface
+          radius={knobHeight / 2}
+          preset="knob"
+          standalone
+          surfaceColor="#FFFFFF"
+          shadow={{ radius: 4, dy: 1, color: "#000000", alpha: light ? 0.05 : 0.12 }}
+          highlight={{ ambient: true, width: 0.33, blur: 0.2, alpha: 0.6 }}
+          style={{ flex: 1 }}
+        />
+      </Animated.View>
+    </View>
   );
 }

@@ -32,12 +32,13 @@ import GameScreen from "./src/screens/GameScreen";
 import RequestsScreen from "./src/screens/RequestsScreen";
 import AppearanceScreen from "./src/screens/settings/AppearanceScreen";
 import VpnNetworkScreen from "./src/screens/settings/VpnNetworkScreen";
+import GlassPlaygroundScreen from "./src/screens/settings/GlassPlaygroundScreen";
 import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
-import { GlassBackdropProvider } from "./src/components/liquidGlass";
+import { GlassBackdropProvider, LiquidBottomTabs } from "./src/components/liquidGlass";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import AwgScreen from "./src/screens/themes/AwgScreen";
 import { TabChain } from "./src/components/TabIcon";
@@ -257,6 +258,11 @@ const VpnNetworkWithBack = () => (
     <VpnNetworkScreen />
   </BackOverlay>
 );
+const GlassPlaygroundWithBack = () => (
+  <BackOverlay toParent>
+    <GlassPlaygroundScreen />
+  </BackOverlay>
+);
 
 /** Одноэкранная тема (v2ray / happ): домашний экран темы + все разделы
  *  открываются стеком поверх него — как во Flutter-версии. */
@@ -313,6 +319,7 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
       />
       <Stack.Screen name="Appearance" component={AppearanceWithBack} />
       <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
+      <Stack.Screen name="GlassPlayground" component={GlassPlaygroundWithBack} />
     </Stack.Navigator>
   );
 }
@@ -335,10 +342,20 @@ const DOCK_TABS: Array<{ name: string; icon: string; iconActive: string }> = [
   { name: "Профиль", icon: "person-outline", iconActive: "person" },
 ];
 
-/** Стеклянный док Liquid Glass — таб-бар потока темы */
+/** Пункты для LiquidBottomTabs (glass-док): key/label из name маршрута. */
+const GLASS_DOCK_ITEMS = DOCK_TABS.map((t) => ({
+  key: t.name,
+  label: t.name,
+  icon: t.icon,
+  iconActive: t.iconActive,
+}));
+
+/** Стеклянный док Liquid Glass — таб-бар потока темы.
+ *  Порт LiquidBottomTabs из каталога Backdrop: стеклянная капсула 64dp
+ *  (vibrancy + blur 8 + lens 24/24, containerColor @0.4) со скользящим
+ *  индикатором активной вкладки. */
 function GlassDockBar({ state, navigation }: any) {
   useTheme();
-  const dockStyles = makeDockStyles();
   const insets = useSafeAreaInsets();
   return (
     // «Плавающий» док: обёртка нулевой высоты — контент экрана тянется до самого
@@ -358,34 +375,12 @@ function GlassDockBar({ state, navigation }: any) {
         }}
         pointerEvents="box-none"
       >
-        <GlassCard
-          radius={28}
-          intensity={70}
-          style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 6 }}
-        >
-        {DOCK_TABS.map((t, index) => {
-          const focused = state.index === index;
-          const press = () => {
-            Haptics.selectionAsync().catch(() => {});
-            navigation.navigate(t.name);
-          };
-          if (focused) {
-            return (
-              <View key={t.name} style={dockStyles.slot}>
-                <Pressable onPress={press} style={dockStyles.glassPill}>
-                  <Ionicons name={t.iconActive as any} size={22} color={colors.accent} />
-                  <Text style={dockStyles.glassPillText}>{t.name}</Text>
-                </Pressable>
-              </View>
-            );
-          }
-          return (
-            <Pressable key={t.name} style={dockStyles.slot} onPress={press}>
-              <Ionicons name={t.icon as any} size={24} color={colors.textFaint} />
-            </Pressable>
-          );
-          })}
-        </GlassCard>
+        <LiquidBottomTabs
+          items={GLASS_DOCK_ITEMS}
+          selectedIndex={state.index}
+          onSelect={(i) => navigation.navigate(DOCK_TABS[i].name)}
+          style={{ alignSelf: "stretch" }}
+        />
       </View>
     </View>
   );
@@ -617,6 +612,7 @@ function DockedThemedFlow({
       />
       <Stack.Screen name="Appearance" component={AppearanceWithBack} />
       <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
+      <Stack.Screen name="GlassPlayground" component={GlassPlaygroundWithBack} />
     </Stack.Navigator>
   );
 }
@@ -746,6 +742,7 @@ function Root() {
       />
       <Stack.Screen name="Appearance" component={AppearanceWithBack} />
       <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
+      <Stack.Screen name="GlassPlayground" component={GlassPlaygroundWithBack} />
         </>
       )}
     </Stack.Navigator>

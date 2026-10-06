@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   Animated,
   AppState,
@@ -24,6 +24,7 @@ import {
 import { buildGlassFilter, GLASS_PRESETS, type GlassPresetName, type LensParams } from "./effects";
 import { HIGHLIGHT_SHADER, AMBIENT_HIGHLIGHT_SHADER } from "./shaders";
 import { useGlassBackdrop } from "./GlassBackdrop";
+import { glassTuning } from "./tuning";
 import { isLightPalette } from "../../theme";
 
 /**
@@ -127,9 +128,20 @@ export function LiquidGlassSurface({
   const backdrop = useGlassBackdrop();
   const light = isLightPalette();
 
+  // Глобальная настройка стекла (Glass Playground): множители к пресету.
+  const tuning = useSyncExternalStore(glassTuning.subscribe, glassTuning.getSnapshot);
+
   const presetCfg = GLASS_PRESETS[preset] ?? GLASS_PRESETS.card;
-  const blur = blurOverride ?? presetCfg.blur;
-  const saturation = saturationOverride ?? presetCfg.saturation;
+  // radius: множитель тюнинга (скругление всех блоков дизайном).
+  const radiusEff = Math.max(0, radius * tuning.radius);
+  const blur = (blurOverride ?? presetCfg.blur) * tuning.blur;
+  const saturation = saturationOverride ?? tuning.saturation;
+  // Компактный ключ тюнинга — ОБЯЗАТЕЛЬНО входит в cacheKey снимка, иначе
+  // ползунки Playground двигаются, а кэш отдаёт стекло со старыми параметрами.
+  const tuningKey = [
+    tuning.radius, tuning.blur, tuning.saturation, tuning.refractionHeight,
+    tuning.refractionAmount, tuning.aberration, tuning.highlight, tuning.shadow, tuning.veil,
+  ].join(",");
 
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [win, setWin] = useState({ x: 0, y: 0 });
@@ -187,7 +199,7 @@ export function LiquidGlassSurface({
 
   // Эффективная высота рефракции известна до линзы — по ней считаем запас канвы.
   const effRefractionHeight =
-    lensOverride === null ? 0 : (lensOverride?.refractionHeight ?? presetCfg.refractionHeight);
+    lensOverride === null ? 0 : (lensOverride?.refractionHeight ?? presetCfg.refractionHeight) * tuning.refractionHeight;
   const pad = paddingOverride ?? Math.max(blur, effRefractionHeight) + 2;
 
   const lens: LensParams | null = useMemo(() => {
@@ -196,32 +208,36 @@ export function LiquidGlassSurface({
     const base: LensParams = {
       width: size.w,
       height: size.h,
-      cornerRadii: [radius, radius, radius, radius],
-      refractionHeight: presetCfg.refractionHeight,
-      refractionAmount: presetCfg.refractionAmount,
+      cornerRadii: [radiusEff, radiusEff, radiusEff, radiusEff],
+      refractionHeight: presetCfg.refractionHeight * tuning.refractionHeight,
+      refractionAmount: presetCfg.refractionAmount * tuning.refractionAmount,
       depthEffect: presetCfg.depthEffect,
-      chromaticAberration: presetCfg.chromaticAberration,
+      // Аберрация: ползунок Playground (>0) задаёт непрерывную силу;
+      // иначе пресеты с дисперсией (ручки/индикаторы) сохраняют свои true=1.
+      chromaticAberration:
+        tuning.aberration > 0 ? tuning.aberration : presetCfg.chromaticAberration ? 1 : 0,
       // Канва сдвинута на (pad, pad) и позиционирована left:-pad — шейдер получает
       // координаты канвы, поэтому offset=-pad возвращает их в систему поверхности.
       // БЕЗ этого правый/нижний край попадает «за» прямоугольник и тянется клином.
       padding: pad,
     };
     return { ...base, ...(lensOverride ?? {}), width: size.w, height: size.h, padding: pad };
-  }, [lensOverride, size.w, size.h, radius, presetCfg, pad]);
+  }, [lensOverride, size.w, size.h, radiusEff, presetCfg, pad, tuning.refractionHeight, tuning.refractionAmount, tuning.aberration]);
 
   const hl = useMemo(() => {
     if (highlight === false) return null;
+    if (tuning.highlight <= 0) return null;
     const h = highlight ?? {};
     return {
       width: h.width ?? 0.75,
       blur: h.blur ?? 0.4,
-      alpha: h.alpha ?? (light ? 0.5 : 0.8),
+      alpha: (h.alpha ?? (light ? 0.5 : 0.8)) * tuning.highlight,
       color: h.color ?? "#FFFFFF",
       angle: ((h.angle ?? 45) * Math.PI) / 180,
       falloff: h.falloff ?? 1,
       ambient: h.ambient ?? false,
     };
-  }, [highlight, light]);
+  }, [highlight, light, tuning.highlight]);
 
   const hlEffect = useMemo(() => {
     if (!hl) return null;
@@ -230,14 +246,15 @@ export function LiquidGlassSurface({
 
   const shadowCfg = useMemo(() => {
     if (shadow === false) return null;
+    if (tuning.shadow <= 0) return null;
     const s = typeof shadow === "object" ? shadow : {};
     const r = s.radius ?? 24;
-    return { radius: r, dy: s.dy ?? r / 6, color: s.color ?? "#000000", alpha: s.alpha ?? (light ? 0.14 : 0.28) };
-  }, [shadow, light]);
+    return { radius: r, dy: s.dy ?? r / 6, color: s.color ?? "#000000", alpha: (s.alpha ?? (light ? 0.14 : 0.28)) * tuning.shadow };
+  }, [shadow, light, tuning.shadow]);
 
   const bodyRRect = useMemo(
-    () => rrect(rect(pad, pad, size.w, size.h), radius, radius),
-    [size.w, size.h, radius, pad]
+    () => rrect(rect(pad, pad, size.w, size.h), radiusEff, radiusEff),
+    [size.w, size.h, radiusEff, pad]
   );
   const outlinePath = useMemo(() => {
     if (size.w <= 0) return null;
@@ -257,7 +274,7 @@ export function LiquidGlassSurface({
   const effBorderWidth = borderFromStyle ? Number(flat!.borderWidth ?? 1) : borderWidth;
   const hostStyle: ViewStyle = {
     ...(flat ?? {}),
-    borderRadius: radius,
+    borderRadius: radiusEff,
     overflow: "visible",
     borderWidth: 0,
     borderColor: undefined,
@@ -274,8 +291,8 @@ export function LiquidGlassSurface({
     // на вкладку/из фона). Синхронный data-URI — стекло в первом же кадре.
     const cacheKey = [
       Math.round(size.w), Math.round(size.h), Math.round(win.x), Math.round(win.y),
-      pad, radius, saturation, blur, light, backdrop?.imageUri ? backdrop.imageUri.length : 0,
-      surfaceColor ?? "", effBorderColor ?? "", effBorderWidth,
+      pad, radiusEff, saturation, blur, light, backdrop?.imageUri ? backdrop.imageUri.length : 0,
+      surfaceColor ?? "", effBorderColor ?? "", effBorderWidth, tuningKey,
       shadowCfg ? `${shadowCfg.radius}|${shadowCfg.dy}|${shadowCfg.color}|${shadowCfg.alpha}` : "",
     ].join("|");
     const cached = glassUriCache.get(cacheKey);
@@ -300,7 +317,7 @@ export function LiquidGlassSurface({
     canvas.scale(pr, pr);
 
     const bodyRect = rect(pad, pad, size.w, size.h);
-    const body = rrect(bodyRect, radius, radius);
+    const body = rrect(bodyRect, radiusEff, radiusEff);
 
     // 5. Тень (под стеклом): размытый скруглённый rect со сдвигом dy,
     // обрезанный по ВНЕШНОСТИ карточки (clip Difference). Раньше здесь было
@@ -356,6 +373,14 @@ export function LiquidGlassSurface({
       sc.setColor(Skia.Color(surfaceColor));
       canvas.drawRRect(body, sc);
     }
+    // 3b. Вуаль Glass Playground: лёгкая белая/чёрная подложка поверх стекла
+    // (аналог onDrawSurface { drawRect(containerColor) } в каталоге).
+    if (tuning.veil > 0.004) {
+      const vp = Skia.Paint();
+      vp.setAntiAlias(true);
+      vp.setColor(Skia.Color(light ? `rgba(255,255,255,${tuning.veil})` : `rgba(0,0,0,${tuning.veil})`));
+      canvas.drawRRect(body, vp);
+    }
     canvas.restore();
 
     // Обводка — поверх стекла (вместо RN-бордюра, который был бы под ним).
@@ -384,7 +409,7 @@ export function LiquidGlassSurface({
       hp.setBlendMode(BlendMode.Plus);
       hp.setAlphaf(hl.alpha);
       if (hl.blur > 0) hp.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, hl.blur, true));
-      const radii = [radius, radius, radius, radius];
+      const radii = [radiusEff, radiusEff, radiusEff, radiusEff];
       const uniforms = hl.ambient
         ? [size.w, size.h, -pad, -pad, ...radii, hl.angle, hl.falloff]
         : [size.w, size.h, -pad, -pad, ...radii, ...rgba(hl.color), hl.angle, hl.falloff];
@@ -409,10 +434,10 @@ export function LiquidGlassSurface({
     }
     return val;
   }, [
-    size.w, size.h, win.x, win.y, pad, radius, saturation, blur, lens,
+    size.w, size.h, win.x, win.y, pad, radiusEff, saturation, blur, lens,
     surfaceColor, effBorderColor, effBorderWidth, hl, hlEffect, outlinePath,
     shadowCfg, shadowBlur, bgImage, backdrop?.width, backdrop?.height,
-    fade, light,
+    fade, light, tuningKey,
   ]);
 
   // Early-return ПОСЛЕ всех хуков: до первого измерения контент виден сразу
