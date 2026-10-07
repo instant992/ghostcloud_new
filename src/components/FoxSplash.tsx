@@ -1,6 +1,13 @@
-import React, { useEffect, useMemo } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Image, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { colors, useTheme, BRAND_PURPLE } from "../theme";
+
+/** Кадры лисы с вырезанным фоном (drawable-nodpi/fox_frame_*.png, прозрачные).
+ *  Сделаны из анимации пользователя: воксельная лиса, чёрный фон убран
+ *  flood-fill от границ (чёрные детали лисы — нос/уши/лапы — сохранены). */
+const FOX_FRAMES = ["fox_frame_0", "fox_frame_1", "fox_frame_2"];
+/** Длительность кадра из исходника: 2.4 с / 3 кадра = 800 мс. */
+const FOX_FRAME_MS = 800;
 
 const FOX_FACTS = [
   "Лиса слышит мышь под слоем снега глубиной до метра — и прыгает точно в точку.",
@@ -25,6 +32,17 @@ export default function FoxSplash({ onDone }: { onDone: () => void }) {
   const styles = makeStyles();
   const fact = useMemo(() => FOX_FACTS[Math.floor(Math.random() * FOX_FACTS.length)], []);
 
+  // Покадровая анимация лисы: 3 кадра по 800 мс, зацикленно (splash живёт 2.6 с).
+  const [frame, setFrame] = useState(0);
+  const frameRef = useRef(0);
+  useEffect(() => {
+    const t = setInterval(() => {
+      frameRef.current = (frameRef.current + 1) % FOX_FRAMES.length;
+      setFrame(frameRef.current);
+    }, FOX_FRAME_MS);
+    return () => clearInterval(t);
+  }, []);
+
   useEffect(() => {
     const t = setTimeout(onDone, 2600);
     return () => clearTimeout(t);
@@ -32,7 +50,19 @@ export default function FoxSplash({ onDone }: { onDone: () => void }) {
 
   return (
     <View style={styles.backdrop}>
-      <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
+      {/* Анимированная лиса вместо статичного логотипа. Все три кадра
+          отрисованы стопкой и переключаются по opacity — так RN не ждёт
+          decode каждого кадра заново (иначе был бы фликер). */}
+      <View style={styles.logo}>
+        {FOX_FRAMES.map((uri, i) => (
+          <Image
+            key={uri}
+            source={{ uri }}
+            style={[styles.logoFrame, { opacity: i === frame ? 1 : 0 }]}
+            resizeMode="contain"
+          />
+        ))}
+      </View>
       <Text style={styles.appName}>GhostCloud</Text>
       <Text style={styles.factLabel}>А вы знали?</Text>
       <Text style={styles.fact}>{fact}</Text>
@@ -55,7 +85,9 @@ const makeStyles = () =>
       padding: 36,
       zIndex: 999,
     },
-    logo: { width: 64, height: 64, borderRadius: 16, marginBottom: 12 },
+    // Лиса крупнее логотипа (пропорции кадра ~1.37), контейнер под стопку кадров.
+    logo: { width: 132, height: 96, marginBottom: 12, alignItems: "center", justifyContent: "center" },
+    logoFrame: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0 },
     appName: {
       color: BRAND_PURPLE,
       fontSize: 22,
