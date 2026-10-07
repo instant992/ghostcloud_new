@@ -4,7 +4,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import { Button, Card, ErrorText, Row, Screen, Title, useScreenTopPad } from "../components/UI";
+import { Button, Card, ErrorText, Row, Screen, ThemedCard, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { ProviderPicker } from "../components/ProviderPicker";
 import { SpinnerRing } from "../components/Foundations";
@@ -243,42 +243,44 @@ export default function PlansScreen() {
             <PressableScale
               key={key}
               onPress={() => setSelectedPlan(key)}
-              style={styles.planCard}
+              style={styles.planCardPress}
               accessibilityRole="radio"
               accessibilityState={{ selected: active }}
               accessibilityLabel={`Тариф ${names[key] || planLabel(key)}, ${prices[key] ?? planPrice(key)} рублей`}
             >
-              <View
-                style={[
-                  styles.planIconWrap,
-                  { backgroundColor: trial ? colors.orange + "26" : colors.accentSoft },
-                ]}
-              >
-                <Ionicons
-                  name={trial ? "flash" : "shield-outline"}
-                  size={22}
-                  color={trial ? colors.orange : colors.accent}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.planName}>{names[key] || planLabel(key)}</Text>
-                {!!hasSale(key) && (
-                  <Text style={[styles.planSub, { color: colors.accent }]}>
-                    -{Math.round(((originalPrices[key] - prices[key]) / originalPrices[key]) * 100)}% скидка
+              <ThemedCard style={styles.planCard}>
+                <View
+                  style={[
+                    styles.planIconWrap,
+                    { backgroundColor: trial ? colors.orange + "26" : colors.accentSoft },
+                  ]}
+                >
+                  <Ionicons
+                    name={trial ? "flash" : "shield-outline"}
+                    size={22}
+                    color={trial ? colors.orange : colors.accent}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.planName}>{names[key] || planLabel(key)}</Text>
+                  {!!hasSale(key) && (
+                    <Text style={[styles.planSub, { color: colors.accent }]}>
+                      -{Math.round(((originalPrices[key] - prices[key]) / originalPrices[key]) * 100)}% скидка
+                    </Text>
+                  )}
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={[styles.planPrice, active && { color: colors.accent }]}>
+                    {prices[key] ?? planPrice(key)} ₽
                   </Text>
+                  {!!hasSale(key) && (
+                    <Text style={styles.planOldPrice}>{originalPrices[key]} ₽</Text>
+                  )}
+                </View>
+                {active && (
+                  <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
                 )}
-              </View>
-              <View style={{ alignItems: "flex-end" }}>
-                <Text style={[styles.planPrice, active && { color: colors.accent }]}>
-                  {prices[key] ?? planPrice(key)} ₽
-                </Text>
-                {!!hasSale(key) && (
-                  <Text style={styles.planOldPrice}>{originalPrices[key]} ₽</Text>
-                )}
-              </View>
-              {active && (
-                <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
-              )}
+              </ThemedCard>
             </PressableScale>
           );
         })}
@@ -480,6 +482,7 @@ const makeStyles = () =>
       marginBottom: 14,
     },
     saleBannerText: { color: colors.accent, fontWeight: "700", fontSize: 13 },
+    planCardPress: { marginBottom: 10 },
     planCard: {
       flexDirection: "row" as const,
       alignItems: "center" as const,
@@ -490,7 +493,6 @@ const makeStyles = () =>
       borderRadius: 16,
       paddingVertical: 14,
       paddingHorizontal: 16,
-      marginBottom: 10,
     },
     planIconWrap: {
       width: 44,

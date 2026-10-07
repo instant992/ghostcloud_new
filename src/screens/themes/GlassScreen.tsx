@@ -27,7 +27,7 @@ import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
-import { LiquidGlassSurface, GlassCard } from "../../components/liquidGlass";
+import { LiquidGlassSurface, GlassCard, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
 import * as stats from "../../stats";
 
 const PURPLE = "#7C3AED";
@@ -214,6 +214,8 @@ export default function GlassScreen() {
           paddingBottom: insets.bottom + 116,
         }}
         showsVerticalScrollIndicator={false}
+        onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
+                onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
       >
         {/* Шапка */}
         <View style={{ flexDirection: "row", alignItems: "center" }}>

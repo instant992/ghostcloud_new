@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Platform, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { Card, Screen, Title, useScreenTopPad } from "../../components/UI";
+import { Card, Screen, Title, useScreenTopPad, useScreenBgColor } from "../../components/UI";
 import { ThemeSwitch } from "../../components/ThemeSwitch";
 import { PressableScale } from "../../components/PressableScale";
 import { SponsorBenefitsSheet } from "../../components/SponsorBenefits";
@@ -182,8 +182,9 @@ export default function VpnNetworkScreen() {
   };
 
   const topPad = useScreenTopPad();
+  const screenBg = useScreenBgColor();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: screenBg }}>
       <Screen style={topPad}>
         <Title>VPN и сеть</Title>
 

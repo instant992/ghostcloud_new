@@ -18,7 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
-import { GlassCard, GlassButton } from "../components/liquidGlass";
+import { GlassCard, GlassButton, GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
 import { QuickNavBar, themeHasQuickNav } from "../components/QuickNavBar";
 import { getThemeName } from "../settings";
 import { PressableScale } from "../components/PressableScale";
@@ -558,6 +558,8 @@ export default function ProfileScreen() {
         }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
+                onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
       >
         {/* ─── Карточка аккаунта ─── */}
         <ThemeCard glass={isGlass}>

@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { BASE_URL, supportAvatar, supportClose, supportHistory, supportMessages, supportSend } from "../api";
 import { colors, useTheme, sheetSurfaceBg } from "../theme";
+import { useScreenBgColor, ThemedCard } from "../components/UI";
 import { showToast } from "../components/Toast";
 
 export type Msg = {
@@ -217,8 +218,10 @@ export function MessageBubble({ msg, adminAvatarUrl, onImageTap }: { msg: Msg; a
 /** Плитка обращения в истории */
 function HistoryTile({ ticket, onPress }: { ticket: TicketInfo; onPress: () => void }) {
   return (
-    <PressableScale
+    <ThemedCard
       onPress={onPress}
+      radius={14}
+      accessibilityLabel={`Обращение ${ticket.id}`}
       style={{
         flexDirection: "row",
         alignItems: "center",
@@ -266,12 +269,13 @@ function HistoryTile({ ticket, onPress }: { ticket: TicketInfo; onPress: () => v
         </View>
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textFaint} style={{ marginLeft: 4 }} />
-    </PressableScale>
+    </ThemedCard>
   );
 }
 
 export default function SupportScreen() {
   useTheme();
+  const screenBg = useScreenBgColor();
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -491,7 +495,7 @@ export default function SupportScreen() {
   if (!hasActiveChat) {
     return (
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: colors.bg }}
+        style={{ flex: 1, backgroundColor: screenBg }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <FlatList
@@ -532,7 +536,7 @@ export default function SupportScreen() {
   // Активный чат
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: colors.bg }}
+      style={{ flex: 1, backgroundColor: screenBg }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       {/* Кнопка закрытия тикета — как в старом приложении, сверху над чатом */}

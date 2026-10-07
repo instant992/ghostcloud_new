@@ -1,9 +1,9 @@
 import React, { useState, useSyncExternalStore } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Card, Screen, Title, useScreenTopPad } from "../../components/UI";
+import { Card, Screen, Title, useScreenTopPad, useScreenBgColor } from "../../components/UI";
 import { PressableScale } from "../../components/PressableScale";
-import { GlassCard, LiquidSlider, glassTuning, GLASS_PRESET_LIST, type GlassTuning } from "../../components/liquidGlass";
+import { GlassCard, LiquidSlider, glassTuning, GLASS_PRESET_LIST, GLASS_SCROLL_HANDLERS, type GlassTuning } from "../../components/liquidGlass";
 import { colors, useTheme } from "../../theme";
 import { makeStyles } from "../settingsStyles";
 
@@ -21,6 +21,7 @@ export default function GlassPlaygroundScreen() {
   useTheme();
   const styles = makeStyles();
   const topPad = useScreenTopPad();
+  const screenBg = useScreenBgColor();
   const tuning = useSyncExternalStore(glassTuning.subscribe, glassTuning.getSnapshot);
   const [preview, setPreview] = useState<string>(() => glassTuning.getPreset());
 
@@ -29,12 +30,14 @@ export default function GlassPlaygroundScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: screenBg }}>
       <Screen style={topPad} scroll={false}>
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
+          onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
+                  onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
         >
           <Title>Glass Playground</Title>
           <Text style={[styles.hint, { marginBottom: 16 }]}>

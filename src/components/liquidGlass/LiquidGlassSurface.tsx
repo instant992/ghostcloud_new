@@ -25,6 +25,7 @@ import { buildGlassFilter, GLASS_PRESETS, type GlassPresetName, type LensParams 
 import { HIGHLIGHT_SHADER, AMBIENT_HIGHLIGHT_SHADER } from "./shaders";
 import { useGlassBackdrop } from "./GlassBackdrop";
 import { glassTuning } from "./tuning";
+import { scrollBus } from "./scrollBus";
 import { isLightPalette } from "../../theme";
 
 /**
@@ -158,17 +159,26 @@ export function LiquidGlassSurface({
 
   // Возврат из фона: позиция окна могла измениться (статус-бар, поворот, скролл) —
   // без перезамера стекло показывало бы «чужой» срез фона или теряло его вовсе.
+  // scrollBus: скролл страницы остановился — карточки уехали со своих мест,
+  // перезамеряем оконную позицию, чтобы срез фона снова совпадал (см. scrollBus.ts).
+  const remeasure = useCallback(() => {
+    const v = hostRef.current;
+    if (!v) return;
+    v.measureInWindow((x, y) => {
+      setWin((p) => (Math.abs(p.x - x) > 0.5 || Math.abs(p.y - y) > 0.5 ? { x, y } : p));
+    });
+  }, []);
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       if (state !== "active") return;
-      const v = hostRef.current;
-      if (!v) return;
-      v.measureInWindow((x, y) => {
-        setWin((p) => (Math.abs(p.x - x) > 0.5 || Math.abs(p.y - y) > 0.5 ? { x, y } : p));
-      });
+      remeasure();
     });
-    return () => sub.remove();
-  }, []);
+    const unsubScroll = scrollBus.subscribe(remeasure);
+    return () => {
+      sub.remove();
+      unsubScroll();
+    };
+  }, [remeasure]);
 
   const onLayout = useCallback((e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -200,7 +210,25 @@ export function LiquidGlassSurface({
   // Эффективная высота рефракции известна до линзы — по ней считаем запас канвы.
   const effRefractionHeight =
     lensOverride === null ? 0 : (lensOverride?.refractionHeight ?? presetCfg.refractionHeight) * tuning.refractionHeight;
-  const pad = paddingOverride ?? Math.max(blur, effRefractionHeight) + 2;
+
+  // Тень — точные значения Shadow.Default каталога (backdrop/shadow/Shadow.kt):
+  // radius 24dp, offset (0, radius/6), цвет Black@0.1 (ОДИНАКОВО в светлой и
+  // тёмной теме — раньше было 0.14/0.28, из-за чего блоки выглядели темнее демо).
+  // Считается ДО pad: канва должна вмещать разлёт тени.
+  const shadowCfg = useMemo(() => {
+    if (shadow === false) return null;
+    if (tuning.shadow <= 0) return null;
+    const s = typeof shadow === "object" ? shadow : {};
+    const r = s.radius ?? 24;
+    return { radius: r, dy: s.dy ?? r / 6, color: s.color ?? "#000000", alpha: (s.alpha ?? 0.1) * tuning.shadow };
+  }, [shadow, tuning.shadow]);
+
+  // Запас канвы: максимум из блюра, высоты рефракции и радиуса тени. Без тени
+  // в pad гауссов хвост Shadow(radius 24) обрезался краем PNG на ~16dp — тень
+  // читалась узкой тёмной окантовкой вместо широкой мягкой, как в демо
+  // (ShadowModifier.kt отводит под слой radius*4; radius+2 достаточно: за 1σ
+  // остаётся <2% альфы Black@0.1 — невидимо).
+  const pad = paddingOverride ?? Math.max(blur, effRefractionHeight, shadowCfg ? shadowCfg.radius : 0) + 2;
 
   const lens: LensParams | null = useMemo(() => {
     if (lensOverride === null) return null;
@@ -228,29 +256,25 @@ export function LiquidGlassSurface({
     if (highlight === false) return null;
     if (tuning.highlight <= 0) return null;
     const h = highlight ?? {};
+    // Точные значения Highlight.Default каталога (backdrop/highlight/Highlight.kt
+    // + HighlightStyle.kt): width 0.5dp, blurRadius = width/2, цвет White@0.5 —
+    // ОДИНАКОВО в обеих темах (раньше в тёмной alpha была 0.8 — блик толще и
+    // ярче, чем в демо). Как и в оригинале, штрих клипается ВНУТРЬ контура.
     return {
-      width: h.width ?? 0.75,
-      blur: h.blur ?? 0.4,
-      alpha: (h.alpha ?? (light ? 0.5 : 0.8)) * tuning.highlight,
+      width: h.width ?? 0.5,
+      blur: h.blur ?? (h.width ?? 0.5) / 2,
+      alpha: (h.alpha ?? 0.5) * tuning.highlight,
       color: h.color ?? "#FFFFFF",
       angle: ((h.angle ?? 45) * Math.PI) / 180,
       falloff: h.falloff ?? 1,
       ambient: h.ambient ?? false,
     };
-  }, [highlight, light, tuning.highlight]);
+  }, [highlight, tuning.highlight]);
 
   const hlEffect = useMemo(() => {
     if (!hl) return null;
     return Skia.RuntimeEffect.Make(hl.ambient ? AMBIENT_HIGHLIGHT_SHADER : HIGHLIGHT_SHADER);
   }, [hl]);
-
-  const shadowCfg = useMemo(() => {
-    if (shadow === false) return null;
-    if (tuning.shadow <= 0) return null;
-    const s = typeof shadow === "object" ? shadow : {};
-    const r = s.radius ?? 24;
-    return { radius: r, dy: s.dy ?? r / 6, color: s.color ?? "#000000", alpha: (s.alpha ?? (light ? 0.14 : 0.28)) * tuning.shadow };
-  }, [shadow, light, tuning.shadow]);
 
   const bodyRRect = useMemo(
     () => rrect(rect(pad, pad, size.w, size.h), radiusEff, radiusEff),
@@ -400,12 +424,18 @@ export function LiquidGlassSurface({
     }
 
     // 4. Хайлайт: размытый штрих по контуру, blend Plus (как в оригинале).
+    // HighlightModifier.kt: strokeWidth = ceil(width)·2, ОБЯЗАТЕЛЬНО клип
+    // ВНУТРИ контура — видна только внутренняя половина штриха; без клипа
+    // блик «растекается» наружу и выглядит толще, чем в демо.
     // Uniform-массив ПЛОСКИЙ и строго в порядке объявления в SkSL.
     if (hl && hlEffect && outlinePath) {
+      canvas.save();
+      canvas.clipRRect(body, ClipOp.Intersect, true);
       const hp = Skia.Paint();
       hp.setAntiAlias(true);
       hp.setStyle(PaintStyle.Stroke);
-      hp.setStrokeWidth(hl.width * 2);
+      // Каталог считает толщину в device-px: ceil(width.toPx())·2.
+      hp.setStrokeWidth((Math.ceil(hl.width * PixelRatio.get()) / PixelRatio.get()) * 2);
       hp.setBlendMode(BlendMode.Plus);
       hp.setAlphaf(hl.alpha);
       if (hl.blur > 0) hp.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, hl.blur, true));
@@ -416,6 +446,7 @@ export function LiquidGlassSurface({
       const shader = hlEffect.makeShader(uniforms);
       if (shader) hp.setShader(shader);
       canvas.drawPath(outlinePath, hp);
+      canvas.restore();
     }
 
     const shot = surface.makeImageSnapshot();

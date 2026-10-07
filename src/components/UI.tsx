@@ -14,6 +14,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
+import { LiquidGlassSurface, useGlassBackdrop, GLASS_SCROLL_HANDLERS } from "./liquidGlass";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /** Контекст: экран находится во вкладках (таб-бар), а не под стековым хедером.
@@ -32,6 +33,24 @@ export function useScreenTopPad(): ViewStyle {
   return inTabs ? {} : { paddingTop: insets.top + 64 };
 }
 
+/**
+ * Цвет фона контейнера экрана.
+ *
+ * В теме Liquid Glass экраны, которые живут внутри GlassBackdropProvider,
+ * ДОЛЖНЫ быть прозрачными: фон темы (градиент + блобы) рисует провайдер, и
+ * стеклянные карточки преломляют именно его. Непрозрачный colors.bg поверх
+ * провайдера перекрывал фон — стекло семплировало «пустоту» и выглядело
+ * плоской полупрозрачной коробкой, не как док-меню и блоки главной.
+ *
+ * Вне провайдера (авторизация, другие темы, RN-модалки) — обычный colors.bg,
+ * иначе текст оказался бы на голом фоне.
+ */
+export function useScreenBgColor(): string {
+  const theme = useTheme();
+  const backdrop = useGlassBackdrop();
+  return theme.style === "glass" && backdrop ? "transparent" : colors.bg;
+}
+
 export function Screen({
   children,
   scroll = true,
@@ -45,6 +64,7 @@ export function Screen({
   const inTabs = useInTabArea();
   const insets = useSafeAreaInsets();
   const styles = makeStyles();
+  const screenBg = useScreenBgColor();
   // Во вкладках контент начинается сразу под статус-баром — добавляем
   // безопасный отступ вместо магических чисел (вне вкладок отступ задаёт экран).
   const safeTop = inTabs ? { paddingTop: insets.top + 12 } : null;
@@ -55,16 +75,22 @@ export function Screen({
       <ScrollView
           bounces={false}
           overScrollMode="never"
-        style={styles.screen}
+        style={[styles.screen, { backgroundColor: screenBg }]}
         contentContainerStyle={[styles.content, safeTop, safeBottom, style]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
+        onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
       >
         {children}
       </ScrollView>
     );
   }
-  return <View style={[styles.screen, styles.content, safeTop, safeBottom, style]}>{children}</View>;
+  return (
+    <View style={[styles.screen, { backgroundColor: screenBg }, styles.content, safeTop, safeBottom, style]}>
+      {children}
+    </View>
+  );
 }
 
 export function Title({ children }: { children: React.ReactNode }) {
@@ -79,6 +105,82 @@ export function Subtitle({ children }: { children: React.ReactNode }) {
   return <Text style={styles.subtitle}>{children}</Text>;
 }
 
+/**
+ * Карточка/секция, «тематическая»: в теме Liquid Glass — НАСТОЯЩЕЕ стекло
+ * (порт ScrollContainer каталога Backdrop), в остальных темах — плоский View
+ * со стилем вызывающей стороны.
+ *
+ * Зачем единый компонент: раньше разделы (Настройки, Статистика, Тарифы…)
+ * рисовали `backgroundColor: colors.card` + бордюр, то есть полупрозрачную
+ * коробку. Она (а) не преломляет фон и потому выглядит иначе, чем док-меню и
+ * блоки главной, и (б) не реагирует на Glass Playground — тюнинг применяется
+ * только к LiquidGlassSurface. Теперь все карточки темы идут одним путём.
+ *
+ * Безопасность: стекло требует фон темы из GlassBackdropProvider. Вне него
+ * (экраны авторизации, RN-модалки — отдельное окно) компонент остаётся
+ * плоским View: иначе карточка стала бы прозрачной и текст потерял бы фон.
+ */
+export function ThemedCard({
+  children,
+  style,
+  radius,
+  preset = "scroll",
+  onPress,
+  accessibilityLabel,
+}: {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  /** Переопределение радиуса; по умолчанию берётся из style.borderRadius. */
+  radius?: number;
+  preset?: Parameters<typeof LiquidGlassSurface>[0]["preset"];
+  onPress?: () => void;
+  accessibilityLabel?: string;
+}) {
+  const theme = useTheme();
+  const backdrop = useGlassBackdrop();
+  const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
+
+  if (theme.style === "glass" && backdrop) {
+    const {
+      backgroundColor: _bg,
+      borderColor: rawBorder,
+      borderWidth: bwRaw,
+      borderRadius: rawRadius,
+      overflow: _ov,
+      ...rest
+    } = flat ?? {};
+    // Бордюр вызывающей стороны: обычный colors.border убираем — край блока
+    // читается бликом, как в ScrollContainerContent (drawBackdrop без бордюра).
+    // Цветную рамку (выбранный тариф, опасность, акцент) сохраняем и рисуем
+    // обводкой поверх стекла — тонировка исказила бы преломление.
+    const effBorder =
+      typeof rawBorder === "string" && rawBorder !== colors.border ? rawBorder : null;
+    const effRadius = radius ?? Number(rawRadius ?? 22);
+    return (
+      <LiquidGlassSurface
+        radius={effRadius}
+        preset={preset}
+        borderColor={effBorder}
+        borderWidth={effBorder ? Number(bwRaw ?? 1) || 1 : 0}
+        onPress={onPress}
+        accessibilityLabel={accessibilityLabel}
+        style={rest as ViewStyle}
+      >
+        {children}
+      </LiquidGlassSurface>
+    );
+  }
+
+  if (onPress) {
+    return (
+      <PressableScale onPress={onPress} style={style} accessibilityLabel={accessibilityLabel}>
+        {children}
+      </PressableScale>
+    );
+  }
+  return <View style={style}>{children}</View>;
+}
+
 export function Card({
   children,
   style,
@@ -86,9 +188,12 @@ export function Card({
   children: React.ReactNode;
   style?: ViewStyle;
 }) {
-  useTheme();
   const styles = makeStyles();
-  return <View style={[styles.card, style]}>{children}</View>;
+  return (
+    <ThemedCard style={[styles.card, style] as unknown as ViewStyle}>
+      {children}
+    </ThemedCard>
+  );
 }
 
 type BtnProps = {

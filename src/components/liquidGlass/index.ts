@@ -10,5 +10,6 @@ export { glassTuning, GLASS_TUNING_DEFAULTS, GLASS_PRESET_LIST, tuningFor, isGla
 export type { GlassTuning, GlassPresetId, GlassPresetDef } from "./tuning";
 export { LiquidBottomTabs } from "./LiquidBottomTabs";
 export type { LiquidBottomTabsProps, LiquidTabItem } from "./LiquidBottomTabs";
+export { scrollBus, GLASS_SCROLL_HANDLERS } from "./scrollBus";
 export { GLASS_PRESETS, buildGlassFilter, isLensSupported } from "./effects";
 export type { GlassPresetName, LensParams } from "./effects";

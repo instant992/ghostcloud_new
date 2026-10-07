@@ -161,6 +161,52 @@ function persist() {
   } catch {}
 }
 
+/** Запись в нативные настройки — НЕ чаще раза на 500 мс после последнего
+ *  изменения. Раньше каждый кадр драга ползунка делал 2 нативных вызова
+ *  setSetting (SharedPreferences) — вместе с перерисовкой стекла это
+ *  захлёбывало JS-поток, и ползунки «вязли». */
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+function schedulePersist() {
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    persist();
+  }, 500);
+}
+
+/** Подписчики (стеклянные поверхности) уведомляются с троттлингом ~10 Гц:
+ *  каждая подписка — синхронный Skia-рендер + PNG-encode снимка, 60/сек
+ *  физически не вытягиваются. Хвостовой вызов гарантирует, что финальное
+ *  значение ползунка всегда доедет до поверхностей и до кэша. */
+const NOTIFY_MIN_MS = 100;
+let notifyTimer: ReturnType<typeof setTimeout> | null = null;
+let lastNotify = 0;
+function notifyThrottled() {
+  if (notifyTimer !== null) return;
+  const wait = NOTIFY_MIN_MS - (Date.now() - lastNotify);
+  if (wait <= 0) {
+    lastNotify = Date.now();
+    emit();
+  } else {
+    notifyTimer = setTimeout(() => {
+      notifyTimer = null;
+      lastNotify = Date.now();
+      emit();
+    }, wait);
+  }
+}
+
+function cancelPending() {
+  if (persistTimer !== null) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  if (notifyTimer !== null) {
+    clearTimeout(notifyTimer);
+    notifyTimer = null;
+  }
+}
+
 export const glassTuning = {
   subscribe(listener: () => void): () => void {
     listeners.add(listener);
@@ -173,19 +219,30 @@ export const glassTuning = {
   getPreset(): GlassPresetId {
     return presetId;
   },
-  /** Переключение пресета + сохранение. */
+  /** Переключение пресета + сохранение (мгновенно — одиночное действие). */
   setPreset(id: GlassPresetId) {
     if (!isGlassPresetId(id)) return;
+    cancelPending();
     presetId = id;
     snapshot = { ...tuningFor(id) };
     persist();
     emit();
   },
-  /** Индивидуальная правка параметров (ползунки Glass Playground). */
+  /** Индивидуальная правка параметров (ползунки Glass Playground).
+   *  Значение применяется к снимку сразу, но уведомление поверхностей
+   *  троттлится, а запись в настройки откладывается (debounce): драг остаётся плавным. */
   set(next: GlassTuning) {
-    snapshot = { ...CATALOG, ...next };
-    persist();
-    emit();
+    const merged: GlassTuning = { ...CATALOG, ...next };
+    // No-op guard: step-квантование часто выдаёт то же значение — не дёргаем
+    // подписчиков и таймеры попусту.
+    let changed = false;
+    (Object.keys(merged) as Array<keyof GlassTuning>).forEach((k) => {
+      if (merged[k] !== snapshot[k]) changed = true;
+    });
+    if (!changed) return;
+    snapshot = merged;
+    schedulePersist();
+    notifyThrottled();
   },
   reset() {
     this.setPreset("catalog");

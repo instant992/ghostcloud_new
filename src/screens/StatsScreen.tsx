@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { Screen, Subtitle, Title, useScreenTopPad } from "../components/UI";
+import { Screen, Subtitle, ThemedCard, Title, useScreenTopPad } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { useApp } from "../context";
 import { colors, splitNameFlag, formatBytes, useTheme } from "../theme";
@@ -112,7 +112,7 @@ export default function StatsScreen() {
         ))}
       </View>
 
-      <View style={styles.bigCard}>
+      <ThemedCard style={styles.bigCard}>
         <Text style={styles.bigLabel}>{period === 1 ? "Сегодня" : `За ${period} дней`}</Text>
         <Text style={styles.bigValue}>{formatBytes(total.rx + total.tx)}</Text>
         <View style={{ flexDirection: "row", gap: 20, marginTop: 12 }}>
@@ -129,10 +129,10 @@ export default function StatsScreen() {
             </Text>
           </View>
         </View>
-      </View>
+      </ThemedCard>
 
       <Text style={styles.chartTitle}>Последние 14 дней</Text>
-      <View style={styles.chartCard}>
+      <ThemedCard style={styles.chartCard}>
         {chart.every((d) => d.stat.rx + d.stat.tx === 0) ? (
           <Text style={styles.chartEmpty}>
             Пока нет данных — график заполнится после первого подключения
@@ -151,10 +151,10 @@ export default function StatsScreen() {
             })}
           </View>
         )}
-      </View>
+      </ThemedCard>
 
       <Text style={styles.chartTitle}>По серверам</Text>
-      <View style={styles.chartCard}>
+      <ThemedCard style={styles.chartCard}>
         {byNode.length === 0 ? (
           <Text style={{ color: colors.textFaint, fontSize: 13, textAlign: "center", paddingVertical: 10 }}>
             Пока нет данных — трафик считается во время подключения
@@ -182,10 +182,10 @@ export default function StatsScreen() {
             );
           })
         )}
-      </View>
+      </ThemedCard>
 
       <Text style={styles.chartTitle}>По приложениям</Text>
-      <View style={styles.chartCard}>
+      <ThemedCard style={styles.chartCard}>
         {byApp.length === 0 && !usageGranted ? (
           <View style={{ gap: 8 }}>
             <Text style={{ color: colors.textFaint, fontSize: 13, lineHeight: 19 }}>
@@ -241,7 +241,7 @@ export default function StatsScreen() {
             )}
           </>
         )}
-      </View>
+      </ThemedCard>
 
       <Text style={styles.note}>
         Трафик считается системными счётчиками во время активного VPN-подключения.

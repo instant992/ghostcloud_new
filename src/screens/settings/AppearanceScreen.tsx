@@ -2,7 +2,7 @@ import React, { useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { Card, Screen, Title, useScreenTopPad } from "../../components/UI";
+import { Card, Screen, Title, useScreenTopPad, useScreenBgColor } from "../../components/UI";
 import { ThemeSwitch } from "../../components/ThemeSwitch";
 import { PressableScale } from "../../components/PressableScale";
 import { SponsorBenefitsSheet } from "../../components/SponsorBenefits";
@@ -176,8 +176,9 @@ export default function AppearanceScreen() {
   };
 
   const topPad = useScreenTopPad();
+  const screenBg = useScreenBgColor();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: screenBg }}>
       <Screen style={topPad}>
         <Title>Внешний вид</Title>
 

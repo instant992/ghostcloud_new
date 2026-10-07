@@ -386,6 +386,9 @@ export function LiquidSlider({
   const dragStart = useRef(0);
 
   useEffect(() => {
+    // Во время перетаскивания ручка идёт за пальцем напрямую (move) —
+    // withTiming извне только мешал бы (конкуренция двух анимаций = «вязкость»).
+    if (dragging.current) return;
     fraction.value = withTiming((clamp(value) - min) / span, { duration: 180, reduceMotion: ReduceMotion.System });
   }, [value, min, span, fraction, clamp]);
 
@@ -407,32 +410,60 @@ export function LiquidSlider({
     [onValueChange, clamp, min, span]
   );
 
+  // Жесты: классический паттерн слайдера внутри ScrollView.
+  //  - grant: запоминаем точку касания, значение НЕ меняем (иначе скролл
+  //    страницы случайно двигал бы ползунок);
+  //  - move: первое значимое движение решает направление — вертикаль отдаём
+  //    ScrollView (terminationRequest=true, пока не.dragging), горизонталь
+  //    начинаем тащить от точки касания;
+  //  - release без движения = тап → переставляем значение в точку касания;
+  //  - когда тащим горизонтально — отказываем termination, ScrollView не ворует.
+  const grantF = useRef(0);
+  const dragging = useRef(false);
+  const moved = useRef(false);
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => !disabled,
-        onMoveShouldSetPanResponder: () => !disabled,
-        onPanResponderTerminationRequest: () => false,
+        onStartShouldSetPanResponder: () => !disabled && trackW > 0,
+        onMoveShouldSetPanResponder: () => false,
+        onPanResponderTerminationRequest: () => !dragging.current,
         onPanResponderGrant: (e) => {
           if (trackW <= 0) return;
-          press.value = withSpring(1, LIQUID_SPRING);
-          // Тап по дорожке сразу переставляет значение в точку касания.
-          const f = Math.min(1, Math.max(0, e.nativeEvent.locationX / trackW));
-          fraction.value = withSpring(f, LIQUID_SPRING);
-          emitValue(f);
-          dragStart.current = f;
+          grantF.current = Math.min(1, Math.max(0, e.nativeEvent.locationX / trackW));
+          dragging.current = false;
+          moved.current = false;
         },
         onPanResponderMove: (_, g) => {
           if (trackW <= 0) return;
+          if (!dragging.current) {
+            // Порог направления: меньше 8dp игнорируем (дрожание пальца).
+            if (Math.abs(g.dx) < 8 && Math.abs(g.dy) < 8) return;
+            // Вертикаль — отдаём ScrollView (он запросит termination).
+            if (Math.abs(g.dy) > Math.abs(g.dx)) return;
+            dragging.current = true;
+            press.value = withSpring(1, LIQUID_SPRING);
+            dragStart.current = grantF.current;
+            fraction.value = grantF.current;
+            emitValue(grantF.current);
+          }
+          moved.current = true;
           const f = Math.min(1, Math.max(0, dragStart.current + g.dx / trackW));
           fraction.value = f;
           emitValue(f);
         },
         onPanResponderRelease: () => {
-          press.value = withSpring(0, LIQUID_SPRING);
+          if (!dragging.current && !moved.current) {
+            // Тап по дорожке — переставляем значение в точку касания.
+            fraction.value = withSpring(grantF.current, LIQUID_SPRING);
+            emitValue(grantF.current);
+          }
+          if (dragging.current) press.value = withSpring(0, LIQUID_SPRING);
+          dragging.current = false;
         },
         onPanResponderTerminate: () => {
-          press.value = withSpring(0, LIQUID_SPRING);
+          if (dragging.current) press.value = withSpring(0, LIQUID_SPRING);
+          dragging.current = false;
         },
       }),
     [disabled, trackW, fraction, press, emitValue]

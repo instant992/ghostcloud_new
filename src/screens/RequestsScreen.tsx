@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { colors, useTheme } from "../theme";
+import { useScreenBgColor } from "../components/UI";
 import {
   accessLogPath,
   errorLogPath,
@@ -69,6 +70,7 @@ export default function RequestsScreen({
   route?: { params?: { tab?: "requests" | "core" } };
 }) {
   useTheme();
+  const screenBg = useScreenBgColor();
   const [tab, setTab] = useState<"requests" | "core">(route?.params?.tab === "core" ? "core" : "requests");
   const [entries, setEntries] = useState<RequestEntry[]>([]);
   const [coreLog, setCoreLog] = useState<string[]>([]);
@@ -131,7 +133,7 @@ export default function RequestsScreen({
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: screenBg }}>
       {/* Переключатель вкладок */}
       <View style={styles.tabsRow}>
         {(

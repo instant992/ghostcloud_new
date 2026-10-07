@@ -5,6 +5,7 @@ import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getDonorLeaderboard } from "../api";
 import { colors, useTheme } from "../theme";
+import { useScreenBgColor, ThemedCard } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { IconButton, LoadingState } from "../components/Foundations";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
@@ -33,6 +34,7 @@ function rankColor(rank: number): string {
 export default function SponsorLeaderboardScreen() {
   useTheme();
   const styles = makeStyles();
+  const screenBg = useScreenBgColor();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
 
@@ -64,7 +66,7 @@ export default function SponsorLeaderboardScreen() {
   const posText = !myPosition || myPosition === 0 ? "—" : `#${myPosition}`;
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
+    <View style={[styles.screen, { backgroundColor: screenBg, paddingTop: insets.top + 6 }]}>
       {/* Шапка: назад + заголовок + значок преимуществ */}
       <View style={styles.header}>
         <IconButton icon="arrow-back" label="Назад" onPress={() => nav.goBack()} />
@@ -85,7 +87,7 @@ export default function SponsorLeaderboardScreen() {
       ) : (
         <View style={styles.body}>
           {/* Ваша позиция */}
-          <View style={styles.myCard}>
+          <ThemedCard style={styles.myCard}>
             <View style={styles.myBadge}>
               <Text style={styles.myBadgeText}>{posText}</Text>
             </View>
@@ -100,10 +102,10 @@ export default function SponsorLeaderboardScreen() {
             {!!myPosition && myPosition > 0 && myPosition <= 3 && (
               <Text style={{ fontSize: 30 }}>{medalFor(myPosition)}</Text>
             )}
-          </View>
+          </ThemedCard>
 
           {/* Список лидеров */}
-          <View style={styles.listCard}>
+          <ThemedCard style={styles.listCard}>
             <View style={styles.listHeader}>
               <Text style={[styles.listHeaderText, { width: 40 }]}>#</Text>
               <Text style={[styles.listHeaderText, { flex: 1 }]}>Пользователь</Text>
@@ -148,7 +150,7 @@ export default function SponsorLeaderboardScreen() {
                 </View>
               ))
             )}
-          </View>
+          </ThemedCard>
         </View>
       )}
 

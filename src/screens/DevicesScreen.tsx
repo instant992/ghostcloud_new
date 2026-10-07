@@ -2,7 +2,8 @@ import React, { useCallback, useState } from "react";
 import { Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
-import { Button, Card, ErrorText, Screen, Subtitle } from "../components/UI";
+import { Button, Card, ErrorText, Screen, Subtitle, ThemedCard } from "../components/UI";
+import { GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
 import { PressableScale } from "../components/PressableScale";
 import { LoadingState } from "../components/Foundations";
 import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
@@ -218,8 +219,10 @@ export default function DevicesScreen() {
         data={devices}
         keyExtractor={(d) => d.hwid_full}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor={colors.accent} />}
+        onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
+                onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
         renderItem={({ item }) => (
-          <View style={styles.item}>
+          <ThemedCard style={styles.item}>
             {!isFoxcloud &&
               (isSponsor ? (
                 <PressableScale
@@ -282,7 +285,7 @@ export default function DevicesScreen() {
                 <Ionicons name="close-circle-outline" size={20} color={colors.red} />
               </PressableScale>
             )}
-          </View>
+          </ThemedCard>
         )}
         ListEmptyComponent={
           <Text style={{ color: colors.textFaint, textAlign: "center", marginTop: 30 }}>

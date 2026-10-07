@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { supportReopen, supportTicketMessages } from "../api";
 import { colors, useTheme } from "../theme";
+import { useScreenBgColor } from "../components/UI";
 import { PressableScale } from "../components/PressableScale";
 import { showToast } from "../components/Toast";
 import { MessageBubble, fullImageUrl, type Msg } from "./SupportScreen";
@@ -12,6 +13,7 @@ import { MessageBubble, fullImageUrl, type Msg } from "./SupportScreen";
  *  закрытый тикет можно переоткрыть в течение 24 часов. */
 export default function SupportTicketScreen() {
   useTheme();
+  const screenBg = useScreenBgColor();
   const nav = useNavigation<any>();
   const route = useRoute<any>();
   const ticketId: number = Number(route.params?.ticketId || 0);
@@ -67,7 +69,7 @@ export default function SupportTicketScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: screenBg }}>
       {canReopen && (
         <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
           <PressableScale

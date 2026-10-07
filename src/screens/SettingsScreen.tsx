@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import * as Haptics from "expo-haptics";
 import { useNavigation } from "@react-navigation/native";
-import { Button, Screen, Title, useScreenTopPad, useInTabArea } from "../components/UI";
+import { Button, Screen, ThemedCard, Title, useScreenTopPad, useScreenBgColor, useInTabArea } from "../components/UI";
 import { QuickNavBar, themeHasQuickNav } from "../components/QuickNavBar";
 import { PressableScale } from "../components/PressableScale";
 import { colors, useTheme } from "../theme";
@@ -167,23 +167,24 @@ export default function SettingsScreen() {
     : [];
 
   const topPad = useScreenTopPad();
+  const screenBg = useScreenBgColor();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: screenBg }}>
       <Screen style={{ ...topPad, ...(!inTabs && themeHasQuickNav(getThemeName()) ? { paddingBottom: 92 } : null) }}>
         <Title>Настройки</Title>
 
         {/* ─── Секция «Ещё»: запросы, игра, поддержка — как в старом приложении ─── */}
         <Text style={styles.sectionLabel}>Ещё</Text>
-        <View style={styles.sectionCard}>
+        <ThemedCard style={styles.sectionCard}>
           {moreRows.map((r, i) => (
             <NavRow key={r.key} r={r} last={i === moreRows.length - 1} />
           ))}
-        </View>
+        </ThemedCard>
 
         {/* ─── Секция «Настройки»: разделы открываются отдельными страницами ─── */}
         <Text style={styles.sectionLabel}>Настройки</Text>
-        <View style={styles.sectionCard}>
-          {settingsRows.map((r, i) => (
+        <ThemedCard style={styles.sectionCard}>
+          {settingsRows.map((r) => (
             <NavRow key={r.key} r={r} />
           ))}
           <SwitchRow
@@ -197,11 +198,11 @@ export default function SettingsScreen() {
           {advancedRows.map((r, i) => (
             <NavRow key={r.key} r={r} last={i === advancedRows.length - 1} />
           ))}
-        </View>
+        </ThemedCard>
 
         {/* ─── Секция «Прочее»: о программе, выход ─── */}
         <Text style={styles.sectionLabel}>Прочее</Text>
-        <View style={styles.sectionCard}>
+        <ThemedCard style={styles.sectionCard}>
           <NavRow
             r={{
               key: "about",
@@ -222,7 +223,7 @@ export default function SettingsScreen() {
             <Ionicons name="log-out-outline" size={18} color="#FF4D4D" />
             <Text style={styles.logoutText}>Выйти из аккаунта</Text>
           </PressableScale>
-        </View>
+        </ThemedCard>
 
         {/* Подтверждение включения расширенных настроек — как в старом приложении */}
         {advancedConfirm && (

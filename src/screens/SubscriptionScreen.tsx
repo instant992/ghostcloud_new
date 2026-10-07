@@ -8,7 +8,7 @@ import { colors, formatBytes, useTheme } from "../theme";
 import { PressableScale } from "../components/PressableScale";
 import { BalanceSheet } from "../components/BalanceSheet";
 import { useInTabArea } from "../components/UI";
-import { GlassCard, GlassButton } from "../components/liquidGlass";
+import { GlassCard, GlassButton, GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
 import * as stats from "../stats";
 
 /** Раздел «Подписка» — перенесён из Flutter-версии: статус подписки,
@@ -61,6 +61,8 @@ export default function SubscriptionScreen() {
           paddingBottom: inTabs ? insets.bottom + 116 : 40,
         }}
         showsVerticalScrollIndicator={false}
+        onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
+                onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
       >
         <Text style={styles.pageTitle}>Моя подписка</Text>
         <Text style={styles.pageSub}>Управляйте своей подпиской и меняйте параметры</Text>
