@@ -86,6 +86,15 @@ function backgroundPalette(light: boolean) {
         { ang: 25, off: 0.35, wdt: 0.045, c: "#06A6D4", a: 0.6 },
         { ang: -30, off: 0.72, wdt: 0.035, c: "#A855F7", a: 0.55 },
       ],
+      dock: {
+        blobs: [
+          { c: "#E81E8A", a: 0.5 },
+          { c: "#06A6D4", a: 0.45 },
+          { c: "#7B1FE8", a: 0.5 },
+        ],
+        ring: { c: "#1E6BF6", a: 0.85 },
+        band: { c: "#A855F7", a: 0.55 },
+      },
     };
   }
   return {
@@ -106,6 +115,15 @@ function backgroundPalette(light: boolean) {
       { ang: 25, off: 0.35, wdt: 0.045, c: "#22D3EE", a: 0.7 },
       { ang: -30, off: 0.72, wdt: 0.035, c: "#A78BFA", a: 0.65 },
     ],
+    dock: {
+      blobs: [
+        { c: "#EC2E9A", a: 0.6 },
+        { c: "#06B6D4", a: 0.55 },
+        { c: "#9333EA", a: 0.6 },
+      ],
+      ring: { c: "#60A5FA", a: 0.9 },
+      band: { c: "#A78BFA", a: 0.65 },
+    },
   };
 }
 
@@ -124,6 +142,19 @@ const BLOBS = [
  *  затем плавно гасим в ноль. Плато даёт ЧЁТКИЙ край формы (мягкий спад от
  *  центра к краю не создаёт границы, и линза её не преломляет). */
 const BLOB_PLATEAU = 0.52;
+
+/** Позиции/радиусы форм ПОД доком (доли от окна). Нижний край экрана —
+ *  зона меню: без насыщенных форм за доком линзе панели нечего преломлять,
+ *  и док выглядит плоским (замеры: sat полосы за доком был 24/17 против 178
+ *  у демо-обоев). Крупный блоб по центру нижнего края + два по углам,
+ *  кольцо и полоса — их края проходят прямо за капсулой меню. */
+const DOCK_BLOBS = [
+  { fx: 0.5, fy: 0.99, fr: 0.4 },
+  { fx: 0.05, fy: 0.92, fr: 0.3 },
+  { fx: 0.98, fy: 0.9, fr: 0.28 },
+] as const;
+const DOCK_RING = { fx: 0.32, fy: 0.95, fr: 0.16, t: 0.035 } as const;
+const DOCK_BAND = { ang: -12, off: 0.9, wdt: 0.04 } as const;
 
 /** #RRGGBB + alpha(0..1) → #RRGGBBAA (Skia.Color понимает CSS-строки). */
 function withAlpha(hex: string, alpha: number): string {
@@ -222,6 +253,62 @@ export function renderBackground(
     const ny = Math.sin(rad);
     const c0 = band.off * maxWH - (band.wdt * maxWH) / 2;
     const c1 = band.off * maxWH + (band.wdt * maxWH) / 2;
+    const paint = Skia.Paint();
+    paint.setShader(
+      Skia.Shader.MakeLinearGradient(
+        vec(c0 * nx, c0 * ny),
+        vec(c1 * nx, c1 * ny),
+        [
+          Skia.Color(withAlpha(band.c, 0)),
+          Skia.Color(withAlpha(band.c, band.a)),
+          Skia.Color(withAlpha(band.c, band.a)),
+          Skia.Color(withAlpha(band.c, 0)),
+        ],
+        [0, 0.15, 0.85, 1],
+        TileMode.Clamp
+      )
+    );
+    canvas.drawRect(Skia.XYWHRect(0, 0, w, h), paint);
+  }
+
+  // 5. Формы ПОД доком: те же приёмы (плато-блобы, кольцо, полоса), но в
+  //    нижней зоне экрана — прямо за капсулой меню. Без них линза дока
+  //    преломляет плоский градиент и панель выглядит мёртвой.
+  for (let i = 0; i < DOCK_BLOBS.length; i++) {
+    const b = DOCK_BLOBS[i];
+    const col = p.dock.blobs[i];
+    const paint = Skia.Paint();
+    paint.setShader(
+      Skia.Shader.MakeRadialGradient(
+        vec(b.fx * w, b.fy * h),
+        b.fr * minWH,
+        [
+          Skia.Color(withAlpha(col.c, col.a)),
+          Skia.Color(withAlpha(col.c, col.a)),
+          Skia.Color(withAlpha(col.c, 0)),
+        ],
+        [0, BLOB_PLATEAU, 1],
+        TileMode.Clamp
+      )
+    );
+    canvas.drawCircle(b.fx * w, b.fy * h, b.fr * minWH, paint);
+  }
+  {
+    const ring = p.dock.ring;
+    const paint = Skia.Paint();
+    paint.setStyle(PaintStyle.Stroke);
+    paint.setStrokeWidth(DOCK_RING.t * minWH * 2);
+    paint.setAntiAlias(true);
+    paint.setColor(Skia.Color(withAlpha(ring.c, ring.a)));
+    canvas.drawCircle(DOCK_RING.fx * w, DOCK_RING.fy * h, DOCK_RING.fr * minWH, paint);
+  }
+  {
+    const band = p.dock.band;
+    const rad = (DOCK_BAND.ang * Math.PI) / 180;
+    const nx = Math.cos(rad);
+    const ny = Math.sin(rad);
+    const c0 = DOCK_BAND.off * maxWH - (DOCK_BAND.wdt * maxWH) / 2;
+    const c1 = DOCK_BAND.off * maxWH + (DOCK_BAND.wdt * maxWH) / 2;
     const paint = Skia.Paint();
     paint.setShader(
       Skia.Shader.MakeLinearGradient(
