@@ -3,6 +3,7 @@ import {
   Animated,
   AppState,
   Image as RNImage,
+  InteractionManager,
   PixelRatio,
   Pressable,
   StyleSheet,
@@ -20,6 +21,8 @@ import {
   Skia,
   rrect,
   rect,
+  type SkImage,
+  type SkRuntimeEffect,
 } from "@shopify/react-native-skia";
 import { buildGlassFilter, GLASS_PRESETS, type GlassPresetName, type LensParams } from "./effects";
 import { HIGHLIGHT_SHADER, AMBIENT_HIGHLIGHT_SHADER } from "./shaders";
@@ -45,6 +48,196 @@ function cachePut(key: string, val: { uri: string; w: number; h: number; pad: nu
     const oldest = glassUriCache.keys().next().value;
     if (oldest !== undefined) glassUriCache.delete(oldest);
   }
+}
+
+/** Разрешение снимков стекла. PixelRatio устройства (2.625 на тестовом AVD)
+ *  даёт ~7× пикселей от dp: Skia-рендер + PNG-encode одной карточки занимает
+ *  100–300 мс, и десяток карточек нового экрана блокировали JS-поток на 1–3 с
+ *  при каждом переключении вкладок («подгрузка дизайна секунды 3»).
+ *  1.75× — компромисс: стекло всё равно размыто/преломлено, потеря разрешения
+ *  не видна, а стоимость encode падает в ~2.2 раза. */
+const GLASS_PX_SCALE = 1.75;
+
+/** Все параметры одного снимка — рендер вынесен из компонента, чтобы его
+ *  можно было выполнять АСИНХРОННО (очередь ниже), а не в useMemo на пути
+ *  рендера React. */
+interface SnapshotCfg {
+  sizeW: number;
+  sizeH: number;
+  pad: number;
+  radiusEff: number;
+  saturation: number;
+  blur: number;
+  lens: LensParams | null;
+  surfaceColor?: string | null;
+  borderColor: string | null;
+  borderWidth: number;
+  hl: {
+    width: number; blur: number; alpha: number; color: string;
+    angle: number; falloff: number; ambient: boolean;
+  } | null;
+  hlEffect: SkRuntimeEffect | null;
+  shadowCfg: { radius: number; dy: number; color: string; alpha: number } | null;
+  shadowBlur: number;
+  bgImage: SkImage | null;
+  bgW: number;
+  bgH: number;
+  winX: number;
+  winY: number;
+  veil: number;
+  light: boolean;
+}
+
+/** Синхронный рендер одного снимка стекла (Skia offscreen → PNG data-URI).
+ *  Вызывается из очереди renderQueue — НИКОГДА прямо из рендера React:
+ *  блокировка JS-потока на сотни мс = фризы UI при смене вкладок. */
+function renderSnapshot(cfg: SnapshotCfg): { uri: string; w: number; h: number; pad: number } | null {
+  const { sizeW, sizeH, pad, radiusEff } = cfg;
+  const px = Math.min(PixelRatio.get(), GLASS_PX_SCALE);
+  const canvasW = sizeW + pad * 2;
+  const canvasH = sizeH + pad * 2;
+  const w = Math.max(1, Math.round(canvasW * px));
+  const h = Math.max(1, Math.round(canvasH * px));
+
+  const surface = Skia.Surface.Make(w, h);
+  if (!surface) return null;
+  const canvas = surface.getCanvas();
+  canvas.clear(Skia.Color("rgba(0,0,0,0)"));
+  canvas.scale(px, px);
+
+  const bodyRect = rect(pad, pad, sizeW, sizeH);
+  const body = rrect(bodyRect, radiusEff, radiusEff);
+  const outlinePath = Skia.Path.Make();
+  outlinePath.addRRect(body);
+
+  // 5. Тень (под стеклом): размытый скруглённый rect со сдвигом dy,
+  // обрезанный по ВНЕШНОСТИ карточки (clip Difference).
+  if (cfg.shadowCfg) {
+    canvas.save();
+    canvas.clipRRect(body, ClipOp.Difference, true);
+    const sp = Skia.Paint();
+    sp.setAntiAlias(true);
+    sp.setColor(Skia.Color(withAlpha(cfg.shadowCfg.color, cfg.shadowCfg.alpha)));
+    if (cfg.shadowBlur > 0) sp.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, cfg.shadowBlur, true));
+    canvas.save();
+    canvas.translate(0, cfg.shadowCfg.dy);
+    canvas.drawPath(outlinePath, sp);
+    canvas.restore();
+    canvas.restore();
+  }
+
+  // 1+2. Срез фона темы со сдвигом на оконную позицию, через цепочку
+  // vibrancy ⇒ blur ⇒ lens (один image filter на слое saveLayer).
+  canvas.save();
+  canvas.clipRRect(body, ClipOp.Intersect, true);
+  const layerPaint = Skia.Paint();
+  layerPaint.setAntiAlias(true);
+  const filter = buildGlassFilter({ saturation: cfg.saturation, blur: cfg.blur, lens: cfg.lens });
+  if (filter) layerPaint.setImageFilter(filter);
+  canvas.saveLayer(layerPaint, bodyRect);
+  if (cfg.bgImage && cfg.bgW > 0 && cfg.bgH > 0) {
+    const bgPaint = Skia.Paint();
+    bgPaint.setAntiAlias(true);
+    canvas.drawImageRect(
+      cfg.bgImage,
+      rect(0, 0, cfg.bgImage.width(), cfg.bgImage.height()),
+      rect(pad - cfg.winX, pad - cfg.winY, cfg.bgW, cfg.bgH),
+      bgPaint
+    );
+  }
+  canvas.restore();
+
+  // 3. Подложка (containerColor).
+  if (cfg.surfaceColor) {
+    const sc = Skia.Paint();
+    sc.setAntiAlias(true);
+    sc.setColor(Skia.Color(cfg.surfaceColor));
+    canvas.drawRRect(body, sc);
+  }
+  // 3b. Вуаль Glass Playground.
+  if (cfg.veil > 0.004) {
+    const vp = Skia.Paint();
+    vp.setAntiAlias(true);
+    vp.setColor(Skia.Color(cfg.light ? `rgba(255,255,255,${cfg.veil})` : `rgba(0,0,0,${cfg.veil})`));
+    canvas.drawRRect(body, vp);
+  }
+  canvas.restore();
+
+  // Обводка — поверх стекла, внутри клипа по форме и двойной толщиной.
+  if (cfg.borderColor && cfg.borderWidth > 0) {
+    canvas.save();
+    canvas.clipRRect(body, ClipOp.Intersect, true);
+    const bp = Skia.Paint();
+    bp.setAntiAlias(true);
+    bp.setStyle(PaintStyle.Stroke);
+    bp.setStrokeWidth(cfg.borderWidth * 2);
+    bp.setColor(Skia.Color(cfg.borderColor));
+    canvas.drawRRect(body, bp);
+    canvas.restore();
+  }
+
+  // 4. Хайлайт: штрих по контуру, blend Plus, клип ВНУТРЬ контура
+  // (HighlightModifier.kt), толщина ceil(width·density)·2 device-px.
+  if (cfg.hl && cfg.hlEffect) {
+    canvas.save();
+    canvas.clipRRect(body, ClipOp.Intersect, true);
+    const hp = Skia.Paint();
+    hp.setAntiAlias(true);
+    hp.setStyle(PaintStyle.Stroke);
+    hp.setStrokeWidth((Math.ceil(cfg.hl.width * px) / px) * 2);
+    hp.setBlendMode(BlendMode.Plus);
+    hp.setAlphaf(cfg.hl.alpha);
+    if (cfg.hl.blur > 0) hp.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, cfg.hl.blur, true));
+    const radii = [radiusEff, radiusEff, radiusEff, radiusEff];
+    const uniforms = cfg.hl.ambient
+      ? [sizeW, sizeH, -pad, -pad, ...radii, cfg.hl.angle, cfg.hl.falloff]
+      : [sizeW, sizeH, -pad, -pad, ...radii, ...rgba(cfg.hl.color), cfg.hl.angle, cfg.hl.falloff];
+    const shader = cfg.hlEffect.makeShader(uniforms);
+    if (shader) hp.setShader(shader);
+    canvas.drawPath(outlinePath, hp);
+    canvas.restore();
+  }
+
+  const shot = surface.makeImageSnapshot();
+  const b64 = shot.encodeToBase64(ImageFormat.PNG);
+  surface.dispose();
+  return { uri: `data:image/png;base64,${b64}`, w: canvasW, h: canvasH, pad };
+}
+
+/**
+ * Очередь снимков стекла: ОДИН Skia-рендер + PNG-encode за кадр, старт —
+ * после завершения анимаций (InteractionManager: переход вкладок, открытие
+ * экрана). Раньше все карточки рендерились синхронно внутри useMemo при
+ * монтировании экрана: ~10 поверхностей × 100–300 мс = 1–3 с блокировки
+ * JS-потока (фриз интерфейса при переключении вкладок). Теперь первый кадр
+ * нового экрана показывается мгновенно (контент без стекла), стекло
+ * «всплывает» покадрово. Дубликаты того же cacheKey в очередь не попадают.
+ */
+const renderQueue: Array<() => void> = [];
+const queuedKeys = new Set<string>();
+let draining = false;
+
+function scheduleSnapshot(key: string, run: () => void) {
+  if (queuedKeys.has(key)) return;
+  queuedKeys.add(key);
+  renderQueue.push(() => {
+    queuedKeys.delete(key);
+    run();
+  });
+  if (draining) return;
+  draining = true;
+  InteractionManager.runAfterInteractions(() => {
+    const step = () => {
+      const job = renderQueue.shift();
+      if (!job) {
+        draining = false;
+        return;
+      }
+      job();
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 /**
@@ -306,169 +499,79 @@ export function LiquidGlassSurface({
 
   const bgImage = backdrop?.image ?? null;
 
-  // Все входные параметры снимка стекла — в одном memo. Пересчёт только при
-  // реальном изменении геометрии/позиции/темы/пропсов.
-  const glassUri = useMemo(() => {
-    if (size.w <= 0 || size.h <= 0) return lastGoodUri.current;
+  /** Снимок стекла — теперь состояние, а не результат useMemo: рендер
+   *  выполняется асинхронно через очередь (один за кадр, после анимаций).
+   *  Кэш-хит синхронный — знакомая карточка появляется со стеклом сразу. */
+  const [glassUri, setGlassUri] = useState<{ uri: string; w: number; h: number; pad: number } | null>(null);
 
-    // 0. Кэш-хит: та же карточка уже отрендерена (перемонтирование при возврате
-    // на вкладку/из фона). Синхронный data-URI — стекло в первом же кадре.
-    const cacheKey = [
-      Math.round(size.w), Math.round(size.h), Math.round(win.x), Math.round(win.y),
+  const cacheKey = useMemo(() => {
+    if (size.w <= 0 || size.h <= 0) return null;
+    // win квантуем до 2dp: при скролле/переходах позиция «дрожит» на доли dp,
+    // и cache-miss на каждый пиксель сдвига плодил бы повторные рендеры.
+    return [
+      Math.round(size.w), Math.round(size.h), Math.round(win.x / 2), Math.round(win.y / 2),
       pad, radiusEff, saturation, blur, light, backdrop?.imageUri ? backdrop.imageUri.length : 0,
       surfaceColor ?? "", effBorderColor ?? "", effBorderWidth, tuningKey,
       shadowCfg ? `${shadowCfg.radius}|${shadowCfg.dy}|${shadowCfg.color}|${shadowCfg.alpha}` : "",
+      hl ? `${hl.width}|${hl.blur}|${hl.alpha.toFixed(3)}|${hl.angle}|${hl.falloff}|${hl.ambient}` : "",
     ].join("|");
+  }, [
+    size.w, size.h, win.x, win.y, pad, radiusEff, saturation, blur, light,
+    backdrop?.imageUri, surfaceColor, effBorderColor, effBorderWidth, tuningKey,
+    shadowCfg, hl,
+  ]);
+
+  // Кэш-хит — синхронно, стекло видно в первом кадре (перемонтирование при
+  // возврате на вкладку/из фона).
+  if (cacheKey) {
     const cached = glassUriCache.get(cacheKey);
-    if (cached) {
+    if (cached && lastGoodUri.current !== cached) {
       fadeShown.current = true;
       fade.setValue(1);
       lastGoodUri.current = cached;
-      return cached;
+      setGlassUri(cached);
     }
+  }
 
-    // Работаем в device-px: канва = (size + 2*pad) dp × PixelRatio.
-    const pr = PixelRatio.get();
-    const canvasW = size.w + pad * 2;
-    const canvasH = size.h + pad * 2;
-    const w = Math.max(1, Math.round(canvasW * pr));
-    const h = Math.max(1, Math.round(canvasH * pr));
-
-    const surface = Skia.Surface.Make(w, h);
-    if (!surface) return null;
-    const canvas = surface.getCanvas();
-    canvas.clear(Skia.Color("rgba(0,0,0,0)"));
-    canvas.scale(pr, pr);
-
-    const bodyRect = rect(pad, pad, size.w, size.h);
-    const body = rrect(bodyRect, radiusEff, radiusEff);
-
-    // 5. Тень (под стеклом): размытый скруглённый rect со сдвигом dy,
-    // обрезанный по ВНЕШНОСТИ карточки (clip Difference). Раньше здесь было
-    // even-odd кольцо «внешний rect минус карточка» — оно заливало цветом
-    // тени ВСЮ площадь канвы вокруг блока, и blur лишь смягчал его края:
-    // вокруг карточки читался тёмный квадрат. Clip Difference даёт честную
-    // внешнюю тень, начинающуюся от границы формы.
-    if (shadowCfg && outlinePath) {
-      canvas.save();
-      canvas.clipRRect(body, ClipOp.Difference, true);
-      const sp = Skia.Paint();
-      sp.setAntiAlias(true);
-      sp.setColor(Skia.Color(withAlpha(shadowCfg.color, shadowCfg.alpha)));
-      if (shadowBlur > 0) sp.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, shadowBlur, true));
-      canvas.save();
-      canvas.translate(0, shadowCfg.dy);
-      canvas.drawPath(outlinePath, sp);
-      canvas.restore();
-      canvas.restore();
-    }
-
-    // 1+2. Срез фона темы со сдвигом на оконную позицию, через цепочку
-    // vibrancy ⇒ blur ⇒ lens (один image filter на слое saveLayer).
-    canvas.save();
-    canvas.clipRRect(body, ClipOp.Intersect, true);
-    const layerPaint = Skia.Paint();
-    layerPaint.setAntiAlias(true);
-    const filter = buildGlassFilter({ saturation, blur, lens });
-    if (filter) layerPaint.setImageFilter(filter);
-    canvas.saveLayer(layerPaint, bodyRect);
-    if (bgImage) {
-      const bgPaint = Skia.Paint();
-      bgPaint.setAntiAlias(true);
-      // Фон в dp: его прямоугольник = backdrop.width × backdrop.height,
-      // рисуем со сдвигом (pad - win), чтобы сквозь клип попал «свой» участок.
-      const bgW = backdrop?.width ?? 0;
-      const bgH = backdrop?.height ?? 0;
-      if (bgW > 0 && bgH > 0) {
-        canvas.drawImageRect(
-          bgImage,
-          rect(0, 0, bgImage.width(), bgImage.height()),
-          rect(pad - win.x, pad - win.y, bgW, bgH),
-          bgPaint
-        );
+  // Кэш-мисс — ставим в асинхронную очередь (InteractionManager + по одной
+  // задаче за кадр): переход вкладок остаётся плавным, стекло «всплывает»
+  // сразу после анимации.
+  useEffect(() => {
+    if (!cacheKey) return;
+    if (glassUriCache.has(cacheKey)) return;
+    if (size.w <= 0 || size.h <= 0) return;
+    if (!bgImage && !standalone) return;
+    const cfg: SnapshotCfg = {
+      sizeW: size.w, sizeH: size.h, pad, radiusEff, saturation, blur,
+      lens, surfaceColor, borderColor: effBorderColor, borderWidth: effBorderWidth,
+      hl, hlEffect, shadowCfg, shadowBlur,
+      bgImage, bgW: backdrop?.width ?? 0, bgH: backdrop?.height ?? 0,
+      winX: win.x, winY: win.y, veil: tuning.veil, light,
+    };
+    let cancelled = false;
+    scheduleSnapshot(cacheKey, () => {
+      if (cancelled) return;
+      // Параметры могли уйти из очереди устаревшими (скролл, ресайз) —
+      // свежий ключ уже в очереди/кэше, этот снимок не нужен.
+      const val = renderSnapshot(cfg);
+      if (!val || cancelled) return;
+      cachePut(cacheKey, val);
+      lastGoodUri.current = val;
+      // Первое появление — плавный фейд 120 мс (нативный драйвер).
+      if (!fadeShown.current) {
+        fadeShown.current = true;
+        fade.setValue(0);
+        Animated.timing(fade, { toValue: 1, duration: 120, useNativeDriver: true }).start();
       }
-    }
-    canvas.restore();
-
-    // 3. Подложка (containerColor).
-    if (surfaceColor) {
-      const sc = Skia.Paint();
-      sc.setAntiAlias(true);
-      sc.setColor(Skia.Color(surfaceColor));
-      canvas.drawRRect(body, sc);
-    }
-    // 3b. Вуаль Glass Playground: лёгкая белая/чёрная подложка поверх стекла
-    // (аналог onDrawSurface { drawRect(containerColor) } в каталоге).
-    if (tuning.veil > 0.004) {
-      const vp = Skia.Paint();
-      vp.setAntiAlias(true);
-      vp.setColor(Skia.Color(light ? `rgba(255,255,255,${tuning.veil})` : `rgba(0,0,0,${tuning.veil})`));
-      canvas.drawRRect(body, vp);
-    }
-    canvas.restore();
-
-    // Обводка — поверх стекла (вместо RN-бордюра, который был бы под ним).
-    // Рисуем ВНУТРИ клипа по форме и двойной толщиной: штрих по центру контура
-    // наполовину уходит за границу формы и теряется, из-за чего рамка то
-    // пропадала, то выглядела рваной. Clip оставляет ровно внутреннюю половину.
-    if (effBorderColor && effBorderWidth > 0) {
-      canvas.save();
-      canvas.clipRRect(body, ClipOp.Intersect, true);
-      const bp = Skia.Paint();
-      bp.setAntiAlias(true);
-      bp.setStyle(PaintStyle.Stroke);
-      bp.setStrokeWidth(effBorderWidth * 2);
-      bp.setColor(Skia.Color(effBorderColor));
-      canvas.drawRRect(body, bp);
-      canvas.restore();
-    }
-
-    // 4. Хайлайт: размытый штрих по контуру, blend Plus (как в оригинале).
-    // HighlightModifier.kt: strokeWidth = ceil(width)·2, ОБЯЗАТЕЛЬНО клип
-    // ВНУТРИ контура — видна только внутренняя половина штриха; без клипа
-    // блик «растекается» наружу и выглядит толще, чем в демо.
-    // Uniform-массив ПЛОСКИЙ и строго в порядке объявления в SkSL.
-    if (hl && hlEffect && outlinePath) {
-      canvas.save();
-      canvas.clipRRect(body, ClipOp.Intersect, true);
-      const hp = Skia.Paint();
-      hp.setAntiAlias(true);
-      hp.setStyle(PaintStyle.Stroke);
-      // Каталог считает толщину в device-px: ceil(width.toPx())·2.
-      hp.setStrokeWidth((Math.ceil(hl.width * PixelRatio.get()) / PixelRatio.get()) * 2);
-      hp.setBlendMode(BlendMode.Plus);
-      hp.setAlphaf(hl.alpha);
-      if (hl.blur > 0) hp.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, hl.blur, true));
-      const radii = [radiusEff, radiusEff, radiusEff, radiusEff];
-      const uniforms = hl.ambient
-        ? [size.w, size.h, -pad, -pad, ...radii, hl.angle, hl.falloff]
-        : [size.w, size.h, -pad, -pad, ...radii, ...rgba(hl.color), hl.angle, hl.falloff];
-      const shader = hlEffect.makeShader(uniforms);
-      if (shader) hp.setShader(shader);
-      canvas.drawPath(outlinePath, hp);
-      canvas.restore();
-    }
-
-    const shot = surface.makeImageSnapshot();
-    const b64 = shot.encodeToBase64(ImageFormat.PNG);
-    surface.dispose();
-    const val = { uri: `data:image/png;base64,${b64}`, w: canvasW, h: canvasH, pad };
-    cachePut(cacheKey, val);
-    lastGoodUri.current = val;
-
-    // Первый снимок этой карточки появляется плавно (120 мс): контент виден
-    // сразу, стекло «всплывает» вместо резкого скачка.
-    if (!fadeShown.current) {
-      fadeShown.current = true;
-      fade.setValue(0);
-      Animated.timing(fade, { toValue: 1, duration: 120, useNativeDriver: true }).start();
-    }
-    return val;
+      setGlassUri(val);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [
-    size.w, size.h, win.x, win.y, pad, radiusEff, saturation, blur, lens,
-    surfaceColor, effBorderColor, effBorderWidth, hl, hlEffect, outlinePath,
-    shadowCfg, shadowBlur, bgImage, backdrop?.width, backdrop?.height,
-    fade, light, tuningKey,
+    cacheKey, size.w, size.h, win.x, win.y, pad, radiusEff, saturation, blur, lens,
+    surfaceColor, effBorderColor, effBorderWidth, hl, hlEffect, shadowCfg, shadowBlur,
+    bgImage, backdrop?.width, backdrop?.height, standalone, tuning.veil, light, fade,
   ]);
 
   // Early-return ПОСЛЕ всех хуков: до первого измерения контент виден сразу

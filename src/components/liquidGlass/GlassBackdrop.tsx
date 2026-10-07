@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo } from "react";
 import { Image as RNImage, View as RNView, useWindowDimensions, StyleSheet } from "react-native";
 import {
   ImageFormat,
+  PaintStyle,
   Skia,
   TileMode,
   vec,
@@ -55,42 +56,74 @@ export function useGlassBackdrop(): GlassBackdropValue | null {
  */
 export const BG_SCALE = 1;
 
-/** Палитра фона. Намеренно контрастнее colors.bg: стеклу нужен неоднородный
- *  фон, иначе рефракция и блюр нечего преломлять и карточки сливаются с
- *  плоским фоном. */
+/** Палитра фона. Стеклянные блоки преломляют ЦВЕТ и КРАЯ форм (линза гнёт
+ *  пиксели у границы на refractionAmount≈32dp, vibrancy×1.5 усиливает цвет).
+ *  Поэтому фон обязан быть НАСЫЩЕННЫМ и иметь ЧЁТКИЕ переходы цвета — иначе
+ *  стеклу нечего преломлять и блоки выглядят плоскими (раньше sat фона была
+ *  42/21 против 159 у обоев демо Backdrop — эффект почти не читался).
+ *  Значения намеренно ярче colors.bg и брендово-фиолетовые.
+ *
+ *  hard — «жёсткие» формы поверх блобов: кольца и диагональные полосы с
+ *  чёткой границей. Именно такие края линза заметно гнёт, а vibrancy
+ *  подсвечивает — как на фотообоях демо-каталога Backdrop. */
 function backgroundPalette(light: boolean) {
   if (light) {
     return {
-      grad: ["#F6EFFD", "#D9CEEE", "#F0E6FB", "#C9BCE4"],
+      grad: ["#EFE4FD", "#E0D6F8", "#FBDFF1", "#D6E5FC"],
       blobs: [
-        { c: "#8B45D6", a: 0.5 },
-        { c: "#3B82F6", a: 0.42 },
-        { c: "#EC4899", a: 0.38 },
-        { c: "#06B6D4", a: 0.35 },
-        { c: "#7C3AED", a: 0.4 },
+        { c: "#7B1FE8", a: 0.55 },
+        { c: "#1E6BF6", a: 0.45 },
+        { c: "#E81E8A", a: 0.42 },
+        { c: "#06A6D4", a: 0.4 },
+        { c: "#A855F7", a: 0.5 },
+      ],
+      hard: [
+        { fx: 0.78, fy: 0.1, fr: 0.3, t: 0.05, c: "#7B1FE8", a: 0.9 },
+        { fx: 0.15, fy: 0.42, fr: 0.24, t: 0.045, c: "#1E6BF6", a: 0.85 },
+        { fx: 0.88, fy: 0.74, fr: 0.2, t: 0.04, c: "#E81E8A", a: 0.8 },
+      ],
+      bands: [
+        { ang: 25, off: 0.35, wdt: 0.045, c: "#06A6D4", a: 0.6 },
+        { ang: -30, off: 0.72, wdt: 0.035, c: "#A855F7", a: 0.55 },
       ],
     };
   }
   return {
-    grad: ["#0B0B14", "#171227", "#0D0A18", "#06060F"],
+    grad: ["#090616", "#150C2C", "#0A0616", "#04030C"],
     blobs: [
-      { c: "#7B2FBE", a: 0.42 },
-      { c: "#3B82F6", a: 0.32 },
-      { c: "#EC4899", a: 0.28 },
-      { c: "#06B6D4", a: 0.26 },
-      { c: "#8B5CF6", a: 0.3 },
+      { c: "#9333EA", a: 0.65 },
+      { c: "#2563EB", a: 0.55 },
+      { c: "#EC2E9A", a: 0.48 },
+      { c: "#06B6D4", a: 0.42 },
+      { c: "#A855F7", a: 0.6 },
+    ],
+    hard: [
+      { fx: 0.78, fy: 0.1, fr: 0.3, t: 0.05, c: "#C084FC", a: 0.95 },
+      { fx: 0.15, fy: 0.42, fr: 0.24, t: 0.045, c: "#60A5FA", a: 0.9 },
+      { fx: 0.88, fy: 0.74, fr: 0.2, t: 0.04, c: "#F472B6", a: 0.88 },
+    ],
+    bands: [
+      { ang: 25, off: 0.35, wdt: 0.045, c: "#22D3EE", a: 0.7 },
+      { ang: -30, off: 0.72, wdt: 0.035, c: "#A78BFA", a: 0.65 },
     ],
   };
 }
 
-/** Позиции и радиусы блобов (доли от размера окна) — общие для обеих тем. */
+/** Позиции и радиусы блобов (доли от размера окна) — общие для обеих тем.
+ *  Крупные, частично перекрывающиеся формы с краями у границ экрана — как
+ *  обои демо: линзе есть что преломлять по периметру каждого блока. */
 const BLOBS = [
-  { fx: 0.78, fy: 0.06, fr: 0.46 },
-  { fx: 0.12, fy: 0.38, fr: 0.42 },
-  { fx: 1.02, fy: 0.78, fr: 0.38 },
-  { fx: 0.18, fy: 0.09, fr: 0.34 },
-  { fx: 0.42, fy: 0.68, fr: 0.3 },
+  { fx: 0.8, fy: 0.04, fr: 0.52 },
+  { fx: 0.08, fy: 0.36, fr: 0.46 },
+  { fx: 1.04, fy: 0.74, fr: 0.44 },
+  { fx: 0.16, fy: 0.06, fr: 0.38 },
+  { fx: 0.44, fy: 0.7, fr: 0.36 },
 ] as const;
+
+/** Стопы радиального градиента блоба: держим насыщенный цвет до `PLATEAU`,
+ *  затем плавно гасим в ноль. Плато даёт ЧЁТКИЙ край формы (мягкий спад от
+ *  центра к краю не создаёт границы, и линза её не преломляет). */
+const BLOB_PLATEAU = 0.52;
 
 /** #RRGGBB + alpha(0..1) → #RRGGBBAA (Skia.Color понимает CSS-строки). */
 function withAlpha(hex: string, alpha: number): string {
@@ -135,8 +168,10 @@ export function renderBackground(
   );
   canvas.drawRect(Skia.XYWHRect(0, 0, w, h), gradPaint);
 
-  // 2. Радиальные блобы: цвет → тот же цвет с alpha 0 (второй стоп прозрачный,
-  //    Skia интерполирует и альфу).
+  // 2. Радиальные блобы: насыщенный цвет держится до BLOB_PLATEAU, затем
+  //    плавно гаснет в тот же цвет с alpha 0. Плато создаёт различимый край
+  //    формы — стекло преломляет именно границу цвета (в отличие от прежнего
+  //    линейного спада от центра, который давал лишь едва заметное пятно).
   for (let i = 0; i < BLOBS.length; i++) {
     const b = BLOBS[i];
     const col = p.blobs[i];
@@ -148,12 +183,61 @@ export function renderBackground(
       Skia.Shader.MakeRadialGradient(
         vec(cx, cy),
         r,
-        [Skia.Color(withAlpha(col.c, col.a)), Skia.Color(withAlpha(col.c, 0))],
-        null,
+        [
+          Skia.Color(withAlpha(col.c, col.a)),
+          Skia.Color(withAlpha(col.c, col.a)),
+          Skia.Color(withAlpha(col.c, 0)),
+        ],
+        [0, BLOB_PLATEAU, 1],
         TileMode.Clamp
       )
     );
     canvas.drawCircle(cx, cy, r, paint);
+  }
+
+  // 3. «Жёсткие» кольца: штриховая окружность с чёткой внутренней и внешней
+  //    границей. Линза заметно гнёт пиксели именно на таких краях — стекло
+  //    читается на любой подложке (мягкие блобы сами по себе почти не
+  //    преломляются: у них нет границы).
+  const minWH = Math.min(w, h);
+  for (let i = 0; i < p.hard.length; i++) {
+    const ring = p.hard[i];
+    const paint = Skia.Paint();
+    paint.setStyle(PaintStyle.Stroke);
+    paint.setStrokeWidth(ring.t * minWH * 2);
+    paint.setAntiAlias(true);
+    paint.setColor(Skia.Color(withAlpha(ring.c, ring.a)));
+    canvas.drawCircle(ring.fx * w, ring.fy * h, ring.fr * minWH, paint);
+  }
+
+  // 4. Диагональные полосы: линейный градиент с двумя резкими стопами
+  //    (прозрачный → цвет → прозрачный) вдоль нормали полосы. Те же чёткие
+  //    края, что и у колец, но другой ориентации — стекло преломляет их при
+  //    любом положении блока.
+  const maxWH = Math.max(w, h);
+  for (let i = 0; i < p.bands.length; i++) {
+    const band = p.bands[i];
+    const rad = (band.ang * Math.PI) / 180;
+    const nx = Math.cos(rad);
+    const ny = Math.sin(rad);
+    const c0 = band.off * maxWH - (band.wdt * maxWH) / 2;
+    const c1 = band.off * maxWH + (band.wdt * maxWH) / 2;
+    const paint = Skia.Paint();
+    paint.setShader(
+      Skia.Shader.MakeLinearGradient(
+        vec(c0 * nx, c0 * ny),
+        vec(c1 * nx, c1 * ny),
+        [
+          Skia.Color(withAlpha(band.c, 0)),
+          Skia.Color(withAlpha(band.c, band.a)),
+          Skia.Color(withAlpha(band.c, band.a)),
+          Skia.Color(withAlpha(band.c, 0)),
+        ],
+        [0, 0.15, 0.85, 1],
+        TileMode.Clamp
+      )
+    );
+    canvas.drawRect(Skia.XYWHRect(0, 0, w, h), paint);
   }
 
   // ВАЖНО: makeImageSnapshot() у GPU-поверхности возвращает texture-backed
