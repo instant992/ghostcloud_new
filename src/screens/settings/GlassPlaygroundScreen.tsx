@@ -4,8 +4,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { Card, Screen, Title, useScreenTopPad, useScreenBgColor } from "../../components/UI";
 import { PressableScale } from "../../components/PressableScale";
 import { GlassCard, LiquidSlider, glassTuning, GLASS_PRESET_LIST, GLASS_SCROLL_HANDLERS, type GlassTuning } from "../../components/liquidGlass";
+import { glassEngine, subscribeGlassEngine, getGlassEngineSnapshot, type GlassEngineId } from "../../components/liquidGlass/glassEngine";
 import { colors, useTheme } from "../../theme";
 import { makeStyles } from "../settingsStyles";
+
+const ENGINE_OPTIONS: { id: GlassEngineId; label: string; icon: "color-wand" | "flash" }[] = [
+  { id: "skia", label: "Skia", icon: "color-wand" },
+  { id: "agsl", label: "AGSL (GPU)", icon: "flash" },
+];
 
 /**
  * Glass Playground — живая настройка всех параметров стеклянных эффектов.
@@ -24,6 +30,7 @@ export default function GlassPlaygroundScreen() {
   const screenBg = useScreenBgColor();
   const tuning = useSyncExternalStore(glassTuning.subscribe, glassTuning.getSnapshot);
   const [preview, setPreview] = useState<string>(() => glassTuning.getPreset());
+  const engine = useSyncExternalStore(subscribeGlassEngine, getGlassEngineSnapshot);
 
   const set = (key: keyof GlassTuning, value: number) => {
     glassTuning.set({ ...tuning, [key]: value });
@@ -44,8 +51,55 @@ export default function GlassPlaygroundScreen() {
             Настройте скругления, размытие, преломление и другие эффекты стекла. Изменения применяются сразу ко всем блокам темы Liquid Glass.
           </Text>
 
-          {/* Быстрые пресеты */}
+          {/* Движок стекла: Skia (порт Backdrop) или AGSL (нативный GPU-шейдер) */}
           <Card>
+            <Text style={styles.sectionTitle}>Движок стекла</Text>
+            <Text style={[styles.hint, { marginTop: 8 }]}>
+              Skia — текущий рендер темы (порт каталога Backdrop). AGSL — нативный шейдер на GPU: настоящее преломление и дисперсия, ниже нагрузка на JS-поток. Переключение применяется сразу ко всем стеклянным блокам и нижнему меню.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
+              {ENGINE_OPTIONS.map((opt) => {
+                const active = engine === opt.id;
+                return (
+                  <PressableScale
+                    key={opt.id}
+                    style={{ flex: 1 }}
+                    onPress={() => glassEngine.set(opt.id)}
+                  >
+                    <GlassCard
+                      radius={16}
+                      style={{
+                        height: 64,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        borderWidth: active ? 1.5 : 1,
+                        borderColor: active ? colors.accent : "transparent",
+                      }}
+                    >
+                      <Ionicons
+                        name={opt.icon}
+                        size={20}
+                        color={active ? colors.accent : colors.textDim}
+                      />
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: "600",
+                          marginTop: 4,
+                          color: active ? colors.accent : colors.textDim,
+                        }}
+                      >
+                        {opt.label}
+                      </Text>
+                    </GlassCard>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </Card>
+
+          {/* Быстрые пресеты */}
+          <Card style={{ marginTop: 16 }}>
             <Text style={styles.sectionTitle}>Пресеты</Text>
             <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
               {GLASS_PRESET_LIST.map((p) => (

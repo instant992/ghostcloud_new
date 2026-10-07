@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useSyncExternalStore } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useSharedValue,
@@ -9,6 +9,8 @@ import Animated, {
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LiquidGlassSurface } from "./LiquidGlassSurface";
+import { AgslBottomTabs } from "./AgslBottomTabs";
+import { subscribeGlassEngine, getGlassEngineSnapshot } from "./glassEngine";
 import { colors, isLightPalette, useTheme } from "../../theme";
 
 /**
@@ -52,7 +54,19 @@ export interface LiquidBottomTabsProps {
   style?: any;
 }
 
-export function LiquidBottomTabs({
+/**
+ * Нижнее меню. Движок выбирается по glassEngine (переключается в Glass
+ * Playground): skia — порт каталога Backdrop, agsl — LiquidGlassView.
+ * Оба пути остаются рабочими; выбор здесь, экраны не трогаем.
+ */
+export function LiquidBottomTabs(props: LiquidBottomTabsProps) {
+  const engine = useSyncExternalStore(subscribeGlassEngine, getGlassEngineSnapshot);
+  if (engine === "agsl") return <AgslBottomTabs {...props} />;
+  return <SkiaBottomTabs {...props} />;
+}
+
+/** Skia-путь (исходный порт LiquidBottomTabs из каталога Backdrop). */
+function SkiaBottomTabs({
   items,
   selectedIndex,
   onSelect,

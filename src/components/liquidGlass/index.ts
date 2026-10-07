@@ -10,6 +10,11 @@ export { glassTuning, GLASS_TUNING_DEFAULTS, GLASS_PRESET_LIST, tuningFor, isGla
 export type { GlassTuning, GlassPresetId, GlassPresetDef } from "./tuning";
 export { LiquidBottomTabs } from "./LiquidBottomTabs";
 export type { LiquidBottomTabsProps, LiquidTabItem } from "./LiquidBottomTabs";
+export { AgslGlassCard } from "./AgslGlassCard";
+export type { AgslGlassCardProps } from "./AgslGlassCard";
+export { AgslBottomTabs } from "./AgslBottomTabs";
+export { glassEngine, subscribeGlassEngine, getGlassEngineSnapshot } from "./glassEngine";
+export type { GlassEngineId } from "./glassEngine";
 export { scrollBus, GLASS_SCROLL_HANDLERS } from "./scrollBus";
 export { GLASS_PRESETS, buildGlassFilter, isLensSupported } from "./effects";
 export type { GlassPresetName, LensParams } from "./effects";

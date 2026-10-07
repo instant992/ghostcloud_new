@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useSyncExternalStore } from "react";
 import { ActivityIndicator, Text, type StyleProp, type ViewStyle } from "react-native";
 import { LiquidGlassSurface } from "./LiquidGlassSurface";
+import { AgslGlassCard } from "./AgslGlassCard";
+import { subscribeGlassEngine, getGlassEngineSnapshot } from "./glassEngine";
 import { useTheme, isLightPalette, colors } from "../../theme";
 
 /**
@@ -9,6 +11,13 @@ import { useTheme, isLightPalette, colors } from "../../theme";
  * Вынесены из GlassScreen в общий модуль, чтобы разделы «Подписка» и
  * «Профиль» (и любые будущие glass-экраны) использовали ТОТ ЖЕ блок и кнопку,
  * что главная и меню — единый дизайн, а не отдельные копии стилей.
+ *
+ * Рендерится одним из двух движков (переключатель «Движок стекла» в Glass
+ * Playground, хранение gc_settings `glass_engine`):
+ * - `skia` (по умолчанию) — RN Skia, offscreen-снимки;
+ * - `agsl` — react-native-liquid-glassmorphism, нативный GPU-шейдер.
+ * Оба пути остаются полностью рабочими; выбор делается ЗДЕСЬ, экраны
+ * не трогаем.
  */
 
 export interface GlassCardProps {
@@ -28,10 +37,21 @@ export interface GlassCardProps {
   accessibilityLabel?: string;
 }
 
-/** Стеклянный блок как в ScrollContainer каталога Backdrop:
- *  RoundedRectangle(32dp) + vibrancy + lens(16dp, 32dp), без blur,
- *  без подложки, без бордюра — чистое преломляющее стекло. */
-export function GlassCard({
+/** Стеклянный блок. Движок выбирается по glassEngine (переключается в Glass
+ *  Playground; useSyncExternalStore — перерисовка всех карточек при смене):
+ *  skia — порт каталога Backdrop (RoundedRectangle 32dp + vibrancy + lens),
+ *  agsl — LiquidGlassView (настоящая линза на GPU). */
+export function GlassCard(props: GlassCardProps) {
+  const engine = useSyncExternalStore(
+    subscribeGlassEngine,
+    getGlassEngineSnapshot
+  );
+  if (engine === "agsl") return <AgslGlassCard {...props} />;
+  return <SkiaGlassCard {...props} />;
+}
+
+/** Skia-путь (исходный): чистое преломляющее стекло без blur/подложки/бордюра. */
+function SkiaGlassCard({
   radius = 32,
   intensity = 0,
   overlay,
@@ -41,7 +61,6 @@ export function GlassCard({
   onPress,
   accessibilityLabel,
 }: GlassCardProps) {
-  useTheme();
   const blur = Math.max(0, Math.min(12, intensity / 12));
   const surfaceColor = overlay ?? undefined;
   const effBorder = borderColor ?? null;
