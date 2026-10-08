@@ -3,11 +3,30 @@ import { Image, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { colors, useTheme, BRAND_PURPLE } from "../theme";
 
 /** Кадры лисы с вырезанным фоном (drawable-nodpi/fox_frame_*.png, прозрачные).
- *  Сделаны из анимации пользователя: воксельная лиса, чёрный фон убран
- *  flood-fill от границ (чёрные детали лисы — нос/уши/лапы — сохранены). */
-const FOX_FRAMES = ["fox_frame_0", "fox_frame_1", "fox_frame_2"];
-/** Длительность кадра из исходника: 2.4 с / 3 кадра = 800 мс. */
-const FOX_FRAME_MS = 800;
+ *  Сделаны из анимации пользователя minecraft-fox.gif.mp4: воксельная лиса,
+ *  чёрный фон убран flood-fill от границ (чёрные детали — нос/уши/лапы —
+ *  сохранены), кадры обрезаны по общему bbox 150×99. 14 кадров из 33 после
+ *  дедупликации — полный цикл ~0.7 с, как в исходнике.
+ *  PNG-путь вместо GIF: кастомный uri-резолвер ассетов регистрирует только
+ *  png/jpg (embeddedAssetFileMap), GIF по uri: не отдаётся. */
+const FOX_FRAMES = [
+  "fox_frame_0",
+  "fox_frame_1",
+  "fox_frame_2",
+  "fox_frame_3",
+  "fox_frame_4",
+  "fox_frame_5",
+  "fox_frame_6",
+  "fox_frame_7",
+  "fox_frame_8",
+  "fox_frame_9",
+  "fox_frame_10",
+  "fox_frame_11",
+  "fox_frame_12",
+  "fox_frame_13",
+];
+/** ~0.66 с / 14 кадров ≈ 47 мс; округляем до 50 — JS-таймер тянет спокойно. */
+const FOX_FRAME_MS = 50;
 
 const FOX_FACTS = [
   "Лиса слышит мышь под слоем снега глубиной до метра — и прыгает точно в точку.",
@@ -32,7 +51,7 @@ export default function FoxSplash({ onDone }: { onDone: () => void }) {
   const styles = makeStyles();
   const fact = useMemo(() => FOX_FACTS[Math.floor(Math.random() * FOX_FACTS.length)], []);
 
-  // Покадровая анимация лисы: 3 кадра по 800 мс, зацикленно (splash живёт 2.6 с).
+  // Покадровая анимация: 14 кадров по 50 мс, зацикленно (splash живёт 2.6 с ≈ 4 цикла).
   const [frame, setFrame] = useState(0);
   const frameRef = useRef(0);
   useEffect(() => {
@@ -50,9 +69,9 @@ export default function FoxSplash({ onDone }: { onDone: () => void }) {
 
   return (
     <View style={styles.backdrop}>
-      {/* Анимированная лиса вместо статичного логотипа. Все три кадра
-          отрисованы стопкой и переключаются по opacity — так RN не ждёт
-          decode каждого кадра заново (иначе был бы фликер). */}
+      {/* Анимированная лиса вместо статичного логотипа: все кадры лежат
+          стопкой и переключаются по opacity — RN не передекодирует кадр и
+          нет фликера. Прозрачный фон (кеинг из minecraft-fox.gif.mp4). */}
       <View style={styles.logo}>
         {FOX_FRAMES.map((uri, i) => (
           <Image
@@ -85,8 +104,8 @@ const makeStyles = () =>
       padding: 36,
       zIndex: 999,
     },
-    // Лиса крупнее логотипа (пропорции кадра ~1.37), контейнер под стопку кадров.
-    logo: { width: 132, height: 96, marginBottom: 12, alignItems: "center", justifyContent: "center" },
+    // Лиса крупнее логотипа; пропорции кадра 150×99 (≈1.52). Контейнер под стопку кадров.
+    logo: { width: 136, height: 90, marginBottom: 14 },
     logoFrame: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0 },
     appName: {
       color: BRAND_PURPLE,
