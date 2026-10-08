@@ -552,7 +552,15 @@ function DockedThemedFlow({
   transparent?: boolean;
 }) {
   useTheme();
-  const screenBg = transparent ? "transparent" : colors.bg;
+  // Фон СЦЕНЫ стека. В glass-теме сцены push-экранов НЕЛЬЗЯ делать
+  // прозрачными: нативная анимация стека (slide_from_right) фейдит ВСЮ сцену
+  // через alpha, и на прозрачной сцене сквозь неё видны блоки вкладок и док
+  // («в настройках всё полупрозрачное»); при потерянных кадрах/ANR alpha
+  // залипает < 1 до перезахода в приложение. Поэтому фон сцены — непрозрачный
+  // colors.bg (в glass это #0F0B1E/#F4F2FA), а «воздушный» фон темы рисует
+  // BackOverlay своим <GlassScreenBackdrop/> поверх фона сцены. Прозрачная
+  // сцена осталась только у ThemeTabs — её закрывают непрозрачные push-сцены.
+  const screenBg = colors.bg;
   return (
     <Stack.Navigator
       screenOptions={{ headerShown: false, contentStyle: { backgroundColor: screenBg } }}
@@ -576,9 +584,9 @@ function DockedThemedFlow({
           </TabAreaContext.Provider>
         )}
       </Stack.Screen>
-      <Stack.Screen name="Настройки" component={SettingsWithBack} options={transparent ? { contentStyle: { backgroundColor: "transparent" } } : undefined} />
-      <Stack.Screen name="Тарифы" component={PlansWithBack} options={transparent ? { contentStyle: { backgroundColor: "transparent" } } : undefined} />
-      <Stack.Screen name="Статистика" component={StatsWithBack} options={transparent ? { contentStyle: { backgroundColor: "transparent" } } : undefined} />
+      <Stack.Screen name="Настройки" component={SettingsWithBack} />
+      <Stack.Screen name="Тарифы" component={PlansWithBack} />
+      <Stack.Screen name="Статистика" component={StatsWithBack} />
       <Stack.Screen
         name="Devices"
         component={DevicesScreen}
