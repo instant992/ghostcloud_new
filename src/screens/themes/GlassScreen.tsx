@@ -27,7 +27,7 @@ import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
-import { LiquidGlassSurface, GlassCard, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
+import { GlassCard, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
 import * as stats from "../../stats";
 
 const PURPLE = "#7C3AED";
@@ -35,20 +35,18 @@ const PURPLE = "#7C3AED";
 /** Стеклянная карточка темы Liquid Glass.
  *
  * Раньше — BlurView из expo-blur (только гауссов блюр того, что под карточкой).
- * Теперь — LiquidGlassSurface: настоящий порт эффекта Backdrop
- * (Kyant0/AndroidLiquidGlass, Apache-2.0): vibrancy ⇒ blur ⇒ lens (рефракция по
- * краям скругления) + блик по контуру + тень. Фон семплируется из контекста
- * GlassBackdropProvider (градиент + блобы темы), поэтому карточка «преломляет»
- * именно фон темы, как в референсе.
+ * Теперь — AGSL-движок (react-native-liquid-glassmorphism): настоящее
+ * преломление фона на GPU каждый кадр, контент ВНУТРИ стекла с вуалью
+ * читабельности (legibilityFloor). Фон — фотообои liquid_bg, которые рисует
+ * GlassBackdropProvider, поэтому карточка преломляет именно их, как в референсе.
  *
  * `intensity` сохранён для совместимости вызовов: маппится в силу блюра.
  * Каноническая реализация — в components/liquidGlass/GlassCard, здесь
  * реэкспорт, чтобы у всех разделов темы был один и тот же блок. */
 export { GlassCard } from "../../components/liquidGlass";
 
-/** Главный экран темы Liquid Glass: градиентный фон с блобами рисует
- *  GlassBackdropProvider (Skia), стеклянные карточки и сфера питания — как в
- *  референсе Backdrop. */
+/** Главный экран темы Liquid Glass: фотообои рисует GlassBackdropProvider,
+ *  стеклянные карточки и сфера питания — как в референсе Backdrop. */
 export default function GlassScreen() {
   useTheme();
   const styles = makeStyles();

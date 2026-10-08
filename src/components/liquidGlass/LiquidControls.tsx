@@ -8,7 +8,6 @@ import Animated, {
   interpolateColor,
   ReduceMotion,
 } from "react-native-reanimated";
-import { Canvas, Circle, Fill, Group, BlurMask } from "@shopify/react-native-skia";
 import { LiquidGlassSurface } from "./LiquidGlassSurface";
 import { LIQUID_SPRING } from "./LiquidPressable";
 import { colors, isLightPalette, useTheme } from "../../theme";
@@ -16,40 +15,17 @@ import { colors, isLightPalette, useTheme } from "../../theme";
 /**
  * Каталог Backdrop (Kyant0/AndroidLiquidGlass, Apache-2.0) в RN:
  * LiquidButton — стеклянная капсула 48dp, press scale 1+4dp/height,
- * InteractiveHighlight (белый overlay 0.08 + пятно 0.15, blend Plus);
+ * InteractiveHighlight (белый overlay 0.08 + пятно 0.15);
  * LiquidToggle — дорожка 64×28dp lerp(track→accent), ручка 40×24dp
- * с «дыханием» (scaleX 2/3→0.75→1, scaleY 0→0.75→1, blur 8→0, дисперсия).
+ * с «дыханием» (scaleX 2/3→0.75→1, scaleY 0→0.75→1).
+ *
+ * Рендер стекла — AGSL (LiquidGlassSurface); прежние Skia-канвасы удалены
+ * вместе с движком.
  */
 
-/** Нажимная подсветка: белый overlay + пятно под пальцем, blend Plus. */
-function PressHighlight({
-  press,
-  posX,
-  posY,
-  box,
-  radius,
-}: {
-  press: { value: number };
-  posX: { value: number };
-  posY: { value: number };
-  box: { w: number; h: number };
-  radius: number;
-}) {
-  const spotR = Math.max(box.w, box.h) * 0.6;
-  return (
-    <Canvas
-      pointerEvents="none"
-      style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: "hidden" }]}
-    >
-      <Group blendMode="plus" opacity={press}>
-        <Fill color="rgba(255,255,255,0.08)" />
-        <Circle cx={posX} cy={posY} r={spotR} color="rgba(255,255,255,0.15)">
-          <BlurMask blur={spotR * 0.5} style="normal" />
-        </Circle>
-      </Group>
-    </Canvas>
-  );
-}
+/** Нажимная подсветка каталога InteractiveHighlight на AGSL не переносится —
+ *  её заменяет `interactive` у LiquidGlassView (touch bloom + specular),
+ *  который LiquidGlassSurface включает на любой поверхности с onPress. */
 
 export interface LiquidButtonProps {
   label: string;
@@ -80,9 +56,6 @@ export function LiquidButton({
   const pressedScale = 1 + 4 / height;
 
   const press = useSharedValue(0);
-  const posX = useSharedValue(0);
-  const posY = useSharedValue(0);
-  const [box, setBox] = useState({ w: 1, h: height });
 
   const scaleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: 1 + (pressedScale - 1) * press.value }],
@@ -104,9 +77,7 @@ export function LiquidButton({
         <Pressable
           disabled={disabled}
           onPress={onPress}
-          onPressIn={(e) => {
-            posX.value = e.nativeEvent.locationX;
-            posY.value = e.nativeEvent.locationY;
+          onPressIn={() => {
             press.value = withSpring(1, LIQUID_SPRING);
           }}
           onPressOut={() => {
@@ -116,13 +87,7 @@ export function LiquidButton({
           accessibilityLabel={accessibilityLabel ?? label}
           accessibilityState={{ disabled }}
           style={btnStyles.inner}
-          onLayout={(e) => {
-            const w = e.nativeEvent.layout.width;
-            const h = e.nativeEvent.layout.height;
-            if (w > 0 && h > 0) setBox({ w, h });
-          }}
         >
-          {variant === "glass" && <PressHighlight press={press} posX={posX} posY={posY} box={box} radius={radius} />}
           <Text
             style={[
               { color: variant === "filled" ? "#fff" : colors.text, fontWeight: "700", fontSize: 15 },

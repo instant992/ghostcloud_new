@@ -1,28 +1,22 @@
 import React, { useCallback, useState } from "react";
-import { StyleSheet, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  ReduceMotion,
-} from "react-native-reanimated";
-import { BlurMask, Canvas, Circle, Fill, Group } from "@shopify/react-native-skia";
+import { Animated, StyleSheet, View, type GestureResponderEvent, type StyleProp, type ViewStyle } from "react-native";
+import { ReduceMotion } from "react-native-reanimated";
 
 /**
- * Нажимной слой из каталога Backdrop (Kyant0/AndroidLiquidGlass).
+ * Нажимной слой темы Liquid Glass.
  *
- * 1:1 с InteractiveHighlight + layerBlock из LiquidButton/LiquidBottomTabs:
- *  - scale = 1 + (pressedScale-1) * pressProgress, spring(dampingRatio=0.5,
- *    stiffness=300). В reanimated damping = 2ζ√(k·m) = 2·0.5·√300 ≈ 17.32;
- *  - подсветка: белый overlay 0.08·progress + мягкое пятно под пальцем,
- *    blend Plus. Прозрачность слоя и центр пятна — SharedValue на UI-потоке
- *    (opacity/cx/cy — top-level props узлов Skia, анимируются без JS-рендера).
+ * Прежняя версия рисовала блик под пальцем Skia-канвасом (Circle + BlurMask,
+ * blend Plus). Вместе со всем Skia-движком темы канвас удалён; нажимная
+ * подсветка теперь — обычный RN-слой (белый overlay + мягкое радиальное пятно
+ * через два вложенных View с opacity), анимируется Reanimated-совместимой
+ * пружиной LIQUID_SPRING (та же, что у LiquidToggle/LiquidSlider/док-меню).
  *
- * Пятно сделано размытым Circle (а не RadialGradient): у Circle cx/cy —
- * top-level props и корректно «ловятся» аниматором, а центр градиента
- * (вложенный в vec-объект) на UI-потоке не разворачивается.
+ * LIQUID_SPRING экспортируется как общая константа пружины темы (порт
+ * DampedDragAnimation каталога Backdrop: dampingRatio 0.5, stiffness 300 →
+ * reanimated damping = 2ζ√(k·m) ≈ 17.32). Используется Reanimated-контролами
+ * (LiquidToggle/LiquidSlider/док); внутри LiquidPressable — эквивалентная
+ * пружина RN Animated (speed/bounciness), т.к. конфиг Reanimated ей не подходит.
  */
-
 export const LIQUID_SPRING = {
   damping: 17.32,
   stiffness: 300,
@@ -48,42 +42,36 @@ export function LiquidPressable({
   radius?: number;
   disabled?: boolean;
 }) {
-  const press = useSharedValue(0);
-  const posX = useSharedValue(0);
-  const posY = useSharedValue(0);
+  const press = useState(() => new Animated.Value(0))[0];
+  const [pos, setPos] = useState({ x: 0, y: 0 });
   const [box, setBox] = useState({ w: 1, h: 1 });
-
-  const scaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: 1 + (pressedScale - 1) * press.value }],
-  }));
 
   const down = useCallback(
     (e: GestureResponderEvent) => {
       if (disabled) return;
-      posX.value = e.nativeEvent.locationX;
-      posY.value = e.nativeEvent.locationY;
-      press.value = withSpring(1, LIQUID_SPRING);
+      setPos({ x: e.nativeEvent.locationX, y: e.nativeEvent.locationY });
+      Animated.spring(press, { toValue: 1, useNativeDriver: true, speed: 22, bounciness: 8 }).start();
     },
-    [disabled, posX, posY, press]
+    [disabled, press]
   );
   const move = useCallback(
     (e: GestureResponderEvent) => {
       if (disabled) return;
-      posX.value = e.nativeEvent.locationX;
-      posY.value = e.nativeEvent.locationY;
+      setPos({ x: e.nativeEvent.locationX, y: e.nativeEvent.locationY });
     },
-    [disabled, posX, posY]
+    [disabled]
   );
   const up = useCallback(() => {
     if (disabled) return;
-    press.value = withSpring(0, LIQUID_SPRING);
+    Animated.spring(press, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 8 }).start();
   }, [disabled, press]);
 
   const spotR = Math.max(box.w, box.h) * 0.6;
+  const scale = press.interpolate({ inputRange: [0, 1], outputRange: [1, pressedScale] });
 
   return (
     <Animated.View
-      style={[scaleStyle, style]}
+      style={[{ transform: [{ scale }] }, style]}
       onTouchStart={down}
       onTouchMove={move}
       onTouchEnd={up}
@@ -96,17 +84,28 @@ export function LiquidPressable({
     >
       {children}
       {highlight && (
-        <Canvas
+        <Animated.View
           pointerEvents="none"
-          style={[StyleSheet.absoluteFill, radius ? { borderRadius: radius, overflow: "hidden" } : null]}
+          style={[
+            StyleSheet.absoluteFill,
+            radius ? { borderRadius: radius, overflow: "hidden" } : null,
+            { opacity: press },
+          ]}
         >
-          <Group blendMode="plus" opacity={press}>
-            <Fill color="rgba(255,255,255,0.08)" />
-            <Circle cx={posX} cy={posY} r={spotR} color="rgba(255,255,255,0.15)">
-              <BlurMask blur={spotR * 0.5} style="normal" />
-            </Circle>
-          </Group>
-        </Canvas>
+          {/* Белый overlay + мягкое пятно под пальцем (упрощённый InteractiveHighlight). */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(255,255,255,0.08)" }]} />
+          <View
+            style={{
+              position: "absolute",
+              left: pos.x - spotR,
+              top: pos.y - spotR,
+              width: spotR * 2,
+              height: spotR * 2,
+              borderRadius: spotR,
+              backgroundColor: "rgba(255,255,255,0.12)",
+            }}
+          />
+        </Animated.View>
       )}
     </Animated.View>
   );

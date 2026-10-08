@@ -1,4 +1,4 @@
-import React, { useEffect, useSyncExternalStore } from "react";
+import React, { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import Animated, {
   useSharedValue,
@@ -8,34 +8,23 @@ import Animated, {
 } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { LiquidGlassSurface } from "./LiquidGlassSurface";
-import { AgslBottomTabs } from "./AgslBottomTabs";
-import { subscribeGlassEngine, getGlassEngineSnapshot } from "./glassEngine";
+import { LiquidGlassView } from "react-native-liquid-glassmorphism";
 import { colors, isLightPalette, useTheme } from "../../theme";
 
 /**
- * Порт `LiquidBottomTabs` + `LiquidBottomTab` из каталога Backdrop
- * (Kyant0/AndroidLiquidGlass, Apache-2.0).
+ * Нижнее меню темы Liquid Glass на движке AGSL
+ * (react-native-liquid-glassmorphism).
  *
- * Точные параметры каталога:
- *  - ПАНЕЛЬ: `Capsule()`, высота 64dp, padding 4dp, эффекты
- *    `vibrancy() + blur(8dp) + lens(24dp, 24dp)`, подложка containerColor =
- *    `#FAFAFA@0.4` (светлая) / `#121212@0.4` (тёмная); при нажатии
- *    `scale = 1 + 16dp/width`.
- *  - ИНДИКАТОР: высота 56dp, ширина = (W − 8dp)/tabsCount,
- *    `translationX = index·tabWidth`. В ПОКОЕ у него НЕТ стеклянных эффектов:
- *    `lens(10dp·progress, 14dp·progress, chromaticAberration)` при progress=0
- *    вырождается в ноль, `highlight`/`shadow`/`innerShadow` тоже умножаются на
- *    progress. Видна только подложка `White@0.1` (тёмная тема) /
- *    `Black@0.1` (светлая) — поэтому индикатор реализован обычными View,
- *    а не Skia-снимком: это и точнее, и не требует перерендера при скольжении.
- *  - АКЦЕНТНЫЙ КОНТЕНТ: в каталоге индикатор сэмплирует «тонированный» слой
- *    (`ColorFilter.tint(accentColor)`), поэтому внутри него иконки и подписи
- *    акцентные, а снаружи — обычные. Здесь то же самое сделано скользящим окном:
- *    под индикатором лежит слой акцентных вкладок, который контр-сдвигается на
- *    −translationX, чтобы оставаться выровненным по базовому ряду.
- *  - ВКЛАДКА (`LiquidBottomTab`): колонка иконка 28dp + подпись 12sp,
- *    шаг 2dp, `scale = lerp(1, 1.2, pressProgress)`.
+ * Прежний Skia-порт каталога Backdrop удалён вместе с движком; визуальная
+ * схема каталога сохранена: стеклянная капсула 64dp (пресет floatingTabBar —
+ * полная толщина линзы, живая кромка) и скользящий индикатор-«капля» —
+ * ОТДЕЛЬНАЯ стеклянная поверхность, которая преломляет капсулу под собой.
+ * Две стеклянные поверхности на весь док: каждая захватывает свой бэкдроп,
+ * плодить их на вкладку нельзя.
+ *
+ * Контент вкладок дублирован акцентным слоем под каплей с контр-сдвигом
+ * (приём каталога ColorFilter.tint): внутри индикатора иконки/подписи
+ * акцентные, снаружи — обычные.
  */
 
 export type LiquidTabItem = {
@@ -54,19 +43,7 @@ export interface LiquidBottomTabsProps {
   style?: any;
 }
 
-/**
- * Нижнее меню. Движок выбирается по glassEngine (переключается в Glass
- * Playground): skia — порт каталога Backdrop, agsl — LiquidGlassView.
- * Оба пути остаются рабочими; выбор здесь, экраны не трогаем.
- */
-export function LiquidBottomTabs(props: LiquidBottomTabsProps) {
-  const engine = useSyncExternalStore(subscribeGlassEngine, getGlassEngineSnapshot);
-  if (engine === "agsl") return <AgslBottomTabs {...props} />;
-  return <SkiaBottomTabs {...props} />;
-}
-
-/** Skia-путь (исходный порт LiquidBottomTabs из каталога Backdrop). */
-function SkiaBottomTabs({
+export function LiquidBottomTabs({
   items,
   selectedIndex,
   onSelect,
@@ -79,10 +56,9 @@ function SkiaBottomTabs({
   const pad = 4; // padding панели из каталога
   const indicatorH = height - pad * 2; // 56dp при height=64
 
-  // containerColor панели (точные значения каталога).
-  const containerColor = light ? "rgba(250,250,250,0.4)" : "rgba(18,18,18,0.4)";
-  // Подложка индикатора в покое: White@0.1 (тёмная) / Black@0.1 (светлая).
-  const veil = light ? "rgba(0,0,0,0.10)" : "rgba(255,255,255,0.10)";
+  // Вуаль капли в покое (как White@0.1 / Black@0.1 каталога) — лёгкая,
+  // чтобы акцентный контент читался, но стекло оставалось стеклом.
+  const dropTint = light ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.08)";
 
   const [box, setBox] = React.useState({ w: 0 });
   const tabWidth = box.w > 0 ? (box.w - pad * 2) / count : 0;
@@ -100,6 +76,8 @@ function SkiaBottomTabs({
     });
   }, [selectedIndex, indexAnim]);
 
+  // ВАЖНО: translateX и scale — в РАЗНЫХ Animated.View. Два useAnimatedStyle
+  // с `transform` в одном массиве стилей не складываются: второй затирает первый.
   const indicatorStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: indexAnim.value * tabWidth }],
   }));
@@ -138,13 +116,17 @@ function SkiaBottomTabs({
   };
 
   return (
-    <LiquidGlassSurface
-      radius={height / 2}
-      preset="tabBar"
-      surfaceColor={containerColor}
-      borderWidth={0}
-      style={[{ height }, style]}
-    >
+    <View style={[{ height }, style]}>
+      {/* Капсула панели: пресет floatingTabBar библиотеки (полная линза,
+          живая кромка) — стекло НА ВСЮ ширину дока, контент вкладок — дети. */}
+      <LiquidGlassView
+        preset="floatingTabBar"
+        borderRadius={height / 2}
+        tintColor={light ? "rgba(250,250,250,0.28)" : "rgba(18,18,18,0.32)"}
+        legibilityFloor={light ? 0.14 : 0.06}
+        style={StyleSheet.absoluteFill}
+      />
+
       <View
         style={{ flex: 1, padding: pad }}
         onLayout={(e) => {
@@ -152,7 +134,7 @@ function SkiaBottomTabs({
           if (w > 0) setBox((p) => (Math.abs(p.w - w) > 0.5 ? { w } : p));
         }}
       >
-        {/* Базовый ряд: все вкладки в обычном цвете (как content панели). */}
+        {/* Базовый ряд: все вкладки обычным цветом (как content панели). */}
         <View style={tabStyles.row} pointerEvents="box-none">
           {items.map((it, i) => (
             <Pressable
@@ -174,7 +156,8 @@ function SkiaBottomTabs({
           ))}
         </View>
 
-        {/* Скользящий индикатор: окно шириной tabWidth, внутри — акцентный ряд. */}
+        {/* Скользящая капля-индикатор: отдельная стеклянная поверхность —
+            преломляет капсулу/фон под собой, как «glass drop» в демо. */}
         {tabWidth > 0 && (
           <Animated.View
             pointerEvents="none"
@@ -185,16 +168,19 @@ function SkiaBottomTabs({
                 top: pad,
                 width: tabWidth,
                 height: indicatorH,
-                borderRadius: indicatorH / 2,
-                overflow: "hidden",
-                backgroundColor: veil,
               },
               indicatorStyle,
             ]}
           >
-            {/* ВАЖНО: translateX и scale — в РАЗНЫХ Animated.View. Два
-                useAnimatedStyle с `transform` в одном массиве стилей не
-                складываются: второй затирает первый. */}
+            <LiquidGlassView
+              variant="regular"
+              borderRadius={indicatorH / 2}
+              tintColor={dropTint}
+              blurRadius={2}
+              thickness={1.2}
+              style={StyleSheet.absoluteFill}
+            />
+            {/* Акцентный ряд внутри капли, контр-сдвинутый. */}
             <Animated.View style={[{ width: box.w - pad * 2, height: indicatorH }, accentLayerStyle]}>
               <View style={tabStyles.row}>
                 {items.map((it) => (
@@ -207,7 +193,7 @@ function SkiaBottomTabs({
           </Animated.View>
         )}
       </View>
-    </LiquidGlassSurface>
+    </View>
   );
 }
 

@@ -1,8 +1,6 @@
-import React, { useSyncExternalStore } from "react";
+import React from "react";
 import { ActivityIndicator, Text, type StyleProp, type ViewStyle } from "react-native";
 import { LiquidGlassSurface } from "./LiquidGlassSurface";
-import { AgslGlassCard } from "./AgslGlassCard";
-import { subscribeGlassEngine, getGlassEngineSnapshot } from "./glassEngine";
 import { useTheme, isLightPalette, colors } from "../../theme";
 
 /**
@@ -12,12 +10,10 @@ import { useTheme, isLightPalette, colors } from "../../theme";
  * «Профиль» (и любые будущие glass-экраны) использовали ТОТ ЖЕ блок и кнопку,
  * что главная и меню — единый дизайн, а не отдельные копии стилей.
  *
- * Рендерится одним из двух движков (переключатель «Движок стекла» в Glass
- * Playground, хранение gc_settings `glass_engine`):
- * - `skia` (по умолчанию) — RN Skia, offscreen-снимки;
- * - `agsl` — react-native-liquid-glassmorphism, нативный GPU-шейдер.
- * Оба пути остаются полностью рабочими; выбор делается ЗДЕСЬ, экраны
- * не трогаем.
+ * Движок один — AGSL (react-native-liquid-glassmorphism): LiquidGlassSurface
+ * рисует нативное стекло с преломлением, а контент блока лежит ВНУТРИ стекла
+ * (legibilityFloor даёт вуаль читабельности под текстом — жалоба «текст внутри
+ * стекла тонет» исправлена именно этим).
  */
 
 export interface GlassCardProps {
@@ -25,11 +21,10 @@ export interface GlassCardProps {
   radius?: number;
   /** 0..100 → сила блюра (дефолт блока ScrollContainer = 0: чистая линза). */
   intensity?: number;
-  /** Полупрозрачная подложка поверх стекла (containerColor). По умолчанию НЕТ:
+  /** Полупрозрачная подложка поверх стекла (tint). По умолчанию НЕТ:
    *  блок ScrollContainer — прозрачное стекло без подложки. */
   overlay?: string;
-  /** Обводка; по умолчанию НЕТ — край блока читается бликом и преломлением,
-   *  как в ScrollContainerContent (drawBackdrop без бордюра). */
+  /** Обводка; по умолчанию НЕТ — край блока читается бликом и преломлением. */
   borderColor?: string | null;
   style?: StyleProp<ViewStyle>;
   children?: React.ReactNode;
@@ -37,21 +32,8 @@ export interface GlassCardProps {
   accessibilityLabel?: string;
 }
 
-/** Стеклянный блок. Движок выбирается по glassEngine (переключается в Glass
- *  Playground; useSyncExternalStore — перерисовка всех карточек при смене):
- *  skia — порт каталога Backdrop (RoundedRectangle 32dp + vibrancy + lens),
- *  agsl — LiquidGlassView (настоящая линза на GPU). */
-export function GlassCard(props: GlassCardProps) {
-  const engine = useSyncExternalStore(
-    subscribeGlassEngine,
-    getGlassEngineSnapshot
-  );
-  if (engine === "agsl") return <AgslGlassCard {...props} />;
-  return <SkiaGlassCard {...props} />;
-}
-
-/** Skia-путь (исходный): чистое преломляющее стекло без blur/подложки/бордюра. */
-function SkiaGlassCard({
+/** Стеклянный блок — чистое преломляющее стекло без blur/подложки/бордюра. */
+export function GlassCard({
   radius = 32,
   intensity = 0,
   overlay,
@@ -61,16 +43,15 @@ function SkiaGlassCard({
   onPress,
   accessibilityLabel,
 }: GlassCardProps) {
-  const blur = Math.max(0, Math.min(12, intensity / 12));
-  const surfaceColor = overlay ?? undefined;
-  const effBorder = borderColor ?? null;
+  // intensity 0..100 → blur dp 0..12 (дефолт ScrollContainer = 0).
+  const blur = Math.max(0, Math.min(12, (intensity / 100) * 12));
   return (
     <LiquidGlassSurface
       radius={radius}
       preset="scroll"
       blur={blur}
-      surfaceColor={surfaceColor}
-      borderColor={effBorder}
+      surfaceColor={overlay ?? null}
+      borderColor={borderColor ?? null}
       borderWidth={1}
       onPress={onPress}
       accessibilityLabel={accessibilityLabel}
@@ -99,11 +80,9 @@ export interface GlassButtonProps {
 /**
  * Стеклянная кнопка-капсула — порт LiquidButton из каталога Backdrop.
  *
- * Каталог: `Capsule()` + `vibrancy()` + `blur(2dp)` + `lens(12dp, 24dp)`,
- * по умолчанию tint/surfaceColor НЕ заданы → кнопка полностью прозрачная
- * («Transparent Liquid Button»). Tint-вариант в каталоге делается как
- * `drawRect(tint, BlendMode.Hue)` + `drawRect(tint@0.75)`; в RN Skia мы
- * достигаем того же подложкой с насыщенным оттенком.
+ * По умолчанию tint/surfaceColor НЕ заданы → кнопка полностью прозрачная
+ * («Transparent Liquid Button»). Tint-варианты получают насыщенный оттенок
+ * через tintColor стекла.
  */
 export function GlassButton({
   title,
@@ -121,7 +100,7 @@ export function GlassButton({
 
   const isTransparent = variant === "transparent" || variant === "ghost";
 
-  // Tint-кнопки: оттенок поверх стекла (аналог drawRect(tint) из каталога).
+  // Tint-кнопки: оттенок стекла (аналог drawRect(tint) из каталога).
   const tint =
     variant === "danger"
       ? light ? "rgba(220,38,38,0.62)" : "rgba(220,60,60,0.60)"
@@ -129,11 +108,7 @@ export function GlassButton({
       ? colors.accentDeep
       : undefined;
 
-  const textColor = isTransparent
-    ? colors.text
-    : variant === "danger"
-    ? "#FFFFFF"
-    : "#FFFFFF";
+  const textColor = isTransparent ? colors.text : "#FFFFFF";
 
   const height = size === "sm" ? 40 : 48;
   const fontSize = size === "sm" ? 13 : 15;
@@ -142,8 +117,9 @@ export function GlassButton({
     <LiquidGlassSurface
       radius={height / 2}
       preset="button"
-      surfaceColor={tint}
+      surfaceColor={tint ?? null}
       borderWidth={0}
+      shadow={false}
       onPress={disabled ? undefined : onPress}
       accessibilityLabel={accessibilityLabel ?? title}
       style={[

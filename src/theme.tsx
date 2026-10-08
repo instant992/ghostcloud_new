@@ -167,24 +167,6 @@ const glassDark: Palette = {
   gradient: ["#7C3AED", "#8B5CF6"],
 };
 
-const glassLight: Palette = {
-  bg: "#E8E6EE",
-  bgSoft: "#E4E2EA",
-  card: "#DCDAE4",
-  cardLight: "#D4D2DC",
-  border: "#B0B0C0",
-  text: "#1A1A22",
-  textDim: "#48485A",
-  textFaint: "#585868",
-  accent: "#8B5CF6",
-  accentDeep: "#7C3AED",
-  accentSoft: "rgba(139,92,246,0.12)",
-  green: "#036546",
-  red: "#DC2626",
-  orange: "#854904",
-  gradient: ["#7C3AED", "#8B5CF6"],
-};
-
 // ── FoxCloud ──
 const foxcloudDark: Palette = {
   bg: "#110E0A",
@@ -375,7 +357,10 @@ const PALETTES: Record<ThemeName, PalettePair> = {
   default: { dark: defaultDark, light: defaultLight },
   minimalist: { dark: minimalistDark, light: minimalistLight },
   v2ray: { dark: v2rayDark, light: v2rayLight },
-  glass: { dark: glassDark, light: glassLight },
+  // Liquid Glass закреплена на ТЁМНОЙ палитре (дизайн-решение): фон темы —
+  // тёмные фотообои liquid_bg, текст всегда светлый; переключатель свет/тьма
+  // для этой темы игнорируется.
+  glass: { dark: glassDark, light: glassDark },
   foxcloud: { dark: foxcloudDark, light: foxcloudLight },
   pickme: { dark: pickmeDark, light: pickmeLight },
   happ: { dark: happDark, light: happLight },
