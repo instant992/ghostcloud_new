@@ -45,7 +45,7 @@ import { TabChain } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
 import { SecurityAlertModal } from "./src/components/SecurityAlertModal";
 import { ToastHost } from "./src/components/Toast";
-import { TabAreaContext } from "./src/components/UI";
+import { TabAreaContext, useScreenBgColor } from "./src/components/UI";
 import { themeHasQuickNav } from "./src/components/QuickNavBar";
 import { getThemeName } from "./src/settings";
 import { IS_TV } from "./src/tv";
@@ -197,9 +197,13 @@ function BackOverlay({ children, toParent }: { children: React.ReactNode; toPare
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
   useTheme();
+  // В теме Liquid Glass фон push-экранов должен быть прозрачным: обои рисует
+  // GlassBackdropProvider под стеком, а непрозрачный colors.bg (#0C0C12)
+  // перекрывал их — экран выглядел чёрным, стеклу нечего было преломлять.
+  const screenBg = useScreenBgColor();
   const backToHome = !toParent && !themeHasQuickNav(getThemeName());
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+    <View style={{ flex: 1, backgroundColor: screenBg }}>
       {children}
       <View
         pointerEvents="box-none"
@@ -572,43 +576,43 @@ function DockedThemedFlow({
       <Stack.Screen
         name="Devices"
         component={DevicesScreen}
-        options={{ headerShown: true, title: "Устройства", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "Устройства", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen
         name="Referral"
         component={ReferralScreen}
-        options={{ headerShown: true, title: "Рефералы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "Рефералы", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen
         name="TopUp"
         component={TopUpScreen}
-        options={{ headerShown: true, title: "Пополнение баланса", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "Пополнение баланса", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen
         name="Support"
         component={SupportScreen}
-        options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen
         name="SupportTicket"
         component={SupportTicketScreen}
-        options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen name="SponsorLeaderboard" component={SponsorLeaderboardScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="About"
         component={AboutScreen}
-        options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen
         name="Game"
         component={GameScreen}
-        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen
         name="Requests"
         component={RequestsScreen}
-        options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
       <Stack.Screen name="Appearance" component={AppearanceWithBack} />
       <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />

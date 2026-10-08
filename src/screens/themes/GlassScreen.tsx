@@ -19,7 +19,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
-import { colors, splitNameFlag, formatBytes, useTheme, pingColor as pingColorFor, pingFailLabel, BRAND_PURPLE } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor as pingColorFor, pingFailLabel } from "../../theme";
 import { PowerButton } from "../../components/PowerButton";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { transportLabel } from "../../utils/transportLabel";
@@ -30,7 +30,9 @@ import { ServerSheet } from "./ServerSheet";
 import { GlassCard, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
 import * as stats from "../../stats";
 
-const PURPLE = "#7C3AED";
+// Акцент стекла — яркий циан палитры (colors.accent): фиолетовый #7C3AED
+// терялся на светящихся блобах обоев liquid_bg.
+const PURPLE = "#67E8F9";
 
 /** Стеклянная карточка темы Liquid Glass.
  *
@@ -275,13 +277,13 @@ export default function GlassScreen() {
             alignItems: "center",
             paddingHorizontal: 14,
             paddingVertical: 10,
-            borderColor: "rgba(124,58,237,0.45)",
+            borderColor: "rgba(103,232,249,0.5)",
           }}
         >
           <View
             style={[
               styles.lteIconBox,
-              { backgroundColor: "rgba(124,58,237,0.18)" },
+              { backgroundColor: "rgba(103,232,249,0.16)" },
             ]}
           >
             {lteBusy ? (
@@ -437,7 +439,10 @@ const makeStyles = () => StyleSheet.create({
   screen: { flex: 1, backgroundColor: "transparent" },
   headerLogo: { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
-    color: BRAND_PURPLE,
+    // Акцент темы (циан) вместо BRAND_PURPLE: фирменный фиолетовый #A855F7
+    // терялся на светящихся блобах обоев liquid_bg (контраст 2.5). Меняем
+    // только в GlassScreen — остальные темы сохраняют фиолетовый заголовок.
+    color: colors.accent,
     fontSize: 26,
     fontWeight: "700",
     letterSpacing: -0.5,
@@ -475,7 +480,7 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 5,
-    backgroundColor: "rgba(124,58,237,0.15)",
+    backgroundColor: "rgba(103,232,249,0.14)",
   },
   lteBetaText: { color: PURPLE, fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
   serverRow: {

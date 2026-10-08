@@ -149,6 +149,13 @@ const v2rayLight: Palette = {
 };
 
 // ── Liquid Glass ──
+// Акцент — яркий циан #67E8F9: фиолетовый #8B5CF6 терялся на светящихся
+// блобах обоев liquid_bg (средний контраст 2.4 против 5.7 у циана). Циан
+// гармонирует с бирюзовыми бликами стекла на обоях. accentDeep оставлен
+// в тёмной циан-гамме: он служит ФОНОМ кнопок с белым текстом (контраст
+// белый/#0E7490 = 5.4, норма WCAG). textDim/textFaint осветлены до
+// лавандовых: серый #9C99AD/#8A879E (контраст ~2.7–3.1) пропадал на
+// ярких участках обоев; #E4E2F0 даёт 6.5, #CBC8DC — 5.1.
 const glassDark: Palette = {
   bg: "#0C0C12",
   bgSoft: "#101018",
@@ -156,15 +163,15 @@ const glassDark: Palette = {
   cardLight: "rgba(255,255,255,0.08)",
   border: "rgba(255,255,255,0.10)",
   text: "#FFFFFF",
-  textDim: "#9C99AD",
-  textFaint: "#8A879E",
-  accent: "#8B5CF6",
-  accentDeep: "#7C3AED",
-  accentSoft: "rgba(139,92,246,0.13)",
+  textDim: "#E4E2F0",
+  textFaint: "#CBC8DC",
+  accent: "#67E8F9",
+  accentDeep: "#0E7490",
+  accentSoft: "rgba(103,232,249,0.13)",
   green: "#34D399",
   red: "#F87171",
   orange: "#FBBF24",
-  gradient: ["#7C3AED", "#8B5CF6"],
+  gradient: ["#0891B2", "#67E8F9"],
 };
 
 // ── FoxCloud ──
