@@ -38,7 +38,7 @@ import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
-import { GlassBackdropProvider, LiquidBottomTabs } from "./src/components/liquidGlass";
+import { GlassBackdropProvider, GlassScreenBackdrop, LiquidBottomTabs } from "./src/components/liquidGlass";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import AwgScreen from "./src/screens/themes/AwgScreen";
 import { TabChain } from "./src/components/TabIcon";
@@ -196,14 +196,19 @@ function AuthStack() {
 function BackOverlay({ children, toParent }: { children: React.ReactNode; toParent?: boolean }) {
   const nav = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  useTheme();
-  // В теме Liquid Glass фон push-экранов должен быть прозрачным: обои рисует
-  // GlassBackdropProvider под стеком, а непрозрачный colors.bg (#0C0C12)
-  // перекрывал их — экран выглядел чёрным, стеклу нечего было преломлять.
+  const theme = useTheme();
+  // Фон push-экрана. В теме Liquid Glass экран НЕЛЬЗЯ оставлять прозрачным:
+  // push-сцена лежит поверх вкладок, и сквозь прозрачный фон просвечивали их
+  // блоки и нижний док («в настройках всё полупрозрачное/слишком светлое»).
+  // Поэтому здесь — собственный непрозрачный слой фона темы (тот же SVG, что
+  // рисует провайдер, пиксель-в-пиксель): экран полностью закрывает вкладки,
+  // а стеклу есть что преломлять. В остальных темах — обычный colors.bg.
   const screenBg = useScreenBgColor();
+  const glassBg = theme.style === "glass";
   const backToHome = !toParent && !themeHasQuickNav(getThemeName());
   return (
     <View style={{ flex: 1, backgroundColor: screenBg }}>
+      {glassBg ? <GlassScreenBackdrop /> : null}
       {children}
       <View
         pointerEvents="box-none"

@@ -72,7 +72,7 @@ export default function SubscriptionScreen() {
         <Text style={styles.pageSub}>Управляйте своей подпиской и меняйте параметры</Text>
 
         {/* Статус подписки — стеклянная hero-карточка */}
-        <GlassCard radius={26} style={{ padding: 20, marginBottom: 12 }}>
+        <GlassCard radius={32} style={{ padding: 20, marginBottom: 12 }}>
           <View
             style={[
               styles.statusPill,
@@ -105,7 +105,7 @@ export default function SubscriptionScreen() {
         </GlassCard>
 
         {/* Трафик */}
-        <GlassCard radius={22} style={{ padding: 16, marginBottom: 12 }}>
+        <GlassCard radius={26} style={{ padding: 16, marginBottom: 12 }}>
           <Text style={styles.cardTitle}>Трафик подписки</Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
             <Text style={styles.cardRow}>Использовано сегодня:</Text>
@@ -119,7 +119,7 @@ export default function SubscriptionScreen() {
 
         {/* Устройства */}
         <GlassCard
-          radius={22}
+          radius={26}
           style={{ padding: 16, marginBottom: 12 }}
           onPress={() => nav.navigate("Devices")}
           accessibilityLabel="Мои устройства"
@@ -140,7 +140,7 @@ export default function SubscriptionScreen() {
 
         {/* Баланс */}
         <GlassCard
-          radius={22}
+          radius={26}
           style={{ padding: 16, marginBottom: 12 }}
           onPress={() => setBalanceOpen(true)}
           accessibilityLabel="Баланс и история операций"

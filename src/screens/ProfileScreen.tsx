@@ -60,7 +60,7 @@ import { showToast } from "../components/Toast";
  *  общие Card/Button из UI.tsx. Модульные компоненты (не инлайн) — стабильная
  *  идентичность, без ремаунтов при ре-рендере. */
 function ThemeCard({ glass, children, style }: { glass: boolean; children: React.ReactNode; style?: any }) {
-  return glass ? <GlassCard radius={26} style={style}>{children}</GlassCard> : <Card style={style}>{children}</Card>;
+  return glass ? <GlassCard radius={32} style={style}>{children}</GlassCard> : <Card style={style}>{children}</Card>;
 }
 
 function ThemeButton(p: {
@@ -75,7 +75,7 @@ function ThemeButton(p: {
   return glass ? <GlassButton {...rest} /> : <Button {...rest} />;
 }
 
-/** Оболочка без внутреннего отступа (меню): glass → GlassCard radius 22,
+/** Оболочка без внутреннего отступа (меню): glass → GlassCard radius 26,
  *  иначе — обычный View со стилями menuCard вызывающей стороны. */
 function ShellBlock({
   glass,
@@ -87,7 +87,7 @@ function ShellBlock({
   plainStyle?: any;
 }) {
   return glass ? (
-    <GlassCard radius={22} style={{ marginBottom: 12 }}>{children}</GlassCard>
+    <GlassCard radius={26} style={{ marginBottom: 12 }}>{children}</GlassCard>
   ) : (
     <View style={plainStyle}>{children}</View>
   );

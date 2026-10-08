@@ -274,7 +274,7 @@ export default function GlassScreen() {
 
         {/* LTE OPEN — всегда включён, раздел виден постоянно */}
         <GlassCard
-          radius={22}
+          radius={26}
           overlay="rgba(124,58,237,0.12)"
           style={{
             flexDirection: "row",
@@ -325,7 +325,7 @@ export default function GlassScreen() {
         </GlassCard>
 
         {/* Карточка сервера + фильтр соединения */}
-        <GlassCard radius={26} style={{ marginTop: 8 }}>
+        <GlassCard radius={32} style={{ marginTop: 8 }}>
           <Pressable
             style={styles.serverRow}
             onPress={() => setPickerOpen(true)}
@@ -389,7 +389,7 @@ export default function GlassScreen() {
         {/* Трафик за сегодня — как в основной теме: две плитки Отправлено/Получено */}
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <GlassCard
-            radius={22}
+            radius={26}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 }}
             onPress={() => nav.navigate("Статистика")}
           >
@@ -402,7 +402,7 @@ export default function GlassScreen() {
             </View>
           </GlassCard>
           <GlassCard
-            radius={22}
+            radius={26}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 }}
             onPress={() => nav.navigate("Статистика")}
           >
