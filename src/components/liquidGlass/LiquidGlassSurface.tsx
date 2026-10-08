@@ -66,11 +66,12 @@ export const GLASS_PRESETS: Record<GlassPresetName, PresetCfg> = {
   sliderKnob: { blur: 8, thickness: 0.9, iridescence: 0.2, legibility: 0 },
 };
 
-/** Дефолтная тонировка стекла темы: ПРИГЛУШЁННЫЙ фирменный фиолетовый.
+/** Дефолтная тонировка стекла темы.
  *  Без явного tintColor натив рисует белую вуаль ~18% (DEFAULT_REGULAR_TINT_ALPHA)
- *  — стекло выглядело белёсым. Пользователь хочет фиолетовое, но не яркое:
- *  альфа ниже нативного белого дефолта, оттенок — brand-фиолетовый палитры. */
-export const GLASS_TINT_DEFAULT_DARK = "rgba(139,92,246,0.13)";
+ *  — стекло выглядело белёсым. Пользователь хочет ТЁМНОЕ стекло «как меню»
+ *  (док: rgba(18,18,18,0.32)) с фиолетовым подтоном: тёмный баклажан ~34%
+ *  в тёмной теме; в светлой — мягкий фиолетовый, чтобы блоки не чернели. */
+export const GLASS_TINT_DEFAULT_DARK = "rgba(26,18,46,0.34)";
 export const GLASS_TINT_DEFAULT_LIGHT = "rgba(124,58,237,0.09)";
 
 export interface LiquidGlassSurfaceProps {
