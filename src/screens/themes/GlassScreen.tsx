@@ -19,7 +19,7 @@ import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
-import { colors, splitNameFlag, formatBytes, useTheme, pingColor as pingColorFor, pingFailLabel } from "../../theme";
+import { colors, splitNameFlag, formatBytes, useTheme, pingColor as pingColorFor, pingFailLabel, BRAND_PURPLE } from "../../theme";
 import { PowerButton } from "../../components/PowerButton";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { transportLabel } from "../../utils/transportLabel";
@@ -30,24 +30,23 @@ import { ServerSheet } from "./ServerSheet";
 import { GlassCard, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
 import * as stats from "../../stats";
 
-// Акцент стекла — яркий циан палитры (colors.accent): фиолетовый #7C3AED
-// терялся на светящихся блобах обоев liquid_bg.
-const PURPLE = "#67E8F9";
+const PURPLE = "#7C3AED";
 
 /** Стеклянная карточка темы Liquid Glass.
  *
  * Раньше — BlurView из expo-blur (только гауссов блюр того, что под карточкой).
  * Теперь — AGSL-движок (react-native-liquid-glassmorphism): настоящее
  * преломление фона на GPU каждый кадр, контент ВНУТРИ стекла с вуалью
- * читабельности (legibilityFloor). Фон — фотообои liquid_bg, которые рисует
- * GlassBackdropProvider, поэтому карточка преломляет именно их, как в референсе.
+ * читабельности (legibilityFloor). Фон темы — плоская заливка colors.bg,
+ * которую рисует GlassBackdropProvider, поэтому карточка преломляет её
+ * вместе со скроллящимся контентом, как в референсе.
  *
  * `intensity` сохранён для совместимости вызовов: маппится в силу блюра.
  * Каноническая реализация — в components/liquidGlass/GlassCard, здесь
  * реэкспорт, чтобы у всех разделов темы был один и тот же блок. */
 export { GlassCard } from "../../components/liquidGlass";
 
-/** Главный экран темы Liquid Glass: фотообои рисует GlassBackdropProvider,
+/** Главный экран темы Liquid Glass: фон рисует GlassBackdropProvider,
  *  стеклянные карточки и сфера питания — как в референсе Backdrop. */
 export default function GlassScreen() {
   useTheme();
@@ -277,13 +276,13 @@ export default function GlassScreen() {
             alignItems: "center",
             paddingHorizontal: 14,
             paddingVertical: 10,
-            borderColor: "rgba(103,232,249,0.5)",
+            borderColor: "rgba(124,58,237,0.45)",
           }}
         >
           <View
             style={[
               styles.lteIconBox,
-              { backgroundColor: "rgba(103,232,249,0.16)" },
+              { backgroundColor: "rgba(124,58,237,0.18)" },
             ]}
           >
             {lteBusy ? (
@@ -439,10 +438,7 @@ const makeStyles = () => StyleSheet.create({
   screen: { flex: 1, backgroundColor: "transparent" },
   headerLogo: { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
-    // Акцент темы (циан) вместо BRAND_PURPLE: фирменный фиолетовый #A855F7
-    // терялся на светящихся блобах обоев liquid_bg (контраст 2.5). Меняем
-    // только в GlassScreen — остальные темы сохраняют фиолетовый заголовок.
-    color: colors.accent,
+    color: BRAND_PURPLE,
     fontSize: 26,
     fontWeight: "700",
     letterSpacing: -0.5,
@@ -480,7 +476,7 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 5,
-    backgroundColor: "rgba(103,232,249,0.14)",
+    backgroundColor: "rgba(124,58,237,0.15)",
   },
   lteBetaText: { color: PURPLE, fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
   serverRow: {

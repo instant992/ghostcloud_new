@@ -149,13 +149,10 @@ const v2rayLight: Palette = {
 };
 
 // ── Liquid Glass ──
-// Акцент — яркий циан #67E8F9: фиолетовый #8B5CF6 терялся на светящихся
-// блобах обоев liquid_bg (средний контраст 2.4 против 5.7 у циана). Циан
-// гармонирует с бирюзовыми бликами стекла на обоях. accentDeep оставлен
-// в тёмной циан-гамме: он служит ФОНОМ кнопок с белым текстом (контраст
-// белый/#0E7490 = 5.4, норма WCAG). textDim/textFaint осветлены до
-// лавандовых: серый #9C99AD/#8A879E (контраст ~2.7–3.1) пропадал на
-// ярких участках обоев; #E4E2F0 даёт 6.5, #CBC8DC — 5.1.
+// Фон плоский, как в стандартной теме (colors.bg), тёмный и светлый режимы.
+// Фотообои liquid_bg убраны по запросу пользователя — на светящихся блобах
+// терялся фиолетовый акцент и серый текст; на плоском фоне исходные цвета
+// палитры читаются в обоих режимах.
 const glassDark: Palette = {
   bg: "#0C0C12",
   bgSoft: "#101018",
@@ -163,15 +160,33 @@ const glassDark: Palette = {
   cardLight: "rgba(255,255,255,0.08)",
   border: "rgba(255,255,255,0.10)",
   text: "#FFFFFF",
-  textDim: "#E4E2F0",
-  textFaint: "#CBC8DC",
-  accent: "#67E8F9",
-  accentDeep: "#0E7490",
-  accentSoft: "rgba(103,232,249,0.13)",
+  textDim: "#9C99AD",
+  textFaint: "#8A879E",
+  accent: "#8B5CF6",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(139,92,246,0.13)",
   green: "#34D399",
   red: "#F87171",
   orange: "#FBBF24",
-  gradient: ["#0891B2", "#67E8F9"],
+  gradient: ["#7C3AED", "#8B5CF6"],
+};
+
+const glassLight: Palette = {
+  bg: "#E8E6EE",
+  bgSoft: "#E4E2EA",
+  card: "#DCDAE4",
+  cardLight: "#D4D2DC",
+  border: "#B0B0C0",
+  text: "#1A1A22",
+  textDim: "#48485A",
+  textFaint: "#585868",
+  accent: "#8B5CF6",
+  accentDeep: "#7C3AED",
+  accentSoft: "rgba(139,92,246,0.12)",
+  green: "#036546",
+  red: "#DC2626",
+  orange: "#854904",
+  gradient: ["#7C3AED", "#8B5CF6"],
 };
 
 // ── FoxCloud ──
@@ -364,10 +379,9 @@ const PALETTES: Record<ThemeName, PalettePair> = {
   default: { dark: defaultDark, light: defaultLight },
   minimalist: { dark: minimalistDark, light: minimalistLight },
   v2ray: { dark: v2rayDark, light: v2rayLight },
-  // Liquid Glass закреплена на ТЁМНОЙ палитре (дизайн-решение): фон темы —
-  // тёмные фотообои liquid_bg, текст всегда светлый; переключатель свет/тьма
-  // для этой темы игнорируется.
-  glass: { dark: glassDark, light: glassDark },
+  // Liquid Glass: плоский фон (colors.bg) вместо фотообоев — тёмная и светлая
+  // вариации как в стандартной теме; переключатель свет/тьма работает.
+  glass: { dark: glassDark, light: glassLight },
   foxcloud: { dark: foxcloudDark, light: foxcloudLight },
   pickme: { dark: pickmeDark, light: pickmeLight },
   happ: { dark: happDark, light: happLight },

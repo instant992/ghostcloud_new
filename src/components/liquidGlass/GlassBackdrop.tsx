@@ -1,28 +1,31 @@
 import React, { createContext, useContext, useMemo } from "react";
-import { Image as RNImage, View as RNView, useWindowDimensions, StyleSheet } from "react-native";
-import { useTheme } from "../../theme";
+import { View as RNView, useWindowDimensions, StyleSheet } from "react-native";
+import { colors, isLightPalette, useTheme } from "../../theme";
 
 /**
  * Контекст фона темы Liquid Glass.
  *
- * Прежняя Skia-реализация (императивный рендер градиента+блобов в offscreen
- * SkSurface → PNG data-URI) удалена вместе со всем Skia-движком темы. Теперь:
+ * Фон ПЛОСКИЙ — как в стандартной теме: заливка colors.bg (тёмная или светлая
+ * вариация палитры glass). Прежняя Skia-реализация (рендер градиента+блобов)
+ * удалена вместе со Skia-движком; фотообои `liquid_bg` тоже убраны по запросу
+ * пользователя — на их светящихся блобах терялись фиолетовый акцент и серый
+ * текст, поэтому вернулись к плоскому фону и исходным цветам шрифтов.
  *
- *  - фон темы — фотообои `drawable-nodpi/liquid_bg.jpg` (пользовательский
- *    ассет), обычный RN <Image> на весь экран (resizeMode cover);
- *  - стеклянные поверхности (LiquidGlassView, AGSL) преломляют то, что РЕАЛЬНО
- *    нарисовано позади них: обои и контент при скролле. Снимок-посредник и
- *    координатная привязка (measureInWindow) больше не нужны — захват бэкдропа
- *    нативный, каждый кадр;
- *  - контекст оставлен как маркер «мы внутри темы glass»: useScreenBgColor и
- *    ThemedCard проверяют его, чтобы делать экраны/карточки прозрачными
- *    (иначе непрозрачный colors.bg перекрыл бы обои).
+ * Стеклянные поверхности (LiquidGlassView, AGSL) преломляют то, что РЕАЛЬНО
+ * нарисовано позади них: фон темы и контент при скролле. Снимок-посредник и
+ * координатная привязка (measureInWindow) не нужны — захват бэкдропа нативный,
+ * каждый кадр.
+ *
+ * Контекст оставлен как маркер «мы внутри темы glass»: useScreenBgColor и
+ * ThemedCard проверяют его, чтобы делать экраны/карточки прозрачными (иначе
+ * непрозрачный colors.bg экрана перекрыл бы фон провайдера и стеклу было бы
+ * нечего преломлять).
  */
 export interface GlassBackdropValue {
   /** Ширина/высота окна в dp. */
   width: number;
   height: number;
-  /** Тема закреплена на тёмной палитре (обои тёмные), всегда false. */
+  /** Светлая ли вариация палитры (для стеклянных эффектов). */
   light: boolean;
 }
 
@@ -32,32 +35,28 @@ export function useGlassBackdrop(): GlassBackdropValue | null {
   return useContext(GlassBackdropContext);
 }
 
-/** Провайдер фона Liquid Glass: рисует обои и раздаёт маркер контекста. */
+/** Провайдер фона Liquid Glass: плоская заливка colors.bg + маркер контекста. */
 export function GlassBackdropProvider({ children }: { children: React.ReactNode }) {
   useTheme();
   const dims = useWindowDimensions();
+  const light = isLightPalette();
 
   const value = useMemo<GlassBackdropValue>(
-    () => ({ width: dims.width, height: dims.height, light: false }),
-    [dims.width, dims.height]
+    () => ({ width: dims.width, height: dims.height, light }),
+    [dims.width, dims.height, light]
   );
 
   return (
     <GlassBackdropContext.Provider value={value}>
-      <RNView pointerEvents="none" style={styles.backdropHost}>
-        <RNImage
-          source={{ uri: "liquid_bg" }}
-          style={styles.backdropImage}
-          resizeMode="cover"
-          fadeDuration={0}
-        />
-      </RNView>
+      <RNView
+        pointerEvents="none"
+        style={[styles.backdropHost, { backgroundColor: colors.bg }]}
+      />
       {children}
     </GlassBackdropContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
-  backdropHost: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0, overflow: "hidden" },
-  backdropImage: { flex: 1, width: "100%", height: "100%" },
+  backdropHost: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0 },
 });

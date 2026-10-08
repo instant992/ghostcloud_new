@@ -626,10 +626,10 @@ function MinimalistFlow() {
 }
 
 function GlassFlow() {
-  // Тема Liquid Glass: фон рисует GlassBackdropProvider (фотообои liquid_bg
-  // на весь экран), поэтому навигация и экраны должны быть прозрачными — иначе
-  // непрозрачный colors.bg перекроет обои и стеклянным поверхностям нечего
-  // будет преломлять.
+  // Тема Liquid Glass: фон рисует GlassBackdropProvider (плоская заливка
+  // colors.bg, как в стандартной теме), поэтому навигация и экраны должны быть
+  // прозрачными — иначе непрозрачный colors.bg экрана перекроет фон и
+  // стеклянным поверхностям нечего будет преломлять.
   return (
     <GlassBackdropProvider>
       <DockedThemedFlow Home={GlassScreen} DockBar={GlassDockBar} transparent />
