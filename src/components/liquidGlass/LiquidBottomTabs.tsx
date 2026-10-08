@@ -99,8 +99,11 @@ export function LiquidBottomTabs({
         size={24}
         color={accent ? colors.accent : colors.text}
       />
+      {/* Подпись вкладки: в тёмной теме ВСЕГДА белая (в т.ч. активная —
+          фиолетовый на тёмном стекле читался плохо); в светлой активная
+          остаётся акцентной. Иконка активной вкладки сохраняет accent. */}
       <Text
-        style={[tabStyles.label, { color: accent ? colors.accent : colors.text }]}
+        style={[tabStyles.label, { color: accent && light ? colors.accent : colors.text }]}
         numberOfLines={1}
       >
         {it.label}
