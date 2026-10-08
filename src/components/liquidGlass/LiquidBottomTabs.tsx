@@ -123,7 +123,7 @@ export function LiquidBottomTabs({
         preset="floatingTabBar"
         borderRadius={height / 2}
         tintColor={light ? "rgba(250,250,250,0.28)" : "rgba(18,18,18,0.32)"}
-        legibilityFloor={light ? 0.14 : 0.06}
+        legibilityFloor={light ? 0.18 : 0.12}
         style={StyleSheet.absoluteFill}
       />
 

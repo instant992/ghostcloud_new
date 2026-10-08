@@ -47,16 +47,18 @@ interface PresetCfg {
 }
 
 export const GLASS_PRESETS: Record<GlassPresetName, PresetCfg> = {
-  /** Блок списка ScrollContainer: чистое стекло без блюра, край читается линзой. */
-  scroll: { blur: 0, thickness: 1, iridescence: 0, legibility: 0.08 },
+  /** Блок списка ScrollContainer: чистое стекло без блюра, край читается линзой.
+   *  legibility 0.14 — вуаль под текстом: фон темы снова неоднородный
+   *  (градиент+блобы), без вуали текст внутри стекла тонет в преломлениях. */
+  scroll: { blur: 0, thickness: 1, iridescence: 0, legibility: 0.14 },
   /** Крупная карточка: мягкий блюр, чуть более глубокая линза. */
-  card: { blur: 4, thickness: 1.1, iridescence: 0, legibility: 0.1 },
+  card: { blur: 4, thickness: 1.1, iridescence: 0, legibility: 0.16 },
   /** Кнопка-капсула (LiquidButton: blur 2). */
-  button: { blur: 2, thickness: 1, iridescence: 0, legibility: 0.08 },
+  button: { blur: 2, thickness: 1, iridescence: 0, legibility: 0.12 },
   /** Панель таб-бара (floatingTabBar каталога). */
-  tabBar: { blur: 8, thickness: 1, iridescence: 0, legibility: 0.08 },
+  tabBar: { blur: 8, thickness: 1, iridescence: 0, legibility: 0.14 },
   /** Мелкий значок. */
-  icon: { blur: 4, thickness: 0.9, iridescence: 0, legibility: 0.08 },
+  icon: { blur: 4, thickness: 0.9, iridescence: 0, legibility: 0.12 },
   /** Индикатор вкладки: стекло с дисперсией (lens каталога). */
   tabIndicator: { blur: 0, thickness: 1, iridescence: 0.35, legibility: 0 },
   /** Ручка тумблера/слайдера: белая капсула с дисперсией при движении. */
