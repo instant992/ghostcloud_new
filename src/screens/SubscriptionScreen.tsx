@@ -8,7 +8,7 @@ import { colors, formatBytes, useTheme } from "../theme";
 import { PressableScale } from "../components/PressableScale";
 import { BalanceSheet } from "../components/BalanceSheet";
 import { useInTabArea } from "../components/UI";
-import { GlassCard, GlassButton, GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
+import { GlassCard, GlassButton, GlassScreenBackdrop, GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
 import * as stats from "../stats";
 
 /** Раздел «Подписка» — перенесён из Flutter-версии: статус подписки,
@@ -51,24 +51,28 @@ export default function SubscriptionScreen() {
   // ─── Уникальный glass-вариант: те же блоки/кнопки, что на главной ───
   if (isGlass) {
     return (
-      <ScrollView
-        bounces={false}
-        overScrollMode="never"
-        style={{ flex: 1, backgroundColor: "transparent" }}
-        contentContainerStyle={{
-          padding: 20,
-          paddingTop: insets.top + 84,
-          paddingBottom: inTabs ? insets.bottom + 116 : 40,
-        }}
-        showsVerticalScrollIndicator={false}
-        onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
-                onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
-      >
+      <View style={{ flex: 1, backgroundColor: "transparent" }}>
+        {/* Непрозрачный фон вкладки: защита от призрачного текста соседней
+            вкладки в AGSL-захвате (см. GlassScreen). */}
+        <GlassScreenBackdrop />
+        <ScrollView
+          bounces={false}
+          overScrollMode="never"
+          style={{ flex: 1, backgroundColor: "transparent" }}
+          contentContainerStyle={{
+            padding: 20,
+            paddingTop: insets.top + 84,
+            paddingBottom: inTabs ? insets.bottom + 116 : 40,
+          }}
+          showsVerticalScrollIndicator={false}
+          onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
+          onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
+        >
         <Text style={styles.pageTitle}>Моя подписка</Text>
         <Text style={styles.pageSub}>Управляйте своей подпиской и меняйте параметры</Text>
 
         {/* Статус подписки — стеклянная hero-карточка */}
-        <GlassCard radius={20} style={{ padding: 20, marginBottom: 12 }}>
+        <GlassCard radius={26} style={{ padding: 20, marginBottom: 12 }}>
           <View
             style={[
               styles.statusPill,
@@ -101,7 +105,7 @@ export default function SubscriptionScreen() {
         </GlassCard>
 
         {/* Трафик */}
-        <GlassCard radius={16} style={{ padding: 16, marginBottom: 12 }}>
+        <GlassCard radius={22} style={{ padding: 16, marginBottom: 12 }}>
           <Text style={styles.cardTitle}>Трафик подписки</Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 6 }}>
             <Text style={styles.cardRow}>Использовано сегодня:</Text>
@@ -115,7 +119,7 @@ export default function SubscriptionScreen() {
 
         {/* Устройства */}
         <GlassCard
-          radius={16}
+          radius={22}
           style={{ padding: 16, marginBottom: 12 }}
           onPress={() => nav.navigate("Devices")}
           accessibilityLabel="Мои устройства"
@@ -136,7 +140,7 @@ export default function SubscriptionScreen() {
 
         {/* Баланс */}
         <GlassCard
-          radius={16}
+          radius={22}
           style={{ padding: 16, marginBottom: 12 }}
           onPress={() => setBalanceOpen(true)}
           accessibilityLabel="Баланс и история операций"
@@ -162,7 +166,8 @@ export default function SubscriptionScreen() {
           balance={balance}
           daysLeft={daysLeft}
         />
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
 

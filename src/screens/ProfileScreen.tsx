@@ -18,7 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
-import { GlassCard, GlassButton, GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
+import { GlassCard, GlassButton, GlassScreenBackdrop, GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
 import { QuickNavBar, themeHasQuickNav } from "../components/QuickNavBar";
 import { getThemeName } from "../settings";
 import { PressableScale } from "../components/PressableScale";
@@ -60,7 +60,7 @@ import { showToast } from "../components/Toast";
  *  общие Card/Button из UI.tsx. Модульные компоненты (не инлайн) — стабильная
  *  идентичность, без ремаунтов при ре-рендере. */
 function ThemeCard({ glass, children, style }: { glass: boolean; children: React.ReactNode; style?: any }) {
-  return glass ? <GlassCard radius={20} style={style}>{children}</GlassCard> : <Card style={style}>{children}</Card>;
+  return glass ? <GlassCard radius={26} style={style}>{children}</GlassCard> : <Card style={style}>{children}</Card>;
 }
 
 function ThemeButton(p: {
@@ -75,7 +75,7 @@ function ThemeButton(p: {
   return glass ? <GlassButton {...rest} /> : <Button {...rest} />;
 }
 
-/** Оболочка без внутреннего отступа (меню): glass → GlassCard radius 16,
+/** Оболочка без внутреннего отступа (меню): glass → GlassCard radius 22,
  *  иначе — обычный View со стилями menuCard вызывающей стороны. */
 function ShellBlock({
   glass,
@@ -87,7 +87,7 @@ function ShellBlock({
   plainStyle?: any;
 }) {
   return glass ? (
-    <GlassCard radius={16} style={{ marginBottom: 12 }}>{children}</GlassCard>
+    <GlassCard radius={22} style={{ marginBottom: 12 }}>{children}</GlassCard>
   ) : (
     <View style={plainStyle}>{children}</View>
   );
@@ -513,6 +513,10 @@ export default function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: isGlass ? "transparent" : colors.bg }}>
+      {/* В теме glass — собственный непрозрачный фон вкладки: иначе AGSL-захват
+          во время перехода вкладок «впечатывает» контент соседней вкладки
+          (призрачный текст). В остальных темах фон даёт сам View. */}
+      {isGlass ? <GlassScreenBackdrop /> : null}
       {/* Закреплённая шапка: назад + «Профиль» + шестерёнка */}
       <View
         style={[
@@ -562,7 +566,8 @@ export default function ProfileScreen() {
                 onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
       >
         {/* ─── Карточка аккаунта ─── */}
-        <ThemeCard glass={isGlass}>
+        {/* padding: 16 — текст (имя/тариф/баланс) не прижат к краям блока */}
+        <ThemeCard glass={isGlass} style={{ padding: 16 }}>
           <View style={styles.accRow}>
             <PressableScale onPress={isFoxcloud ? undefined : openEditor} accessibilityLabel="Изменить профиль">
               {avatarUri ? (

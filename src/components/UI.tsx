@@ -155,7 +155,7 @@ export function ThemedCard({
     // обводкой поверх стекла — тонировка исказила бы преломление.
     const effBorder =
       typeof rawBorder === "string" && rawBorder !== colors.border ? rawBorder : null;
-    const effRadius = radius ?? Number(rawRadius ?? 22);
+    const effRadius = radius ?? Number(rawRadius ?? 26);
     return (
       <LiquidGlassSurface
         radius={effRadius}

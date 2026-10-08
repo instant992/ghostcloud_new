@@ -27,7 +27,7 @@ import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
-import { GlassCard, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
+import { GlassCard, GlassScreenBackdrop, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
 import * as stats from "../../stats";
 
 const PURPLE = "#7C3AED";
@@ -202,6 +202,11 @@ export default function GlassScreen() {
 
   return (
     <View style={styles.screen}>
+      {/* Собственный непрозрачный фон вкладки: AGSL-захват бэкдропа рисует весь
+          корень, исключая только стёкла, — без этого слоя во время перехода
+          вкладок стекло «впечатывает» контент соседней вкладки (призрачный
+          текст). Провайдерский фон под стеком остаётся для push-экранов. */}
+      <GlassScreenBackdrop />
       <ScrollView
           bounces={false}
           overScrollMode="never"
@@ -269,7 +274,7 @@ export default function GlassScreen() {
 
         {/* LTE OPEN — всегда включён, раздел виден постоянно */}
         <GlassCard
-          radius={16}
+          radius={22}
           overlay="rgba(124,58,237,0.12)"
           style={{
             flexDirection: "row",
@@ -320,7 +325,7 @@ export default function GlassScreen() {
         </GlassCard>
 
         {/* Карточка сервера + фильтр соединения */}
-        <GlassCard radius={20} style={{ marginTop: 8 }}>
+        <GlassCard radius={26} style={{ marginTop: 8 }}>
           <Pressable
             style={styles.serverRow}
             onPress={() => setPickerOpen(true)}
@@ -384,7 +389,7 @@ export default function GlassScreen() {
         {/* Трафик за сегодня — как в основной теме: две плитки Отправлено/Получено */}
         <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
           <GlassCard
-            radius={16}
+            radius={22}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 }}
             onPress={() => nav.navigate("Статистика")}
           >
@@ -397,7 +402,7 @@ export default function GlassScreen() {
             </View>
           </GlassCard>
           <GlassCard
-            radius={16}
+            radius={22}
             style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 }}
             onPress={() => nav.navigate("Статистика")}
           >

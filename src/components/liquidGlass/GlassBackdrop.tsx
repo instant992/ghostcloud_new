@@ -107,8 +107,16 @@ const BLOBS = [
 const BLOB_PLATEAU = 0.52;
 
 /** Фон темы: SVG-градиент + блобы + кольца + полосы. Рисуется один раз на
- *  размер окна, без анимации — статичная картинка не нагружает JS/UI-поток. */
-function BackdropSvg({ width, height, light }: { width: number; height: number; light: boolean }) {
+ *  размер окна, без анимации — статичная картинка не нагружает JS/UI-поток.
+ *
+ * Экспортирован: стеклянные ВКЛАДКИ (Главная/Подписка/Профиль) дублируют его
+ * у себя под контентом. Зачем: AGSL-захват бэкдропа исключает ВСЕ стеклянные
+ * вью, но НЕ исключает контент соседних вкладок (во время перехода он ещё
+ * примонтирован) — стекло успевало «впечатать» текст прошлой вкладки и
+ * залипал призрак. С собственным непрозрачным фоном каждой вкладки захват
+ * всегда видит только свой экран. Слои идентичны провайдерскому и лежат
+ * пиксель-в-пиксель, поэтому визуально фон не меняется. */
+export function BackdropSvg({ width, height, light }: { width: number; height: number; light: boolean }) {
   const p = backgroundPalette(light);
   const minWH = Math.min(width, height);
   return (
@@ -199,13 +207,26 @@ export function GlassBackdropProvider({ children }: { children: React.ReactNode 
 
   return (
     <GlassBackdropContext.Provider value={value}>
-      <RNView pointerEvents="none" style={[styles.backdropHost, { backgroundColor: colors.bg }]}>
-        {dims.width > 0 && dims.height > 0 ? (
-          <BackdropSvg width={dims.width} height={dims.height} light={light} />
-        ) : null}
-      </RNView>
+      <GlassScreenBackdrop />
       {children}
     </GlassBackdropContext.Provider>
+  );
+}
+
+/** Фон темы отдельным слоем. Провайдер рисует его один раз под всем стеком;
+ *  стеклянные ВКЛАДКИ добавляют свой экземпляр (см. примечание BackdropSvg) —
+ *  тогда AGSL-захват бэкдропа не «впечатывает» контент соседней вкладки
+ *  при переходах (призрачный текст Профиля под стеклом Подписки). */
+export function GlassScreenBackdrop() {
+  useTheme();
+  const dims = useWindowDimensions();
+  const light = isLightPalette();
+  return (
+    <RNView pointerEvents="none" style={[styles.backdropHost, { backgroundColor: colors.bg }]}>
+      {dims.width > 0 && dims.height > 0 ? (
+        <BackdropSvg width={dims.width} height={dims.height} light={light} />
+      ) : null}
+    </RNView>
   );
 }
 

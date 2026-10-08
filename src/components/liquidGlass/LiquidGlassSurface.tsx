@@ -66,6 +66,13 @@ export const GLASS_PRESETS: Record<GlassPresetName, PresetCfg> = {
   sliderKnob: { blur: 8, thickness: 0.9, iridescence: 0.2, legibility: 0 },
 };
 
+/** Дефолтная тонировка стекла темы: ПРИГЛУШЁННЫЙ фирменный фиолетовый.
+ *  Без явного tintColor натив рисует белую вуаль ~18% (DEFAULT_REGULAR_TINT_ALPHA)
+ *  — стекло выглядело белёсым. Пользователь хочет фиолетовое, но не яркое:
+ *  альфа ниже нативного белого дефолта, оттенок — brand-фиолетовый палитры. */
+export const GLASS_TINT_DEFAULT_DARK = "rgba(139,92,246,0.13)";
+export const GLASS_TINT_DEFAULT_LIGHT = "rgba(124,58,237,0.09)";
+
 export interface LiquidGlassSurfaceProps {
   /** Радиус скругления (dp), все 4 угла. */
   radius?: number;
@@ -194,7 +201,9 @@ export function LiquidGlassSurface({
     saturation,
     edgeReflectionStrength: edgeReflection,
     legibilityFloor,
-    tintColor: surfaceColor ?? undefined,
+    // surfaceColor === null/undefined → фиолетовый дефолт темы (см. GLASS_TINT_DEFAULT_*);
+    // явный цвет вызывающей стороны (кнопки primary/danger, белые ручки) — без изменений.
+    tintColor: surfaceColor ?? (light ? GLASS_TINT_DEFAULT_LIGHT : GLASS_TINT_DEFAULT_DARK),
   };
 
   const borderLayer =

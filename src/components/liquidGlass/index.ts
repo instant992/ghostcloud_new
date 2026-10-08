@@ -1,4 +1,4 @@
-export { GlassBackdropProvider, useGlassBackdrop } from "./GlassBackdrop";
+export { GlassBackdropProvider, useGlassBackdrop, GlassScreenBackdrop } from "./GlassBackdrop";
 export { LiquidGlassSurface, GLASS_PRESETS } from "./LiquidGlassSurface";
 export type { LiquidGlassSurfaceProps, GlassPresetName } from "./LiquidGlassSurface";
 export { GlassCard, GlassButton } from "./GlassCard";
