@@ -84,8 +84,6 @@ export default function HappScreen() {
 
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
 
-  // LTE OPEN всегда включён — переключатель убран, раздел виден постоянно
-  const [lteBusy, setLteBusy] = useState(false);
   const [favorites, setFavorites] = useState<string[]>(() => getJsonList("happ_favorite_servers"));
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
@@ -218,17 +216,6 @@ export default function HappScreen() {
     showToast("Проверка задержки завершена");
   };
 
-  const refreshLte = () => {
-    setLteBusy(true);
-    reloadNodes()
-      .then(() => {
-        showToast("Серверы LTE OPEN обновлены");
-        pingStore.pingAll(nodes).catch(() => {});
-      })
-      .catch(() => showToast("Ошибка обновления LTE OPEN"))
-      .finally(() => setLteBusy(false));
-  };
-
   const sortWithFavorites = (list: VpnNode[]) => {
     const fav = list.filter((n) => favorites.includes(n.id));
     const rest = list.filter((n) => !favorites.includes(n.id));
@@ -310,56 +297,8 @@ export default function HappScreen() {
           </View>
         </View>
 
-        {/* LTE OPEN — всегда включён, раздел виден постоянно */}
-        <View
-          style={[
-            styles.lteRow,
-            { backgroundColor: "rgba(124,58,237,0.08)", borderColor: "rgba(124,58,237,0.35)" },
-          ]}
-        >
-          <View
-            style={[
-              styles.lteIconBox,
-              { backgroundColor: "rgba(124,58,237,0.18)" },
-            ]}
-          >
-            {lteBusy ? (
-              <ActivityIndicator size="small" color={PURPLE} />
-            ) : (
-              <Ionicons
-                name="radio-button-off"
-                size={17}
-                color={PURPLE}
-              />
-            )}
-          </View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={styles.lteTitle}>LTE OPEN</Text>
-              <View style={styles.lteBetaBadge}>
-                <Text style={styles.lteBetaText}>beta</Text>
-              </View>
-            </View>
-            <Text style={styles.lteSub}>
-              {lteBusy
-                ? "Загружаем профили..."
-                : `${lteNodes.length} серверов доступно`}
-            </Text>
-          </View>
-          <Pressable
-            style={styles.lteRefreshBtn}
-            onPress={refreshLte}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel="Обновить серверы LTE OPEN"
-          >
-            {lteBusy ? (
-              <ActivityIndicator size="small" color={PURPLE} />
-            ) : (
-              <Ionicons name="refresh" size={17} color={PURPLE} />
-            )}
-          </Pressable>
-        </View>
+        {/* LTE OPEN: отдельный блок убран — серверы LTE обновляются общей
+            кнопкой обновления (syncAll → reloadNodes тянет обычные + LTE) */}
 
         {/* Панель аккаунта и серверов */}
         <View style={neu(14, { marginTop: 12 })}>

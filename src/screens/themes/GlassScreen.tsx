@@ -67,8 +67,6 @@ export default function GlassScreen() {
 
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
 
-  // LTE OPEN всегда включён — переключатель убран, раздел виден постоянно
-  const [lteBusy, setLteBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   // Таймер от абсолютной метки подключения — не обнуляется при ремаунте
   const seconds = useVpnTimerSeconds(vpnRunning);
@@ -155,14 +153,6 @@ export default function GlassScreen() {
         setBusy(false);
       }
     }
-  };
-
-  const refreshLte = () => {
-    setLteBusy(true);
-    reloadNodes()
-      .then(() => showToast("Серверы LTE OPEN обновлены"))
-      .catch(() => showToast("Ошибка обновления LTE OPEN"))
-      .finally(() => setLteBusy(false));
   };
 
   const [syncBusy, setSyncBusy] = useState(false);
@@ -272,57 +262,8 @@ export default function GlassScreen() {
           <PowerButton connected={vpnRunning} busy={busy} onToggle={toggle} />
         </View>
 
-        {/* LTE OPEN — всегда включён, раздел виден постоянно */}
-        <GlassCard
-          radius={26}
-          overlay="rgba(124,58,237,0.12)"
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-            borderColor: "rgba(124,58,237,0.45)",
-          }}
-        >
-          <View
-            style={[
-              styles.lteIconBox,
-              { backgroundColor: "rgba(124,58,237,0.18)" },
-            ]}
-          >
-            {lteBusy ? (
-              <ActivityIndicator size="small" color={PURPLE} />
-            ) : (
-              <Ionicons name="cellular-outline" size={16} color={PURPLE} />
-            )}
-          </View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "700" }}>
-                LTE OPEN
-              </Text>
-              <View style={styles.lteBeta}>
-                <Text style={styles.lteBetaText}>beta</Text>
-              </View>
-            </View>
-            <Text style={{ color: colors.textDim, fontSize: 11, marginTop: 1 }}>
-              {lteBusy ? "Загружаем профили..." : `${lteNodes.length} серверов`}
-            </Text>
-          </View>
-          <Pressable
-            onPress={refreshLte}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Обновить серверы LTE OPEN"
-            style={{ padding: 6 }}
-          >
-            {lteBusy ? (
-              <ActivityIndicator size="small" color={PURPLE} />
-            ) : (
-              <Ionicons name="refresh" size={18} color={PURPLE} />
-            )}
-          </Pressable>
-        </GlassCard>
+        {/* LTE OPEN: отдельный блок убран — серверы LTE обновляются общей
+            кнопкой обновления (syncAll → reloadNodes тянет обычные + LTE) */}
 
         {/* Карточка сервера + фильтр соединения */}
         <GlassCard radius={32} style={{ marginTop: 8 }}>

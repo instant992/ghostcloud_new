@@ -47,8 +47,6 @@ export default function MinimalistScreen() {
 
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
 
-  // LTE OPEN всегда включён — переключатель убран, раздел виден постоянно
-  const [lteBusy, setLteBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   // Таймер от абсолютной метки подключения — не обнуляется при ремаунте
   const seconds = useVpnTimerSeconds(vpnRunning);
@@ -147,14 +145,6 @@ export default function MinimalistScreen() {
         setBusy(false);
       }
     }
-  };
-
-  const refreshLte = () => {
-    setLteBusy(true);
-    reloadNodes()
-      .then(() => showToast("Серверы LTE OPEN обновлены"))
-      .catch(() => showToast("Ошибка обновления LTE OPEN"))
-      .finally(() => setLteBusy(false));
   };
 
   const refreshServers = async () => {
@@ -396,45 +386,8 @@ export default function MinimalistScreen() {
           ) : null}
         </View>
 
-        {/* LTE OPEN — всегда включён, раздел виден постоянно */}
-        <View
-          style={[
-            styles.lteRow,
-            { backgroundColor: colors.accentDeep + "1F", borderColor: colors.accentDeep + "73" },
-          ]}
-        >
-          <View style={[styles.lteIconBox, { backgroundColor: colors.accentDeep + "2E" }]}>
-            {lteBusy ? (
-              <ActivityIndicator size="small" color={colors.accentDeep} />
-            ) : (
-              <Ionicons name="cellular-outline" size={16} color={colors.accentDeep} />
-            )}
-          </View>
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Text style={styles.lteTitle}>LTE OPEN</Text>
-              <View style={styles.lteBeta}>
-                <Text style={styles.lteBetaText}>beta</Text>
-              </View>
-            </View>
-            <Text style={styles.lteSub}>
-              {lteBusy ? "Загружаем профили..." : `${lteNodes.length} серверов`}
-            </Text>
-          </View>
-          <Pressable
-            onPress={refreshLte}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Обновить серверы LTE OPEN"
-            style={{ padding: 6 }}
-          >
-            {lteBusy ? (
-              <ActivityIndicator size="small" color={colors.accentDeep} />
-            ) : (
-              <Ionicons name="refresh" size={18} color={colors.accentDeep} />
-            )}
-          </Pressable>
-        </View>
+        {/* LTE OPEN: отдельный блок убран — серверы LTE обновляются общей
+            кнопкой «Обновить» (refreshServers → reloadNodes тянет обычные + LTE) */}
 
         {/* Другие локации — серверы выбранного типа (обычные / LTE) */}
         <View style={styles.otherHeader}>

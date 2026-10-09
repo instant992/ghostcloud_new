@@ -680,6 +680,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     })();
   }, [refreshMe, reloadNodes]);
 
+  /** Автообновление списка серверов (обычные + LTE OPEN — reloadNodes тянет оба):
+   *  - при возврате приложения в foreground («заход в приложение»);
+   *  - периодически, раз в 2 часа, пока приложение открыто.
+   *  Холодный старт уже покрывает загрузку серверов выше; здесь не дублируем
+   *  первый прогон — интервал и foreground-событие стартуют после монтирования. */
+  useEffect(() => {
+    if (!session) return;
+    let lastReload = Date.now();
+    const AUTO_RELOAD_MS = 2 * 60 * 60 * 1000; // 2 часа
+    const tick = () => {
+      if (!mounted.current) return;
+      // Анти-дребезг: быстрый цикл фон⇄foreground не должен спамить сеть
+      if (Date.now() - lastReload < 30 * 1000) return;
+      lastReload = Date.now();
+      reloadNodes().catch(() => {});
+    };
+    const timer = setInterval(() => {
+      if (Date.now() - lastReload >= AUTO_RELOAD_MS - 5000) tick();
+    }, 60 * 1000); // проверяем раз в минуту, чтобы не держать долгий таймер
+    let sub: { remove: () => void } | null = null;
+    import("react-native").then(({ AppState }) => {
+      sub = AppState.addEventListener("change", (state) => {
+        // Возврат из фона = «заход в приложение»: обновляем сразу и сбрасываем
+        // отсчёт 2-часового цикла.
+        if (state === "active") tick();
+      });
+    }).catch(() => {});
+    return () => {
+      clearInterval(timer);
+      sub?.remove();
+    };
+  }, [session, reloadNodes]);
+
   /** После авторизации подписка на бэкенде может активироваться с задержкой,
    *  поэтому первая загрузка серверов часто приходит пустой. Повторяем в фоне
    *  несколько раз, пока список не заполнится. */

@@ -67,8 +67,6 @@ export default function V2rayScreen() {
 
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
 
-  // LTE OPEN всегда включён — переключатель убран
-  const [lteBusy, setLteBusy] = useState(false);
   const [pinned, setPinned] = useState<string[]>(() => getJsonList("v2ray_pinned_proxies"));
   const [smartLocation, setSmartLocation] = useState(() => getSetting("smart_location", "0") === "1");
   const [smartBusy, setSmartBusy] = useState(false);
@@ -147,14 +145,6 @@ export default function V2rayScreen() {
       return next;
     });
     Haptics.selectionAsync().catch(() => {});
-  };
-
-  const refreshLte = () => {
-    setLteBusy(true);
-    reloadNodes()
-      .then(() => showToast("Серверы LTE OPEN обновлены"))
-      .catch(() => showToast("Ошибка обновления LTE OPEN"))
-      .finally(() => setLteBusy(false));
   };
 
   const toggleSmartLocation = async (v: boolean) => {
@@ -445,26 +435,8 @@ export default function V2rayScreen() {
               }}
             />
 
-            {/* LTE OPEN — всегда включён, переключатель убран; тап обновляет список */}
-            <Pressable
-              style={styles.drawerRow}
-              onPress={refreshLte}
-              accessibilityRole="button"
-              accessibilityLabel="LTE OPEN. Обновить серверы"
-            >
-              {lteBusy ? (
-                <ActivityIndicator size="small" color={colors.accent} style={{ width: 22 }} />
-              ) : (
-                <Ionicons name="cellular-outline" size={21} color={colors.text} />
-              )}
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.drawerRowTitle}>LTE OPEN</Text>
-                <Text style={styles.drawerRowSub}>
-                  {lteBusy ? "Загружаем профили..." : `${lteNodes.length} серверов`}
-                </Text>
-              </View>
-              <Ionicons name="refresh" size={19} color={colors.accent} />
-            </Pressable>
+            {/* LTE OPEN: отдельная строка обновления убрана — серверы LTE
+                обновляются общим «Обновить подписку» (reloadNodes тянет обычные + LTE) */}
 
             <View style={styles.drawerRow}>
               {smartBusy ? (
