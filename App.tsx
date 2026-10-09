@@ -563,7 +563,16 @@ function DockedThemedFlow({
   const screenBg = colors.bg;
   return (
     <Stack.Navigator
-      screenOptions={{ headerShown: false, contentStyle: { backgroundColor: screenBg } }}
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: screenBg },
+        // Glass: анимация стека БЕЗ альфы. Дефолтная (rns_default_enter_in:
+        // alpha 0→1 + scale) на стеклянных экранах залипает на первом кадре:
+        // сцена остаётся невидимой (пустой экран «кроме фона»), пока
+        // взаимодействие не дёрнёт перерисовку — баг «Настройки пустые /
+        // после возврата всё прозрачное». 'none' = alpha 1→1, залипать нечему.
+        ...(transparent ? { animation: "none" as const } : null),
+      }}
     >
       <Stack.Screen name="ThemeTabs">
         {() => (
