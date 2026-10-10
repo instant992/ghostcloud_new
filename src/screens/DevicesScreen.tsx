@@ -1,3 +1,4 @@
+import { KeyboardFormModalContent, KeyboardTextInput } from "../components/KeyboardForm";
 import React, { useCallback, useState } from "react";
 import { Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -296,40 +297,42 @@ export default function DevicesScreen() {
         </>
       )}
       <Modal visible={!!renameTarget} transparent animationType="fade" onRequestClose={() => setRenameTarget(null)}>
-        <PressableScale style={styles.modalBackdrop} onPress={() => setRenameTarget(null)}>
-          <PressableScale style={styles.modalCard} onPress={() => {}}>
-            <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16, marginBottom: 12 }}>
-              Название устройства
-            </Text>
-            <TextInput
-              style={{
-                backgroundColor: colors.bgSoft,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: 10,
-                color: colors.text,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginBottom: 14,
-              }}
-              placeholder="Например: Мой телефон"
-              placeholderTextColor={colors.textFaint}
-              value={renameValue}
-              onChangeText={setRenameValue}
-              maxLength={32}
-              autoFocus
-            />
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <View style={{ flex: 1 }}>
-                <Button title="Отмена" variant="ghost" onPress={() => setRenameTarget(null)} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Button title="Сохранить" onPress={saveName} />
-              </View>
-            </View>
-          </PressableScale>
-        </PressableScale>
-      </Modal>
+        <KeyboardFormModalContent>
+              <PressableScale style={styles.modalBackdrop} onPress={() => setRenameTarget(null)}>
+                <PressableScale style={styles.modalCard} onPress={() => {}}>
+                  <Text style={{ color: colors.text, fontWeight: "800", fontSize: 16, marginBottom: 12 }}>
+                    Название устройства
+                  </Text>
+                  <KeyboardTextInput
+                    style={{
+                      backgroundColor: colors.bgSoft,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 10,
+                      color: colors.text,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      marginBottom: 14,
+                    }}
+                    placeholder="Например: Мой телефон"
+                    placeholderTextColor={colors.textFaint}
+                    value={renameValue}
+                    onChangeText={setRenameValue}
+                    maxLength={32}
+                    autoFocus
+                  />
+                  <View style={{ flexDirection: "row", gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Button title="Отмена" variant="ghost" onPress={() => setRenameTarget(null)} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Button title="Сохранить" onPress={saveName} />
+                    </View>
+                  </View>
+                </PressableScale>
+              </PressableScale>
+            </KeyboardFormModalContent>
+            </Modal>
 
       {/* Шторка преимуществ спонсора (тап по замку) */}
       <SponsorBenefitsSheet visible={benefitsOpen} onClose={() => setBenefitsOpen(false)} />

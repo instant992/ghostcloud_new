@@ -82,6 +82,7 @@ export const createBug = (body: { title: string; description: string; steps: str
 export const commentBug = (id: number, text: string) => bugRequest("POST", `/${id}/comments`, { text });
 export const voteBug = (id: number, value: number) => bugRequest("POST", `/${id}/vote`, { value });
 export const moderateBug = (id: number, body: { moderation_status?: string; reason?: string; status?: string }) => bugRequest("POST", `/${id}/moderate`, body);
+export const deleteBug = (id: number) => bugRequest("DELETE", `/${id}`);
 export const deleteBugComment = (id: number, commentId: number) => bugRequest("DELETE", `/${id}/comments/${commentId}`);
 
 // ── Auth ──

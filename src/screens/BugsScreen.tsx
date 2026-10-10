@@ -6,7 +6,7 @@ import Constants from "expo-constants";
 import { useApp } from "../context";
 import { colors, useTheme } from "../theme";
 import { Button, Input, Screen, ThemedCard, Title, useScreenTopPad } from "../components/UI";
-import { BugComment, BugReport, commentBug, createBug, deleteBugComment, getBug, listBugs, moderateBug, voteBug } from "../api";
+import { BugComment, BugReport, commentBug, createBug, deleteBug, deleteBugComment, getBug, listBugs, moderateBug, voteBug } from "../api";
 
 const statusNames: Record<string, string> = { open: "Открыта", in_progress: "В работе", fixed: "Исправлена", pending: "На проверке", rejected: "Отклонена" };
 function dateLabel(value: string) {
@@ -94,6 +94,7 @@ export function BugDetailScreen() {
   useTheme();
   const top = useScreenTopPad();
   const { isFoxcloud } = useApp();
+  const nav = useNavigation<any>();
   const route = useRoute<any>();
   const id = Number(route.params?.id);
   const [item, setItem] = useState<BugReport | null>(null);
@@ -117,6 +118,16 @@ export function BugDetailScreen() {
     if (busy) return; setBusy(true);
     try { await task(); done?.(); await load(); } catch (e) { Alert.alert("Ошибка", errorLabel(e)); } finally { setBusy(false); }
   };
+  const confirmDelete = () => Alert.alert("Удалить ошибку?", "Ошибка, все комментарии и голоса будут удалены навсегда. Это действие нельзя отменить.", [
+    { text: "Отмена", style: "cancel" },
+    { text: "Удалить", style: "destructive", onPress: async () => {
+      if (busy) return;
+      setBusy(true);
+      try { await deleteBug(id); generation.current++; nav.goBack(); }
+      catch (e) { Alert.alert("Не удалось удалить", errorLabel(e)); }
+      finally { setBusy(false); }
+    } },
+  ]);
   if (isFoxcloud) return <Screen style={top}><Title>Раздел недоступен</Title></Screen>;
   return <Screen style={top}>
     {!!error && <View style={styles.message}><Text style={{ color: colors.red }}>{error}</Text><Button title="Повторить" onPress={() => void load()} disabled={loading}/></View>}
@@ -135,6 +146,7 @@ export function BugDetailScreen() {
           <Input label="Причина отклонения" value={reason} onChangeText={setReason} maxLength={1000} multiline/>
           <Button title="Отклонить" variant="danger" disabled={busy || !reason.trim()} onPress={() => void action(() => moderateBug(id, { moderation_status: "rejected", reason: reason.trim() }))}/>
         </> : <>{["open", "in_progress", "fixed"].map(status => <Button key={status} title={statusNames[status]} variant={item.status === status ? "primary" : "ghost"} disabled={busy || item.status === status} onPress={() => void action(() => moderateBug(id, { status }))}/>)}</>}
+        <Button title="Удалить ошибку" variant="danger" disabled={busy || loading} onPress={confirmDelete}/>
       </ThemedCard>}
       <Text style={[styles.heading, { color: colors.text, marginTop: 20 }]}>Комментарии · {item.comment_count}</Text>
       {!comments.length && <Text style={[styles.dim, { color: colors.textDim }]}>Комментариев пока нет.</Text>}

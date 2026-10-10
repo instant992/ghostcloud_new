@@ -1,3 +1,4 @@
+import { KeyboardFormModalContent, KeyboardTextInput } from "./KeyboardForm";
 import React, { useEffect, useState } from "react";
 import {
   Modal,
@@ -455,62 +456,64 @@ function ProfileEditor({
 
   return (
     <Modal visible={!!profile} transparent animationType="fade" onRequestClose={onClose}>
-      <PressableScale style={styles.edBackdrop} onPress={onClose}>
-        <PressableScale style={styles.edCard} onPress={() => {}}>
-          <Text style={styles.edTitle}>Профиль обхода</Text>
-          <Text style={styles.edLabel}>Название</Text>
-          <TextInput
-            style={styles.edInput}
-            value={name}
-            onChangeText={setName}
-            placeholder="Название профиля"
-            placeholderTextColor={colors.textFaint}
-            maxLength={40}
-          />
-          <Text style={styles.edLabel}>
-            Домены «мимо VPN» — по одному в строке или через запятую
-          </Text>
-          <TextInput
-            style={[styles.edInput, { height: 110, textAlignVertical: "top" }]}
-            value={domainsText}
-            onChangeText={setDomainsText}
-            placeholder={"vk.com\nyandex.ru"}
-            placeholderTextColor={colors.textFaint}
-            multiline
-          />
-          <View style={styles.edRow}>
-            <Text style={styles.edHint}>
-              {parseDomains().length} сайтов · {packages.length} приложений
-            </Text>
-          </View>
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-            <View style={{ flex: 1 }}>
-              <PressableScale style={styles.edBtnGhost} onPress={onClose}>
-                <Text style={styles.edBtnGhostText}>Отмена</Text>
-              </PressableScale>
-            </View>
-            <View style={{ flex: 1 }}>
-              <PressableScale
-                style={styles.edBtnPrimary}
-                onPress={() =>
-                  onSave({
-                    ...profile,
-                    name: name.trim() || profile.name,
-                    domains: parseDomains(),
-                  })
-                }
-              >
-                <Text style={styles.edBtnPrimaryText}>Сохранить</Text>
-              </PressableScale>
-            </View>
-          </View>
-          <Text style={styles.edNote}>
-            Приложения для профиля добавляются на вкладке «Приложения» — они попадают в
-            системный список «мимо VPN» при подключении.
-          </Text>
-        </PressableScale>
-      </PressableScale>
-    </Modal>
+            <KeyboardFormModalContent>
+          <PressableScale style={styles.edBackdrop} onPress={onClose}>
+            <PressableScale style={styles.edCard} onPress={() => {}}>
+              <Text style={styles.edTitle}>Профиль обхода</Text>
+              <Text style={styles.edLabel}>Название</Text>
+              <KeyboardTextInput
+                style={styles.edInput}
+                value={name}
+                onChangeText={setName}
+                placeholder="Название профиля"
+                placeholderTextColor={colors.textFaint}
+                maxLength={40}
+              />
+              <Text style={styles.edLabel}>
+                Домены «мимо VPN» — по одному в строке или через запятую
+              </Text>
+              <KeyboardTextInput
+                style={[styles.edInput, { height: 110, textAlignVertical: "top" }]}
+                value={domainsText}
+                onChangeText={setDomainsText}
+                placeholder={"vk.com\nyandex.ru"}
+                placeholderTextColor={colors.textFaint}
+                multiline
+              />
+              <View style={styles.edRow}>
+                <Text style={styles.edHint}>
+                  {parseDomains().length} сайтов · {packages.length} приложений
+                </Text>
+              </View>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                <View style={{ flex: 1 }}>
+                  <PressableScale style={styles.edBtnGhost} onPress={onClose}>
+                    <Text style={styles.edBtnGhostText}>Отмена</Text>
+                  </PressableScale>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <PressableScale
+                    style={styles.edBtnPrimary}
+                    onPress={() =>
+                      onSave({
+                        ...profile,
+                        name: name.trim() || profile.name,
+                        domains: parseDomains(),
+                      })
+                    }
+                  >
+                    <Text style={styles.edBtnPrimaryText}>Сохранить</Text>
+                  </PressableScale>
+                </View>
+              </View>
+              <Text style={styles.edNote}>
+                Приложения для профиля добавляются на вкладке «Приложения» — они попадают в
+                системный список «мимо VPN» при подключении.
+              </Text>
+            </PressableScale>
+          </PressableScale>
+        </KeyboardFormModalContent>
+          </Modal>
   );
 }
 

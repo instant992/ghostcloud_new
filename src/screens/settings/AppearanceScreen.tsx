@@ -1,3 +1,4 @@
+import { KeyboardFormModalContent, KeyboardTextInput } from "../../components/KeyboardForm";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Image, Modal, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -311,7 +312,7 @@ export default function AppearanceScreen() {
                   <View style={styles.timeTilesRow}>
                     <View style={styles.timeTile}>
                       <Text style={styles.timeTileLabel}>Светло с</Text>
-                      <TextInput
+                      <KeyboardTextInput
                         style={styles.timeTileInput}
                         value={customRise}
                         onChangeText={(v) => saveTime("theme_custom_rise", v, setCustomRise)}
@@ -323,7 +324,7 @@ export default function AppearanceScreen() {
                     </View>
                     <View style={styles.timeTile}>
                       <Text style={styles.timeTileLabel}>Темно с</Text>
-                      <TextInput
+                      <KeyboardTextInput
                         style={styles.timeTileInput}
                         value={customSet}
                         onChangeText={(v) => saveTime("theme_custom_set", v, setCustomSet)}
@@ -419,13 +420,14 @@ export default function AppearanceScreen() {
             {/* Секретная тема: диалог ввода кода */}
             {codeOpen && (
               <Modal visible={codeOpen} transparent animationType="fade" onRequestClose={() => setCodeOpen(false)}>
+        <KeyboardFormModalContent>
                 <PressableScale style={styles.modalBackdrop} onPress={() => setCodeOpen(false)}>
                   <PressableScale style={styles.modalCard} onPress={() => {}}>
                     <Text style={styles.modalTitle}>Секретная тема</Text>
                     <Text style={{ color: colors.textDim, fontSize: 13, textAlign: "center", marginBottom: 14 }}>
                       Введите код, чтобы открыть тему «Простой»
                     </Text>
-                    <TextInput
+                    <KeyboardTextInput
                       style={styles.coreInput}
                       value={codeInput}
                       onChangeText={setCodeInput}
@@ -455,7 +457,8 @@ export default function AppearanceScreen() {
                     </View>
                   </PressableScale>
                 </PressableScale>
-              </Modal>
+              </KeyboardFormModalContent>
+      </Modal>
             )}
           </Card>
         )}

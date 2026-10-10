@@ -1,3 +1,4 @@
+import { KeyboardFormModalContent, KeyboardTextInput } from "../components/KeyboardForm";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
@@ -789,6 +790,7 @@ export default function ProfileScreen() {
 
       {/* Редактирование профиля */}
       {editOpen && <Modal visible={editOpen} transparent animationType="fade" onRequestClose={() => setEditOpen(false)}>
+        <KeyboardFormModalContent>
         <Pressable style={styles.modalBackdrop} onPress={() => setEditOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Редактирование профиля</Text>
@@ -805,7 +807,7 @@ export default function ProfileScreen() {
               </Text>
             </PressableScale>
             <Text style={styles.fieldLabel}>Ник (отображается в профиле)</Text>
-            <TextInput style={styles.field} value={nick} onChangeText={setNick} maxLength={32} placeholder="Ник" placeholderTextColor={colors.textFaint} />
+            <KeyboardTextInput style={styles.field} value={nick} onChangeText={setNick} maxLength={32} placeholder="Ник" placeholderTextColor={colors.textFaint} />
             <Text style={styles.fieldLabel}>Логин (для входа)</Text>
             {!isSponsor && (
               <Text style={{ color: colors.textFaint, fontSize: 11, marginBottom: 6 }}>
@@ -817,7 +819,7 @@ export default function ProfileScreen() {
                 Спонсорам доступен произвольный ник от 7 символов
               </Text>
             )}
-            <TextInput style={styles.field} value={loginStr} onChangeText={setLoginStr} maxLength={32} autoCapitalize="none" placeholder={isSponsor ? "Ник" : "Суффикс ника"} placeholderTextColor={colors.textFaint} />
+            <KeyboardTextInput style={styles.field} value={loginStr} onChangeText={setLoginStr} maxLength={32} autoCapitalize="none" placeholder={isSponsor ? "Ник" : "Суффикс ника"} placeholderTextColor={colors.textFaint} />
             <PressableScale onPress={sendPasswordReset}>
               <Text style={{ color: colors.accent, fontSize: 12, marginBottom: 14 }}>
                 🔑 Сменить пароль — отправим новый на почту
@@ -833,14 +835,16 @@ export default function ProfileScreen() {
                 </View>
                 </Pressable>
                 </Pressable>
-                </Modal>}
+                </KeyboardFormModalContent>
+      </Modal>}
 
                 {/* Промокод / подарочный ключ */}
                 {promoOpen && <Modal visible={promoOpen} transparent animationType="fade" onRequestClose={() => setPromoOpen(false)}>
+        <KeyboardFormModalContent>
         <Pressable style={styles.modalBackdrop} onPress={() => setPromoOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>Ввести промокод</Text>
-            <TextInput
+            <KeyboardTextInput
               style={styles.field}
               value={promoCode}
               onChangeText={setPromoCode}
@@ -855,6 +859,7 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
         </Pressable>
+      </KeyboardFormModalContent>
       </Modal>}
 
       {/* Подарок для друга (спонсорам) */}
@@ -893,13 +898,14 @@ export default function ProfileScreen() {
 
       {/* Платный подарок подписки (любому пользователю) */}
       {paidGiftOpen && <Modal visible={paidGiftOpen} transparent animationType="fade" onRequestClose={() => setPaidGiftOpen(false)}>
+        <KeyboardFormModalContent>
         <Pressable style={styles.modalBackdrop} onPress={() => setPaidGiftOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
             <Text style={styles.modalTitle}>🎁 Подарить подписку</Text>
             <Text style={styles.modalText}>
               Подписка будет активирована у получателя сразу, сумма спишется с вашего баланса.
             </Text>
-            <TextInput
+            <KeyboardTextInput
               style={styles.modalInput}
               value={paidRecipient}
               onChangeText={setPaidRecipient}
@@ -938,13 +944,15 @@ export default function ProfileScreen() {
             </View>
           </Pressable>
         </Pressable>
+      </KeyboardFormModalContent>
       </Modal>}
 
       {/* Двухфакторная аутентификация (TOTP) */}
       {twoFaOpen && <Modal visible={twoFaOpen} transparent animationType="fade" onRequestClose={() => setTwoFaOpen(false)}>
+        <KeyboardFormModalContent>
         <Pressable style={styles.modalBackdrop} onPress={() => setTwoFaOpen(false)}>
           <Pressable style={styles.modalCard} onPress={() => {}}>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 560 }}>
+            <View>
               <Text style={styles.modalTitle}>🔐 Двухфакторная аутентификация</Text>
 
               {/* Резервные коды — показать один раз */}
@@ -1021,7 +1029,7 @@ export default function ProfileScreen() {
                       Секрет: {twoFaSetupData.secret}
                     </Text>
                   </PressableScale>
-                  <TextInput
+                  <KeyboardTextInput
                     style={styles.modalInput}
                     value={twoFaCode}
                     onChangeText={(t) => setTwoFaCode(t.replace(/\D/g, "").slice(0, 10))}
@@ -1042,7 +1050,7 @@ export default function ProfileScreen() {
                       2FA включена. Резервных кодов осталось: {twoFaBackupLeft}.
                     </Text>
                   </View>
-                  <TextInput
+                  <KeyboardTextInput
                     style={styles.modalInput}
                     value={twoFaCode}
                     onChangeText={(t) => setTwoFaCode(t.replace(/\D/g, "").slice(0, 10))}
@@ -1050,7 +1058,7 @@ export default function ProfileScreen() {
                     placeholderTextColor={colors.textFaint}
                     keyboardType="number-pad"
                   />
-                  <TextInput
+                  <KeyboardTextInput
                     style={styles.modalInput}
                     value={twoFaPassword}
                     onChangeText={setTwoFaPassword}
@@ -1062,12 +1070,13 @@ export default function ProfileScreen() {
                   <Button title="Отключить 2FA" variant="danger" loading={twoFaBusy} onPress={twoFaOff} />
                 </View>
               )}
-            </ScrollView>
+            </View>
             <View style={{ marginTop: 10 }}>
               <Button size="sm" title="Закрыть" variant="ghost" onPress={() => setTwoFaOpen(false)} />
             </View>
           </Pressable>
         </Pressable>
+      </KeyboardFormModalContent>
       </Modal>}
     </View>
   );

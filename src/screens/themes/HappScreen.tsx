@@ -1,3 +1,4 @@
+import { KeyboardFormModalContent, KeyboardTextInput } from "../../components/KeyboardForm";
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
@@ -786,74 +787,76 @@ function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () 
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.sheetBackdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть редактирование профиля">
-        <Pressable style={styles.sheet} onPress={() => {}}>
-          <View style={styles.sheetHandle} />
-          <Text style={[styles.sheetTitle, { fontSize: 18, textAlign: "center" }]}>
-            Редактировать профиль
-          </Text>
-          <View style={{ alignItems: "center", marginVertical: 14 }}>
-            <Pressable
-              onPress={pickAvatar}
-              disabled={saving}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Изменить аватар: выбрать фото"
-            >
-              {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.editAvatar} />
-              ) : (
-                <View style={[styles.editAvatar, styles.avatarPlaceholder]}>
-                  <Text style={{ fontSize: 30, fontWeight: "800", color: colors.accent }}>
-                    {((me?.display_name || me?.login || "?")[0] || "?").toUpperCase()}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.cameraBadge}>
-                {saving ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Ionicons name="camera" size={14} color="#fff" />
-                )}
+            <KeyboardFormModalContent>
+          <Pressable style={styles.sheetBackdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть редактирование профиля">
+            <Pressable style={styles.sheet} onPress={() => {}}>
+              <View style={styles.sheetHandle} />
+              <Text style={[styles.sheetTitle, { fontSize: 18, textAlign: "center" }]}>
+                Редактировать профиль
+              </Text>
+              <View style={{ alignItems: "center", marginVertical: 14 }}>
+                <Pressable
+                  onPress={pickAvatar}
+                  disabled={saving}
+                  hitSlop={12}
+                  accessibilityRole="button"
+                  accessibilityLabel="Изменить аватар: выбрать фото"
+                >
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.editAvatar} />
+                  ) : (
+                    <View style={[styles.editAvatar, styles.avatarPlaceholder]}>
+                      <Text style={{ fontSize: 30, fontWeight: "800", color: colors.accent }}>
+                        {((me?.display_name || me?.login || "?")[0] || "?").toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={styles.cameraBadge}>
+                    {saving ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="camera" size={14} color="#fff" />
+                    )}
+                  </View>
+                </Pressable>
               </View>
+              <Text style={styles.fieldLabel}>Отображаемое имя</Text>
+              <KeyboardTextInput
+                style={styles.field}
+                value={nick}
+                onChangeText={setNick}
+                maxLength={50}
+                placeholder="Имя"
+                placeholderTextColor={colors.textFaint}
+              />
+              <Text style={styles.fieldLabel}>Логин</Text>
+              <KeyboardTextInput
+                style={styles.field}
+                value={loginStr}
+                onChangeText={setLoginStr}
+                maxLength={32}
+                autoCapitalize="none"
+                placeholder="Логин"
+                placeholderTextColor={colors.textFaint}
+              />
+              <Pressable
+                style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                onPress={save}
+                disabled={saving}
+                accessibilityRole="button"
+                accessibilityLabel="Сохранить профиль"
+                accessibilityState={{ busy: saving, disabled: saving }}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>Сохранить</Text>
+                )}
+              </Pressable>
             </Pressable>
-          </View>
-          <Text style={styles.fieldLabel}>Отображаемое имя</Text>
-          <TextInput
-            style={styles.field}
-            value={nick}
-            onChangeText={setNick}
-            maxLength={50}
-            placeholder="Имя"
-            placeholderTextColor={colors.textFaint}
-          />
-          <Text style={styles.fieldLabel}>Логин</Text>
-          <TextInput
-            style={styles.field}
-            value={loginStr}
-            onChangeText={setLoginStr}
-            maxLength={32}
-            autoCapitalize="none"
-            placeholder="Логин"
-            placeholderTextColor={colors.textFaint}
-          />
-          <Pressable
-            style={[styles.saveBtn, saving && { opacity: 0.6 }]}
-            onPress={save}
-            disabled={saving}
-            accessibilityRole="button"
-            accessibilityLabel="Сохранить профиль"
-            accessibilityState={{ busy: saving, disabled: saving }}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>Сохранить</Text>
-            )}
           </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        </KeyboardFormModalContent>
+          </Modal>
   );
 }
 
@@ -883,48 +886,50 @@ function PromoDialog({ visible, onClose }: { visible: boolean; onClose: () => vo
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.dialogBackdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть окно промокода">
-        <Pressable style={styles.dialogCard} onPress={() => {}}>
-          <Text style={[styles.sheetTitle, { fontSize: 17 }]}>Промокод</Text>
-          <TextInput
-            style={styles.field}
-            value={code}
-            onChangeText={setCode}
-            autoCapitalize="none"
-            placeholder="Введите промокод"
-            placeholderTextColor={colors.textFaint}
-          />
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <Pressable
-                style={[styles.saveBtn, { backgroundColor: colors.bgSoft }]}
-                onPress={onClose}
-                accessibilityRole="button"
-                accessibilityLabel="Отмена"
-              >
-                <Text style={{ color: colors.textDim, fontWeight: "700" }}>Отмена</Text>
-              </Pressable>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Pressable
-                style={[styles.saveBtn, busy && { opacity: 0.6 }]}
-                onPress={apply}
-                disabled={busy}
-                accessibilityRole="button"
-                accessibilityLabel="Активировать промокод"
-                accessibilityState={{ busy, disabled: busy }}
-              >
-                {busy ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={{ color: "#fff", fontWeight: "800" }}>Активировать</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+            <KeyboardFormModalContent>
+          <Pressable style={styles.dialogBackdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Закрыть окно промокода">
+            <Pressable style={styles.dialogCard} onPress={() => {}}>
+              <Text style={[styles.sheetTitle, { fontSize: 17 }]}>Промокод</Text>
+              <KeyboardTextInput
+                style={styles.field}
+                value={code}
+                onChangeText={setCode}
+                autoCapitalize="none"
+                placeholder="Введите промокод"
+                placeholderTextColor={colors.textFaint}
+              />
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Pressable
+                    style={[styles.saveBtn, { backgroundColor: colors.bgSoft }]}
+                    onPress={onClose}
+                    accessibilityRole="button"
+                    accessibilityLabel="Отмена"
+                  >
+                    <Text style={{ color: colors.textDim, fontWeight: "700" }}>Отмена</Text>
+                  </Pressable>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Pressable
+                    style={[styles.saveBtn, busy && { opacity: 0.6 }]}
+                    onPress={apply}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    accessibilityLabel="Активировать промокод"
+                    accessibilityState={{ busy, disabled: busy }}
+                  >
+                    {busy ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={{ color: "#fff", fontWeight: "800" }}>Активировать</Text>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            </Pressable>
+          </Pressable>
+        </KeyboardFormModalContent>
+          </Modal>
   );
 }
 

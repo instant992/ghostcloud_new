@@ -3,7 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
-  KeyboardAvoidingView,
+
   Modal,
   Platform,
   StyleSheet,
@@ -21,6 +21,7 @@ import { useNavigation } from "@react-navigation/native";
 import { BASE_URL, supportAvatar, supportClose, supportHistory, supportMessages, supportSend } from "../api";
 import { colors, useTheme, sheetSurfaceBg } from "../theme";
 import { useScreenBgColor, ThemedCard } from "../components/UI";
+import { KeyboardViewport } from "../components/KeyboardForm";
 import { showToast } from "../components/Toast";
 
 export type Msg = {
@@ -494,9 +495,8 @@ export default function SupportScreen() {
   // Активного чата нет — экран приветствия + история обращений
   if (!hasActiveChat) {
     return (
-      <KeyboardAvoidingView
+      <KeyboardViewport
         style={{ flex: 1, backgroundColor: screenBg }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <FlatList
           bounces={false}
@@ -529,15 +529,14 @@ export default function SupportScreen() {
           </PressableScale>
         )}
         {inputBar}
-      </KeyboardAvoidingView>
+      </KeyboardViewport>
     );
   }
 
   // Активный чат
   return (
-    <KeyboardAvoidingView
+    <KeyboardViewport
       style={{ flex: 1, backgroundColor: screenBg }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       {/* Кнопка закрытия тикета — как в старом приложении, сверху над чатом */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
@@ -618,7 +617,7 @@ export default function SupportScreen() {
           </View>
         </View>
       </Modal>
-    </KeyboardAvoidingView>
+    </KeyboardViewport>
   );
 }
 

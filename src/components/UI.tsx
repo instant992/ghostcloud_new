@@ -16,6 +16,7 @@ import { colors, useTheme } from "../theme";
 import { PressableScale } from "./PressableScale";
 import { LiquidGlassSurface, useGlassBackdrop, GLASS_SCROLL_HANDLERS } from "./liquidGlass";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardScrollView, KeyboardFormContext } from "./KeyboardForm";
 
 /** Контекст: экран находится во вкладках (таб-бар), а не под стековым хедером.
  *  Используется для корректных верхних отступов вместо магических чисел. */
@@ -72,7 +73,7 @@ export function Screen({
   const safeBottom = inTabs ? { paddingBottom: insets.bottom + 116 } : null;
   if (scroll) {
     return (
-      <ScrollView
+      <KeyboardScrollView
           bounces={false}
           overScrollMode="never"
         style={[styles.screen, { backgroundColor: screenBg }]}
@@ -83,7 +84,7 @@ export function Screen({
         onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
       >
         {children}
-      </ScrollView>
+      </KeyboardScrollView>
     );
   }
   return (
@@ -240,7 +241,8 @@ export function Button({ title, onPress, loading, disabled, variant = "primary",
   );
 }
 
-export function Input({ label, ...props }: TextInputProps & { label?: string }) {
+export function Input({ label, style, onFocus, onContentSizeChange, ...props }: TextInputProps & { label?: string }) {
+  const reveal = React.useContext(KeyboardFormContext);
   useTheme();
   const styles = makeStyles();
   return (
@@ -248,7 +250,9 @@ export function Input({ label, ...props }: TextInputProps & { label?: string }) 
       {!!label && <Text style={styles.inputLabel}>{label}</Text>}
       <TextInput
         placeholderTextColor={colors.textFaint}
-        style={styles.input}
+        style={[styles.input, props.multiline && { minHeight: 96, maxHeight: 180, textAlignVertical: "top" }, style]}
+        onFocus={event => { onFocus?.(event); reveal?.(); }}
+        onContentSizeChange={event => { onContentSizeChange?.(event); reveal?.(); }}
         accessibilityLabel={label || (props.placeholder as string | undefined)}
         {...props}
       />
@@ -256,7 +260,8 @@ export function Input({ label, ...props }: TextInputProps & { label?: string }) 
   );
 }
 
-export function PasswordInput({ label, ...props }: TextInputProps & { label?: string }) {
+export function PasswordInput({ label, style, onFocus, ...props }: TextInputProps & { label?: string }) {
+  const reveal = React.useContext(KeyboardFormContext);
   useTheme();
   const styles = makeStyles();
   const [show, setShow] = React.useState(false);
@@ -266,7 +271,8 @@ export function PasswordInput({ label, ...props }: TextInputProps & { label?: st
       <View style={styles.passwordWrap}>
         <TextInput
           placeholderTextColor={colors.textFaint}
-          style={[styles.input, { marginBottom: 0, paddingRight: 48 }]}
+          style={[styles.input, { marginBottom: 0, paddingRight: 48 }, style]}
+          onFocus={event => { onFocus?.(event); reveal?.(); }}
           secureTextEntry={!show}
           autoCapitalize="none"
           autoCorrect={false}

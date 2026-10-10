@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, ErrorText, Input, PasswordInput } from "../../components/UI";
+import { KeyboardScrollView } from "../../components/KeyboardForm";
 import { useApp } from "../../context";
 import { colors, typo, useTheme } from "../../theme";
 
@@ -59,10 +60,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
       <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.brand}>
           <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
@@ -163,14 +161,14 @@ export default function LoginScreen() {
           </View>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </KeyboardScrollView>
   );
 }
 
 const makeStyles = () => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   screen: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: colors.bg,
     paddingHorizontal: 20,
   },
