@@ -1,5 +1,5 @@
 import React from "react";
-import { ActivityIndicator, Easing, PermissionsAndroid, Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, ActivityIndicator, Easing, PermissionsAndroid, Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { NavigationContainer, DefaultTheme, useNavigation } from "@react-navigation/native";
@@ -552,11 +552,27 @@ function DockedThemedFlow({
   transparent?: boolean;
 }) {
   useTheme();
+  // До чтения accessibility-настройки оставляем безопасный мгновенный переход.
+  const [reduceMotion, setReduceMotion] = React.useState(true);
+  React.useEffect(() => {
+    if (!transparent) return;
+    let active = true;
+    let changed = false;
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", (value) => {
+      changed = true;
+      setReduceMotion(value);
+    });
+    AccessibilityInfo.isReduceMotionEnabled().then((value) => {
+      if (active && !changed) setReduceMotion(value);
+    }).catch(() => {});
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [transparent]);
   // Фон СЦЕНЫ стека. В glass-теме сцены push-экранов НЕЛЬЗЯ делать
-  // прозрачными: нативная анимация стека (slide_from_right) фейдит ВСЮ сцену
-  // через alpha, и на прозрачной сцене сквозь неё видны блоки вкладок и док
-  // («в настройках всё полупрозрачное»); при потерянных кадрах/ANR alpha
-  // залипает < 1 до перезахода в приложение. Поэтому фон сцены — непрозрачный
+  // прозрачными: сквозь них видны блоки вкладок и док, а native-stack
+  // сохраняет нижнюю сцену прикреплённой. Поэтому фон сцены — непрозрачный
   // colors.bg (в glass это #0F0B1E/#F4F2FA), а «воздушный» фон темы рисует
   // BackOverlay своим <GlassScreenBackdrop/> поверх фона сцены. Прозрачная
   // сцена осталась только у ThemeTabs — её закрывают непрозрачные push-сцены.
@@ -566,12 +582,12 @@ function DockedThemedFlow({
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: screenBg },
-        // Glass: анимация стека БЕЗ альфы. Дефолтная (rns_default_enter_in:
-        // alpha 0→1 + scale) на стеклянных экранах залипает на первом кадре:
-        // сцена остаётся невидимой (пустой экран «кроме фона»), пока
-        // взаимодействие не дёрнёт перерисовку — баг «Настройки пустые /
-        // после возврата всё прозрачное». 'none' = alpha 1→1, залипать нечему.
-        ...(transparent ? { animation: "none" as const } : null),
+        // Нативный iOS push: только translateX, без alpha/scale, которые
+        // раньше оставляли стеклянную сцену пустой. Android-ресурсы задают
+        // общий easing и 300 мс для обоих слоёв; iOS использует native push.
+        ...(transparent ? {
+          animation: reduceMotion ? "none" as const : "ios_from_right" as const,
+        } : null),
       }}
     >
       <Stack.Screen name="ThemeTabs">

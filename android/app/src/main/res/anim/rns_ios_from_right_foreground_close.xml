@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App override of the native screens iOS transition: transform only. -->
+<translate xmlns:android="http://schemas.android.com/apk/res/android"
+    android:duration="300"
+    android:interpolator="@interpolator/glass_navigation_ease"
+    android:fromXDelta="0%"
+    android:toXDelta="100%" />
