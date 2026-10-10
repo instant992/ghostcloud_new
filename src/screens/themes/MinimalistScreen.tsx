@@ -53,6 +53,7 @@ export default function MinimalistScreen() {
   const seconds = useVpnTimerSeconds(vpnRunning);
   const [appsOpen, setAppsOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [pingBusy, setPingBusy] = useState(false);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
   /** Выпадающий список типа серверов: обычные / LTE OPEN */
   const [serverTab, setServerTab] = useState<"regular" | "lte">("regular");
@@ -297,73 +298,46 @@ export default function MinimalistScreen() {
           {!!vpnRunning && <Text style={styles.timerText} numberOfLines={1}>{formatElapsed(seconds)}</Text>}
         </View>
 
-        {/* Ряд действий */}
-        <View style={styles.actionsRow}>
-          <Pressable
-            style={styles.squareIcon}
-            onPress={() => setAppsOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Фильтр соединения: какие приложения идут через VPN"
-          >
-            <Ionicons name="shield-half-outline" size={22} color={colors.text} />
-          </Pressable>
-          <Pressable
-            style={styles.squareIcon}
-            onPress={async () => {
-              await pingStore.pingAll(allVisible);
-              showToast("Проверка задержки завершена");
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Проверить задержку всех серверов"
-          >
-            <Ionicons name="speedometer-outline" size={22} color={colors.text} />
-          </Pressable>
-        </View>
-
-        {/* Трафик за сегодня — как в основной теме: Отправлено/Получено. И дни. */}
-        <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
-          <Pressable
-            style={[styles.miniCard, { flex: 1 }]}
-            onPress={() => nav.navigate("Статистика")}
-            accessibilityRole="button"
-            accessibilityLabel={`Отправлено сегодня: ${formatBytes(todayStat.tx)}. Открыть статистику`}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="arrow-up" size={13} color={colors.green} />
-              <Text style={styles.miniCardTitle}>Отправлено</Text>
+        {/* Компактная панель: трафик, подписка и полезные действия. */}
+        <View style={styles.overviewPanel}>
+          <Pressable style={styles.trafficSummary} onPress={() => nav.navigate("Статистика")} accessibilityRole="button" accessibilityLabel="Трафик за сегодня. Открыть статистику">
+            <View style={styles.summaryMetric}>
+              <View style={styles.metricCaption}><Ionicons name="arrow-up-outline" size={15} color={colors.green} /><Text style={styles.summaryLabel}>Отправлено</Text></View>
+              <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>{formatBytes(todayStat.tx)}</Text>
             </View>
-            <Text style={styles.miniCardValue}>{formatBytes(todayStat.tx)}</Text>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryMetric}>
+              <View style={styles.metricCaption}><Ionicons name="arrow-down-outline" size={15} color={colors.accent} /><Text style={styles.summaryLabel}>Получено</Text></View>
+              <Text style={styles.summaryValue} numberOfLines={1} adjustsFontSizeToFit>{formatBytes(todayStat.rx)}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.textFaint} />
           </Pressable>
-          <Pressable
-            style={[styles.miniCard, { flex: 1 }]}
-            onPress={() => nav.navigate("Статистика")}
-            accessibilityRole="button"
-            accessibilityLabel={`Получено сегодня: ${formatBytes(todayStat.rx)}. Открыть статистику`}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-              <Ionicons name="arrow-down" size={13} color={colors.accent} />
-              <Text style={styles.miniCardTitle}>Получено</Text>
+          <View style={styles.subscriptionSummary}>
+            <View style={styles.subscriptionIcon}><Ionicons name="calendar-outline" size={19} color={colors.accent} /></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.subscriptionValue}>{daysLeft} {daysLeft % 10 === 1 && daysLeft % 100 !== 11 ? "день" : daysLeft % 10 >= 2 && daysLeft % 10 <= 4 && (daysLeft % 100 < 12 || daysLeft % 100 > 14) ? "дня" : "дней"} осталось</Text>
+              <Text style={styles.summaryLabel}>{me?.expire_at ? `До ${new Date(String(me.expire_at)).toLocaleDateString("ru-RU")}` : "Нет активной подписки"}</Text>
             </View>
-            <Text style={styles.miniCardValue}>{formatBytes(todayStat.rx)}</Text>
-          </Pressable>
-        </View>
-        <View style={{ marginTop: 10 }}>
-          <View style={[styles.miniCard]}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text style={styles.miniCardTitle}>Дней</Text>
-              <Text style={styles.miniCardLabel}>До конца</Text>
-            </View>
-            <Text style={styles.miniCardValue}>{daysLeft}</Text>
-            <View style={styles.miniBarTrack}>
-              <View
-                style={[styles.miniBarFill, { width: `${Math.min(100, Math.round((daysLeft / 30) * 100))}%` }]}
-              />
-            </View>
-            <Text style={styles.miniCardSub}>
-              {me?.expire_at ? new Date(String(me.expire_at)).toLocaleDateString("ru-RU") : "—"}
-            </Text>
+          </View>
+          <View style={styles.utilityRow}>
+            <Pressable style={styles.utilityButton} onPress={() => setAppsOpen(true)} accessibilityRole="button" accessibilityLabel="Фильтр соединения: какие приложения идут через VPN">
+              <Ionicons name="shield-half-outline" size={19} color={colors.accent} />
+              <Text style={styles.utilityLabel}>Приложения</Text>
+            </Pressable>
+            <Pressable style={styles.utilityButton} disabled={pingBusy} accessibilityState={{ busy: pingBusy, disabled: pingBusy }} onPress={async () => {
+              if (pingBusy) return;
+              setPingBusy(true);
+              try { await pingStore.pingAll(allVisible); showToast("Проверка задержки завершена"); }
+              catch { showToast("Не удалось проверить задержку"); }
+              finally { setPingBusy(false); }
+            }} accessibilityRole="button" accessibilityLabel="Проверить задержку всех серверов">
+              {pingBusy ? <ActivityIndicator size="small" color={colors.accent} /> : <Ionicons name="speedometer-outline" size={19} color={colors.accent} />}
+              <Text style={styles.utilityLabel}>{pingBusy ? "Проверяем…" : "Проверить пинг"}</Text>
+            </Pressable>
           </View>
         </View>
+
+        <SubscriptionUpdatedLabel style={{ marginTop: 10, marginBottom: 2 }} />
 
         {/* Выбранный сервер — сплошная заливка (без стрелки выбора — сервер меняется из списка ниже) */}
         <View
@@ -446,7 +420,7 @@ export default function MinimalistScreen() {
             Нет других серверов
           </Text>
         )}
-        <SubscriptionUpdatedLabel style={{ marginTop: 12 }} />
+
       </ScrollView>
 
       {/* Док рендерится как таб-бар потока темы (см. App.tsx) */}
@@ -457,6 +431,19 @@ export default function MinimalistScreen() {
 }
 
 const makeStyles = () => StyleSheet.create({
+  overviewPanel: { backgroundColor: colors.cardLight, borderColor: colors.border, borderWidth: 1, borderRadius: 22, padding: 16, marginTop: 6 },
+  trafficSummary: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 60 },
+  summaryMetric: { flex: 1 },
+  metricCaption: { flexDirection: "row", alignItems: "center", gap: 5 },
+  summaryLabel: { color: colors.textDim, fontSize: 12, lineHeight: 18 },
+  summaryValue: { color: colors.text, fontSize: 22, fontWeight: "700", marginTop: 4 },
+  summaryDivider: { width: 1, height: 36, backgroundColor: colors.border },
+  subscriptionSummary: { flexDirection: "row", alignItems: "center", gap: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14, marginTop: 14 },
+  subscriptionIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" },
+  subscriptionValue: { color: colors.text, fontSize: 16, fontWeight: "600", marginBottom: 2 },
+  utilityRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 },
+  utilityButton: { flexGrow: 1, flexBasis: 130, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, paddingHorizontal: 10, paddingVertical: 10, borderRadius: 14, backgroundColor: colors.accentSoft },
+  utilityLabel: { color: colors.text, fontSize: 12, fontWeight: "600", flexShrink: 1 },
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
