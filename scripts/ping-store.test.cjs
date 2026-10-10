@@ -71,20 +71,20 @@ test('TCP failed handshakes never enter the 30-second URL batch path', async () 
   assert.equal(h.store.getSnapshot().failed.delay, -1);
 });
 
-test('TCP LTE batch is explicitly unmeasurable, not dead or URL-tested', async () => {
+test('TCP LTE batch measures the port without URL fallback', async () => {
   const h = harness();
   await h.settle(h.store.pingAll([node('lte', { source: 'lte' })]));
   assert.equal(h.calls.url.length, 0);
-  assert.equal(h.calls.tcp.length, 0);
-  assert.match(h.store.getSnapshot().lte.error, /LTE.*TCP/);
+  assert.equal(h.calls.tcp.length, 1);
+  assert.equal(h.store.getSnapshot().lte.delay, 100);
 });
 
 test('TCP single LTE honors the selected method', async () => {
   const h = harness();
   await h.settle(h.store.pingOne(node('lte', { source: 'lte' })));
   assert.equal(h.calls.url.length, 0);
-  assert.equal(h.calls.tcp.length, 0);
-  assert.match(h.store.getSnapshot().lte.error, /LTE.*TCP/);
+  assert.equal(h.calls.tcp.length, 1);
+  assert.equal(h.store.getSnapshot().lte.delay, 100);
 });
 
 test('URL single normal node falls back to TCP while VPN is up', async () => {

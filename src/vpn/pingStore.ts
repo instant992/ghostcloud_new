@@ -144,8 +144,8 @@ async function tcpPingOne(n: VpnNode): Promise<PingState> {
 }
 
 /** Пинг одной ноды (кнопка «скорость» в списке серверов). Метод — из настроек.
- *  LTE OPEN: URL-тест только в URL-режиме и при выключенном VPN —
- *  прямой TCP к LTE-нодам физически невозможен (см. комментарий pingAll). */
+ *  LTE OPEN: в TCP-режиме пробуем порт напрямую; в URL-режиме через прокси
+ *  только при выключенном VPN. TCP-ошибка не означает, что прокси не работает. */
 export async function pingOne(node: VpnNode): Promise<void> {
   const method = getPingMethod();
   if (!node.supportedByXray && node.protocol !== "hysteria2" && method === "url") {
@@ -154,10 +154,8 @@ export async function pingOne(node: VpnNode): Promise<void> {
     return;
   }
   const vpnUp = method === "url" ? await isVpnRunning() : false;
-  if (node.source === "lte" && node.protocol !== "hysteria2" && (method === "tcp" || vpnUp)) {
-    map[node.id] = { status: "done", delay: -1, error: method === "tcp"
-      ? "LTE не измеряется через TCP; выберите URL-тест при выключенном VPN"
-      : "не проверить при вкл. VPN" };
+  if (node.source === "lte" && node.protocol !== "hysteria2" && method === "url" && vpnUp) {
+    map[node.id] = { status: "done", delay: -1, error: "не проверить при вкл. VPN" };
     emit();
     return;
   }
@@ -263,10 +261,9 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
 
 /** Пинг всех нод, результаты появляются по мере готовности.
  *  Обычные узлы: параллельный TCP или URL-тест (настройка ping_method).
- *  LTE OPEN: прямой TCP к ним физически невозможен — провайдер не принимает
- *  рукопожатия на свои порты из обычной сети (узел работает только как прокси),
- *  поэтому LTE проверяется только в URL-режиме через прокси; в TCP-режиме
- *  возвращается явная ошибка неприменимости метода. При включённом
+ *  LTE OPEN: в TCP-режиме пробуем порт напрямую с тем же таймаутом.
+ *  Недоступность порта из текущей сети не доказывает отказ прокси.
+ *  В URL-режиме проверяем через прокси. При включённом
  *  VPN pingBatch ядром запрещён (один инстанс Xray на процесс) — LTE помечается
  *  «не проверить при вкл. VPN» вместо бесполезного 5-секундного таймаута. */
 export async function pingAll(nodes: VpnNode[]): Promise<void> {
@@ -316,15 +313,16 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
       // Все обычные ноды стартуют одновременно (жёсткий потолок 1500 мс на пробу,
       // приложение исключено из собственного туннеля — пробы идут напрямую, поэтому
       // состояние VPN на путь TCP-пинга почти не влияет). waveToken — вытеснение.
-      await tcpWave(normalTargets, mySeq);
+      await tcpWave(method === "tcp" ? targets : normalTargets, mySeq);
       if (cancelled()) return;
-      // LTE-ноды: TCP бесполезен (см. комментарий к функции)
-      for (const n of lteTargets) {
-        map[n.id] = vpnUp
-          ? { status: "done", delay: -1, error: "не проверить при вкл. VPN" }
-          : { status: "done", delay: -1, error: "LTE не измеряется через TCP; выберите URL-тест при выключенном VPN" };
+      // URL mode cannot test LTE through the proxy while VPN is running.
+      // Explicit TCP mode already probed every target, including LTE.
+      if (method === "url") {
+        for (const n of lteTargets) {
+          map[n.id] = { status: "done", delay: -1, error: "не проверить при вкл. VPN" };
+        }
+        if (lteTargets.length > 0) emit();
       }
-      if (lteTargets.length > 0) emit();
       // Explicit TCP mode never starts a proxy URL test, even on failed handshakes.
       // URL mode enters this branch only with VPN up, where pingBatch is forbidden.
     }
