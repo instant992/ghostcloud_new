@@ -60,7 +60,7 @@ class XrayVpnService : VpnService() {
 
   override fun onCreate() {
     super.onCreate()
-    LibXray.registerDialerController(dialerController)
+    // ACTION_STOP may create this service while a downloadable runtime owns the process.
   }
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -111,6 +111,8 @@ class XrayVpnService : VpnService() {
     failoverJson: String? = null
   ) {
     try {
+      CoreRuntime.claim("xray")
+      LibXray.registerDialerController(dialerController)
       val builder = Builder()
         .setSession("GhostCloud")
         .setMtu(1500)
@@ -190,7 +192,7 @@ class XrayVpnService : VpnService() {
       pendingPromise?.resolve(true)
       pendingPromise = null
     } catch (e: Throwable) {
-      runCatching { XrayApi.invoke(applicationContext, "stopXray") }
+      if (CoreRuntime.owns("xray")) runCatching { XrayApi.invoke(applicationContext, "stopXray") }
       closeTun()
       notifyState(false)
       pendingPromise?.reject("ERR_START", e.message ?: "Ошибка запуска VPN", e)
@@ -214,11 +216,11 @@ class XrayVpnService : VpnService() {
     }
     monitor = null
     try {
-      XrayApi.invoke(applicationContext, "stopXray")
+      if (CoreRuntime.owns("xray")) XrayApi.invoke(applicationContext, "stopXray")
     } catch (_: Throwable) {
     }
     closeTun()
-    runCatching { LibXray.resetDNS() }
+    if (CoreRuntime.owns("xray")) runCatching { LibXray.resetDNS() }
     notifyState(false)
     pendingPromise?.let { promise ->
       promise.reject("ERR_STOPPED", "VPN остановлен до завершения запуска", null)
@@ -242,7 +244,7 @@ class XrayVpnService : VpnService() {
   private fun restartXray(configJson: String): Boolean {
     val pfd = tunInterface ?: return false
     return try {
-      XrayApi.invoke(applicationContext, "stopXray")
+      if (CoreRuntime.owns("xray")) XrayApi.invoke(applicationContext, "stopXray")
       val json = JSONObject(configJson)
       val env = json.optJSONObject("env") ?: JSONObject().also { json.put("env", it) }
       env.put("xray.tun.fd", pfd.fd.toLong().toString())

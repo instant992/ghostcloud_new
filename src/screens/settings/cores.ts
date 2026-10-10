@@ -9,13 +9,14 @@ export const CORES: Array<{
   key: CoreName;
   label: string;
   file: string;
-  lib: "singbox" | "uwuray" | null;
+  lib: "singbox" | "uwuray" | "xray-last" | null;
   note: string;
   mb: number;
 }> = [
   { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS, Hysteria2", mb: 0 },
   { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "альтернативное ядро · все протоколы", mb: 36 },
   { key: "uwuray", label: "UwuRay", file: "libuwuray.so", lib: "uwuray", note: "форк Xray · расширенный BT-снаффер", mb: 34 },
+  { key: "xray-last", label: "Xray Last", file: "libxraylast.so", lib: "xray-last", note: "официальный XTLS/Xray-core · обновление вручную", mb: 35 },
 ];
 
 // Фолбэк, если манифест недоступен
@@ -69,8 +70,11 @@ export const FALLBACK: Record<string, Record<string, { url: string; sha256: stri
 export type CoreMeta = { url: string; sha256: string; size: number; version: string };
 
 export async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch(CORES_REPO_MANIFEST);
+    const res = await fetch(CORES_REPO_MANIFEST, { signal: controller.signal });
+    if (!res.ok) return null;
     const manifest = await res.json();
     const entry = manifest?.cores?.[core];
     const file = entry?.files?.[abi];
@@ -83,5 +87,7 @@ export async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta
     };
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }

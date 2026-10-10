@@ -14,8 +14,9 @@ object GcCore {
     private set
 
   fun load(path: String): Boolean {
-    synchronized(this) {
-      if (loaded && libPath == path) return true
+    synchronized(CoreRuntime) {
+      CoreRuntime.claim("mihomo")
+      if (loaded) return true
       System.load(path)
       loaded = true
       libPath = path

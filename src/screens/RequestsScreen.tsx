@@ -77,7 +77,7 @@ export default function RequestsScreen({
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const core = getSelectedCore();
-  const xrayCore = core === "xray" || core === "uwuray";
+  const xrayCore = core === "xray" || core === "uwuray" || core === "xray-last";
 
   const load = useCallback(async () => {
     const access = await readTextFileTail(accessLogPath(), 512 * 1024);

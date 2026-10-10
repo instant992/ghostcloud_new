@@ -7,6 +7,9 @@ import { getAutoConnect, getKillSwitch, getPingMethod, setAutoConnect, setKillSw
 import { getXrayVersion } from "../vpn/native";
 import { colors, useTheme } from "../theme";
 import { TvFocusable } from "./TvFocusable";
+import { getSelectedCore, setSetting, type CoreName } from "../settings";
+import { useXrayLast } from "../screens/settings/xrayLast";
+import { showToast } from "../components/Toast";
 
 /** Настройки Android TV: урезанный набор — только то, чем реально пользуются
  *  с пульта. Каждый Switch обёрнут в фокусируемую строку (TvFocusable), а сам
@@ -21,6 +24,8 @@ export function TvSettingsTab() {
   const [pingMethod, setPingMethodState] = useState<PingMethod>(getPingMethod());
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [xrayVersion, setXrayVersion] = useState("");
+  const [selectedCore, setCore] = useState<CoreName>(getSelectedCore());
+  const xrayLast = useXrayLast();
 
   useEffect(() => {
     try {
@@ -175,6 +180,26 @@ export function TvSettingsTab() {
         </View>
       </TvFocusable>
 
+      <Text style={s.rowTitle}>Ядро VPN</Text>
+      {(["xray", "xray-last"] as const).map((key) => (
+        <TvFocusable key={key} style={s.row} borderRadius={17} onPress={() => {
+          if (key === "xray-last" && !xrayLast.status.downloaded) { showToast("Сначала скачайте ядро"); return; }
+          setCore(key); setSetting("core", key);
+          showToast("Ядро выбрано — перезапустите приложение перед подключением");
+        }}>
+          <View style={s.rowInner}><View style={{ flex: 1 }}>
+            <Text style={s.rowTitle}>{key === "xray" ? "Xray (встроенный)" : "Xray Last"}{selectedCore === key ? " · выбрано" : ""}</Text>
+            <Text style={s.rowSub}>{key === "xray-last" ? xrayLast.note : coreLabel}</Text>
+          </View></View>
+        </TvFocusable>
+      ))}
+      {(!xrayLast.status.downloaded || xrayLast.canUpdate) && (
+        <TvFocusable style={s.row} onPress={() => {
+          xrayLast.install().then(() => showToast("Ядро загружено — перезапустите приложение")).catch((e) => showToast(e.message));
+        }}>
+          <View style={s.rowInner}><Text style={s.rowTitle}>{xrayLast.busy ? "Загрузка…" : xrayLast.status.downloaded ? "Обновить Xray Last" : "Скачать Xray Last"}</Text></View>
+        </TvFocusable>
+      )}
       {/* О программе */}
       <View style={[s.row, s.rowStatic]}>
         <View style={s.rowInner}>

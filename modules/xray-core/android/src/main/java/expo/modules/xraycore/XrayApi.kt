@@ -30,6 +30,7 @@ object XrayApi {
   }
 
   fun invoke(context: Context?, method: String, payload: JSONObject? = null): JSONObject {
+    try { CoreRuntime.claim("xray") } catch (e: Throwable) { return errorResult(e.message ?: "Перезапустите приложение") }
     if (!forceV1) {
       val req = JSONObject().put("apiVersion", apiVersion).put("method", method)
       if (payload != null && payload.length() > 0) {

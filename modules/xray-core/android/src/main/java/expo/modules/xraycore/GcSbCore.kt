@@ -14,8 +14,9 @@ object GcSbCore {
     private set
 
   fun load(path: String): Boolean {
-    synchronized(this) {
-      if (loaded && libPath == path) return true
+    synchronized(CoreRuntime) {
+      CoreRuntime.claim("singbox")
+      if (loaded) return true
       System.load(path)
       loaded = true
       libPath = path

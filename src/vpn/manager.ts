@@ -92,7 +92,7 @@ function buildFailoverInfo(
     .filter((n) => n.id !== current.id)
     .filter((n) => (currentIsLte ? isLteNode(n) : n.source !== "lte"))
     .filter((n) => isNodeUsable(n))
-    .filter((n) => (core === "xray" || core === "uwuray" ? n.supportedByXray : true));
+    .filter((n) => (core === "xray" || core === "uwuray" || core === "xray-last" ? n.supportedByXray : true));
   // Сортировка по пингу — локальная (rankByPing отфильтровал бы LTE-ноды).
   const snap = getPingSnapshot();
   const ranked = rest
@@ -150,7 +150,7 @@ export async function pickBestNode(
       !isLteNode(n) &&
       !exclude.has(n.id) &&
       isNodeUsable(n) &&
-      (core === "xray" || core === "uwuray" ? n.supportedByXray : true)
+      (core === "xray" || core === "uwuray" || core === "xray-last" ? n.supportedByXray : true)
   );
   if (candidates.length === 0) return [];
 
@@ -564,6 +564,16 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     await ensureSingBoxLoaded();
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
+    lastConnectedNodeId = node.id;
+    markVpnConnected();
+    return;
+  }
+  if (core === "xray-last") {
+    if (!getCoreStatus("libxraylast.so").downloaded) throw new Error("Xray Last не установлен — скачайте ядро в настройках");
+    await loadLibCore("xray-last");
+    const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
+    saveTileConfig(config, "xray-last");
+    await startLibCoreVpn("xray-last", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
     markVpnConnected();
     return;

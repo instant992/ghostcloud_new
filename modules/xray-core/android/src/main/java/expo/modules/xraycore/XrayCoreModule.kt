@@ -473,6 +473,20 @@ class XrayCoreModule : Module() {
       }
     }
 
+    Function("getXrayLastStatus") { XrayLastFiles.status(context) }
+
+    AsyncFunction("downloadXrayLast") { url: String, sha256: String, size: Double, version: String, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-xray-last-download") {
+        try {
+          check(size.isFinite() && size == size.toLong().toDouble()) { "Invalid core size" }
+          val path = XrayLastFiles.download(context, url, sha256, size.toLong(), version) { received, total ->
+            sendEvent("onCoreDownloadProgress", mapOf("name" to XrayLastFiles.NAME, "received" to received, "total" to total, "progress" to (received * 100 / total).toInt()))
+          }
+          promise.resolve(path)
+        } catch (e: Throwable) { promise.reject("ERR_DOWNLOAD", e.message, e) }
+      }
+    }
+
     Function("getCoreStatus") { name: String ->
       val file = File(context.filesDir, "cores/$name")
       mapOf(
@@ -485,6 +499,7 @@ class XrayCoreModule : Module() {
     AsyncFunction("downloadCore") { name: String, url: String, expectedSha256: String, expectedSize: Double, promise: Promise ->
       kotlin.concurrent.thread(name = "gc-core-download") {
         try {
+          check(name != XrayLastFiles.NAME) { "Use downloadXrayLast for staged installs" }
           val dir = File(context.filesDir, "cores")
           if (!dir.exists()) dir.mkdirs()
           val tmp = File(dir, "$name.tmp")
@@ -548,8 +563,19 @@ class XrayCoreModule : Module() {
     }
 
     AsyncFunction("deleteCore") { name: String, promise: Promise ->
-      val file = File(context.filesDir, "cores/$name")
-      promise.resolve(if (file.exists()) file.delete() else false)
+      synchronized(CoreRuntime) {
+        if (CoreRuntime.isLoadedFile(name)) {
+          promise.reject("ERR_CORE_LOADED", "Перезапустите приложение перед удалением ядра", null)
+        } else {
+          val file = File(context.filesDir, "cores/$name")
+          if (name == XrayLastFiles.NAME) {
+            File(context.filesDir, "cores/$name.pending").delete()
+            File(context.filesDir, "cores/$name.pending.json").delete()
+            File(context.filesDir, "cores/$name.json").delete()
+          }
+          promise.resolve(if (file.exists()) file.delete() else false)
+        }
+      }
     }
 
     AsyncFunction("loadLibCore") { lib: String, promise: Promise ->
@@ -558,8 +584,10 @@ class XrayCoreModule : Module() {
           val fileName = when (lib) {
             "singbox" -> "libsingbox.so"
             "uwuray" -> "libuwuray.so"
+      "xray-last" -> "libxraylast.so"
             else -> "libclash.so"
           }
+          if (lib == "xray-last") XrayLastFiles.activate(context)
           val file = File(context.filesDir, "cores/$fileName")
           if (!file.exists()) {
             promise.reject("ERR_NO_CORE", "Ядро не скачано: $lib", null)
@@ -568,6 +596,7 @@ class XrayCoreModule : Module() {
           val home = File(context.filesDir, when (lib) {
             "singbox" -> "singbox"
             "uwuray" -> "uwuray"
+      "xray-last" -> "xray-last"
             else -> "mihomo"
           })
           if (!home.exists()) home.mkdirs()
@@ -602,6 +631,12 @@ class XrayCoreModule : Module() {
               }
               GcUwuCore.gcVersion()
             }
+            "xray-last" -> {
+              GcXrayLastCore.load(file.absolutePath)
+              val err = GcXrayLastCore.gcInit(home.absolutePath)
+              check(err.isEmpty()) { err }
+              GcXrayLastCore.gcVersion()
+            }
             else -> {
               GcCore.load(file.absolutePath)
               val err = GcCore.gcInit(home.absolutePath)
@@ -631,6 +666,7 @@ class XrayCoreModule : Module() {
       val loaded = when (lib) {
         "singbox" -> GcSbCore.loaded
         "uwuray" -> GcUwuCore.loaded
+      "xray-last" -> GcXrayLastCore.loaded
         else -> GcCore.loaded
       }
       if (!loaded) {
@@ -890,6 +926,8 @@ class XrayCoreModule : Module() {
     }
 
     Function("xrayVersion") {
+      // A version label must not load the built-in Go runtime for another core.
+      if (context.getSharedPreferences("gc_settings", android.content.Context.MODE_PRIVATE).getString("core", "xray") != "xray") return@Function ""
       val response = XrayApi.invoke(context, "xrayVersion")
       response.optJSONObject("data")?.optString("version") ?: ""
     }

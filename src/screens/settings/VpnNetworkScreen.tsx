@@ -47,6 +47,7 @@ import {
 } from "../../vpn/native";
 import { makeStyles } from "../settingsStyles";
 import { CORES, FALLBACK, fetchCoreMeta } from "./cores";
+import { useXrayLast } from "./xrayLast";
 
 /** Запрашивает системные разрешения, без которых Android не даст
  *  автоподключению после загрузки устройства отработать молча:
@@ -82,6 +83,7 @@ export default function VpnNetworkScreen() {
   const styles = makeStyles();
   const { me, vpnRunning, setVpnRunning, isFoxcloud } = useApp();
   const [core, setCore] = useState<CoreName>(getSelectedCore());
+  const xrayLast = useXrayLast();
   const [antiDpi, setAntiDpiState] = useState(getAntiDpi());
   const [xrayVersion, setXrayVersion] = useState("");
   const [downloaded, setDownloaded] = useState<Record<string, boolean>>({});
@@ -141,7 +143,7 @@ export default function VpnNetworkScreen() {
 
   const changeCore = (next: CoreName) => {
     const meta = CORES.find((c) => c.key === next);
-    if (meta?.file && !downloaded[meta.file]) return;
+    if (meta?.file && !(next === "xray-last" ? xrayLast.status.downloaded : downloaded[meta.file])) return;
     const prev = core;
     setCore(next);
     setSetting("core", next);
@@ -156,6 +158,11 @@ export default function VpnNetworkScreen() {
   };
 
   const startDownload = (c: (typeof CORES)[number]) => {
+    if (c.key === "xray-last") {
+      setConfirmCore(null);
+      xrayLast.install().then(() => showToast("Xray Last загружен. Если ядро уже использовалось — перезапустите приложение", "top")).catch((e) => showToast(e.message));
+      return;
+    }
     const lib = c.lib as "singbox" | "uwuray";
     const abi = getCpuAbi();
     setConfirmCore(null);
@@ -193,9 +200,10 @@ export default function VpnNetworkScreen() {
           <Text style={styles.sectionTitle}>Ядро VPN</Text>
           {CORES.map((c) => {
             const active = core === c.key;
-            const needDownload = !!c.file && !downloaded[c.file];
+            const needDownload = !!c.file && !(c.key === "xray-last" ? xrayLast.status.downloaded : downloaded[c.file]);
+            const updateAvailable = c.key === "xray-last" && xrayLast.canUpdate;
             const pct = c.file ? progress[c.file] : undefined;
-            const busy = pct !== undefined;
+            const busy = pct !== undefined || (c.key === "xray-last" && xrayLast.busy);
             return (
               <PressableScale
                 key={c.key}
@@ -217,7 +225,7 @@ export default function VpnNetworkScreen() {
                     ) : null}
                   </Text>
                   <Text style={styles.coreNote}>
-                    {c.file
+                    {c.key === "xray-last" ? xrayLast.note : c.file
                       ? downloaded[c.file]
                         ? "установлено"
                         : `не установлено · ~${c.mb} МБ`
@@ -225,11 +233,11 @@ export default function VpnNetworkScreen() {
                   </Text>
                   {busy && (
                     <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${pct}%` }]} />
+                      <View style={[styles.progressFill, { width: `${pct ?? 0}%` }]} />
                     </View>
                   )}
                 </View>
-                {needDownload && !busy && (
+                {(needDownload || updateAvailable) && !busy && (
                   <PressableScale
                     style={styles.downloadBtn}
                     hitSlop={6}
@@ -237,25 +245,25 @@ export default function VpnNetworkScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={`Скачать ядро ${c.label}`}
                   >
-                    <Ionicons name="download" size={18} color="#fff" />
+                    <Text style={{ color: "#fff" }}>{updateAvailable ? "Обновить" : "Скачать"}</Text>
                   </PressableScale>
                 )}
-                {busy && <Text style={styles.progressPct}>{pct}%</Text>}
+                {busy && <Text style={styles.progressPct}>{pct === undefined ? "…" : `${pct}%`}</Text>}
                 {!needDownload && !busy && <View style={[styles.radio, active && styles.radioOn]} />}
               </PressableScale>
             );
           })}
           <Text style={styles.hint}>
-            Xray встроен в приложение. Sing-box докачивается с GitLab при первом использовании.
+            Xray встроен. Xray Last собирается из официального XTLS; обновление вручную, после загрузки может потребоваться перезапуск.
           </Text>
 
           {/* Маскировка трафика (анти-DPI) — fragment/tlshello ядра Xray */}
           <View style={[styles.themeRowLine, { marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }]}>
-            <Ionicons name="shield-checkmark-outline" size={20} color={core === "xray" || core === "uwuray" ? colors.accent : colors.textFaint} />
+            <Ionicons name="shield-checkmark-outline" size={20} color={core === "xray" || core === "uwuray" || core === "xray-last" ? colors.accent : colors.textFaint} />
             <View style={{ flex: 1 }}>
               <Text style={styles.themeRowTitle}>Маскировка трафика</Text>
               <Text style={styles.themeRowSub}>
-                {core === "xray" || core === "uwuray"
+                {core === "xray" || core === "uwuray" || core === "xray-last"
                   ? "Дробит TLS-рукопожатие — обход блокировок по DPI"
                   : "Только на ядрах Xray/UwuRay"}
               </Text>

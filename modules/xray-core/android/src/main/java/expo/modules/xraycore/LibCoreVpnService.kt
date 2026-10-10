@@ -142,12 +142,13 @@ class LibCoreVpnService : VpnService() {
         throw IllegalStateException("Не удалось создать TUN-интерфейс")
       }
       tunInterface = pfd
+      currentLib = lib
       // Ядру передаём ДУБЛИКАТ fd (ParcelFileDescriptor.dup): Go-рантайм при
       // ошибке/остановке закрывает свой fd сам, а Java закрывает оригинал через
       // tunInterface. Без дубля на ошибке старта получался double-close одного fd →
       // fdsan abort (SIGABRT «double-close of file descriptor») — краш процесса,
       // который к тому же терял текст ошибки ядра (pendingPromise.reject не успевал).
-      val coreFd = run {
+      val coreFd = if (currentLib == "xray-last") pfd.fd else run {
         val dup = pfd.dup()
         dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
       }
@@ -159,12 +160,13 @@ class LibCoreVpnService : VpnService() {
         val home = File(filesDir, when (lib) {
           "singbox" -> "singbox"
           "uwuray" -> "uwuray"
+      "xray-last" -> "xray-last"
           else -> "mihomo"
         })
         if (!home.exists()) home.mkdirs()
         when (lib) {
           "singbox" -> GeoAssets.singboxRuleSets(applicationContext, home)
-          "uwuray" -> {
+          "uwuray", "xray-last" -> {
             // UwuRay = форк Xray-core: geoip.dat/geosite.dat в каталог ядра +
             // xray.location.asset через env-секцию конфига (добавляется ниже).
             val geoDir = GeoAssets.xrayAssetDir(applicationContext)
@@ -188,6 +190,7 @@ class LibCoreVpnService : VpnService() {
         "mihomo" -> GcCore.gcStart(configRef.get(), coreFd)
         "singbox" -> GcSbCore.gcStart(configRef.get(), coreFd)
         "uwuray" -> GcUwuCore.gcStart(configRef.get(), coreFd)
+        "xray-last" -> GcXrayLastCore.gcStart(configRef.get(), coreFd)
         else -> "неизвестное ядро: $lib"
       }
       if (err.isNotEmpty()) {
@@ -220,23 +223,27 @@ class LibCoreVpnService : VpnService() {
     val fileName = when (lib) {
       "singbox" -> "libsingbox.so"
       "uwuray" -> "libuwuray.so"
+      "xray-last" -> "libxraylast.so"
       else -> "libclash.so"
     }
+    if (lib == "xray-last") XrayLastFiles.activate(applicationContext)
     val file = File(filesDir, "cores/$fileName")
     val home = File(filesDir, when (lib) {
-      "singbox" -> "singbox"; "uwuray" -> "uwuray"; else -> "mihomo"
+      "singbox" -> "singbox"; "uwuray" -> "uwuray"; "xray-last" -> "xray-last"; else -> "mihomo"
     })
     if (!home.exists()) home.mkdirs()
     if (!file.exists()) throw IllegalStateException("Ядро не скачано: $lib")
     val already = when (lib) {
       "singbox" -> GcSbCore.loaded
       "uwuray" -> GcUwuCore.loaded
+      "xray-last" -> GcXrayLastCore.loaded
       else -> GcCore.loaded
     }
     if (already) return
     when (lib) {
       "singbox" -> { GcSbCore.load(file.absolutePath); GcSbCore.gcInit(home.absolutePath) }
       "uwuray" -> { GcUwuCore.load(file.absolutePath); GcUwuCore.gcInit(home.absolutePath) }
+      "xray-last" -> { GcXrayLastCore.load(file.absolutePath); check(GcXrayLastCore.gcInit(home.absolutePath).isEmpty()) }
       else -> { GcCore.load(file.absolutePath); GcCore.gcInit(home.absolutePath) }
     }
   }
@@ -246,6 +253,7 @@ class LibCoreVpnService : VpnService() {
       "mihomo" -> if (GcCore.loaded) GcCore.gcStop()
       "singbox" -> if (GcSbCore.loaded) GcSbCore.gcStop()
       "uwuray" -> if (GcUwuCore.loaded) GcUwuCore.gcStop()
+      "xray-last" -> if (GcXrayLastCore.loaded) GcXrayLastCore.gcStop()
     }
   }
 
@@ -267,6 +275,7 @@ class LibCoreVpnService : VpnService() {
       if (GcCore.loaded) GcCore.gcStop()
       if (GcSbCore.loaded) GcSbCore.gcStop()
       if (GcUwuCore.loaded) GcUwuCore.gcStop()
+      if (GcXrayLastCore.loaded) GcXrayLastCore.gcStop()
     } catch (_: Throwable) {
     }
     closeTun()
@@ -296,7 +305,7 @@ class LibCoreVpnService : VpnService() {
       stopLibCore(currentLib)
       // UwuRay (форк Xray): как и при первом старте, добавляем xray.location.asset
       var cfg = config
-      if (currentLib == "uwuray") {
+      if (currentLib == "uwuray" || currentLib == "xray-last") {
         try {
           val geoDir = GeoAssets.xrayAssetDir(applicationContext)
           val json = org.json.JSONObject(config)
@@ -308,7 +317,7 @@ class LibCoreVpnService : VpnService() {
       }
       // Дубликат fd — как при первом старте: ядро закрывает свой fd само
       // (inst.Close), оригинал остаётся у Java (см. комментарий в startCore).
-      val coreFd = run {
+      val coreFd = if (currentLib == "xray-last") pfd.fd else run {
         val dup = pfd.dup()
         dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
       }
@@ -316,6 +325,7 @@ class LibCoreVpnService : VpnService() {
         "mihomo" -> GcCore.gcStart(cfg, coreFd)
         "singbox" -> GcSbCore.gcStart(cfg, coreFd)
         "uwuray" -> GcUwuCore.gcStart(cfg, coreFd)
+        "xray-last" -> GcXrayLastCore.gcStart(cfg, coreFd)
         else -> "неизвестное ядро: $currentLib"
       }
       if (err.isNotEmpty()) {

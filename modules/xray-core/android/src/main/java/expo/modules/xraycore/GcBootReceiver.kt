@@ -82,6 +82,7 @@ class GcBootReceiver : BroadcastReceiver() {
         putExtra("lib", when (core) {
           "mihomo" -> "mihomo"
           "uwuray" -> "uwuray"
+          "xray-last" -> "xray-last"
           else -> "singbox"
         })
         putExtra("config", config)

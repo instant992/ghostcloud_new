@@ -58,6 +58,15 @@ export function getCoreStatus(name: string): { downloaded: boolean; size: number
   }
 }
 
+export type XrayLastStatus = { downloaded: boolean; size: number; path: string; version: string; pendingVersion: string; loaded: boolean };
+export function getXrayLastStatus(): XrayLastStatus {
+  return XrayNative?.getXrayLastStatus?.() || { downloaded: false, size: 0, path: "", version: "", pendingVersion: "", loaded: false };
+}
+export async function downloadXrayLast(url: string, sha256: string, size: number, version: string): Promise<string> {
+  if (!XrayNative) throw new Error("Модуль недоступен");
+  return XrayNative.downloadXrayLast(url, sha256, size, version);
+}
+
 export async function downloadCore(
   name: string,
   url: string,
@@ -73,7 +82,7 @@ export async function deleteCore(name: string): Promise<boolean> {
   return XrayNative.deleteCore(name);
 }
 
-export async function loadLibCore(lib: "mihomo" | "singbox" | "uwuray"): Promise<string> {
+export async function loadLibCore(lib: "mihomo" | "singbox" | "uwuray" | "xray-last"): Promise<string> {
   if (!XrayNative) throw new Error("модуль недоступен");
   return XrayNative.loadLibCore(lib);
 }
@@ -92,7 +101,7 @@ function failoverArgs(failover?: FailoverInfo): [string | null, number, string |
 }
 
 export async function startLibCoreVpn(
-  lib: "mihomo" | "singbox" | "uwuray",
+  lib: "mihomo" | "singbox" | "uwuray" | "xray-last",
   config: string,
   allowedApps: string[] = [],
   disallowedApps: string[] = [],
