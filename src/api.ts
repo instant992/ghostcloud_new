@@ -63,6 +63,27 @@ async function request(
   return data;
 }
 
+// ── Ошибки приложения ──
+export type BugReport = {
+  id: number; title: string; description: string; steps?: string;
+  app_version?: string; theme?: string; status: string; moderation_status: string;
+  created_at: string; author_name: string; likes: number; dislikes: number;
+  comment_count: number; my_vote: number; rejection_reason?: string;
+};
+export type BugComment = { id: number; text: string; author_name: string; created_at: string };
+async function bugRequest(method: "GET" | "POST" | "DELETE", path: string, body?: unknown) {
+  const result = await request(method, `/api/auth/mobile/bugs${path}`, body);
+  if (!result?.success) throw new Error(result?.error || "Не удалось загрузить ошибки приложения");
+  return result;
+}
+export const listBugs = (scope: string, offset = 0) => bugRequest("GET", `?scope=${encodeURIComponent(scope)}&offset=${offset}&limit=20`);
+export const getBug = (id: number, offset = 0) => bugRequest("GET", `/${id}?offset=${offset}&limit=20`);
+export const createBug = (body: { title: string; description: string; steps: string; app_version: string; theme: string }) => bugRequest("POST", "", body);
+export const commentBug = (id: number, text: string) => bugRequest("POST", `/${id}/comments`, { text });
+export const voteBug = (id: number, value: number) => bugRequest("POST", `/${id}/vote`, { value });
+export const moderateBug = (id: number, body: { moderation_status?: string; reason?: string; status?: string }) => bugRequest("POST", `/${id}/moderate`, body);
+export const deleteBugComment = (id: number, commentId: number) => bugRequest("DELETE", `/${id}/comments/${commentId}`);
+
 // ── Auth ──
 
 export async function login(loginStr: string, password?: string, totpCode?: string) {

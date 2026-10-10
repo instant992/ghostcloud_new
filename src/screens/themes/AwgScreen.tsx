@@ -5,6 +5,7 @@ import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
+import { BugReportsButton } from "../../components/BugReportsButton";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
@@ -256,6 +257,8 @@ export default function AwgScreen() {
           </View>
         </Pressable>
       </View>
+
+      <BugReportsButton style={{ marginTop: 8, marginHorizontal: 16 }} />
 
       {/* Круг по центру */}
       <View style={styles.center}>

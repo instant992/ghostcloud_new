@@ -25,6 +25,7 @@ import DevicesScreen from "./src/screens/DevicesScreen";
 import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
+import BugsScreen, { BugDetailScreen } from "./src/screens/BugsScreen";
 import SupportTicketScreen from "./src/screens/SupportTicketScreen";
 import SponsorLeaderboardScreen from "./src/screens/SponsorLeaderboardScreen";
 import AboutScreen from "./src/screens/AboutScreen";
@@ -258,6 +259,8 @@ const SubscriptionWithBack = () => (
     <SubscriptionScreen />
   </BackOverlay>
 );
+const BugsWithBack = () => <BackOverlay toParent><BugsScreen /></BackOverlay>;
+const BugDetailWithBack = () => <BackOverlay toParent><BugDetailScreen /></BackOverlay>;
 const AppearanceWithBack = () => (
   <BackOverlay toParent>
     <AppearanceScreen />
@@ -327,6 +330,8 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
         component={RequestsScreen}
         options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen name="Bugs" component={BugsWithBack} />
+      <Stack.Screen name="BugDetail" component={BugDetailWithBack} />
       <Stack.Screen name="Appearance" component={AppearanceWithBack} />
       <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
       <Stack.Screen name="GlassPlayground" component={GlassPlaygroundWithBack} />
@@ -655,6 +660,8 @@ function DockedThemedFlow({
         component={RequestsScreen}
         options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen name="Bugs" component={BugsWithBack} />
+      <Stack.Screen name="BugDetail" component={BugDetailWithBack} />
       <Stack.Screen name="Appearance" component={AppearanceWithBack} />
       <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
       <Stack.Screen name="GlassPlayground" component={GlassPlaygroundWithBack} />
@@ -785,6 +792,8 @@ function Root() {
         component={RequestsScreen}
         options={{ headerShown: true, title: "Запросы", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
+      <Stack.Screen name="Bugs" component={BugsWithBack} />
+      <Stack.Screen name="BugDetail" component={BugDetailWithBack} />
       <Stack.Screen name="Appearance" component={AppearanceWithBack} />
       <Stack.Screen name="VpnNetwork" component={VpnNetworkWithBack} />
       <Stack.Screen name="GlassPlayground" component={GlassPlaygroundWithBack} />

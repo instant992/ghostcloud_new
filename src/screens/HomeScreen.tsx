@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApp } from "../context";
+import { BugReportsButton } from "../components/BugReportsButton";
 import { connect, disconnect } from "../vpn/manager";
 import * as pingStore from "../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
@@ -348,6 +349,8 @@ export default function HomeScreen() {
           </View>
         </PressableScale>
       </View>
+
+      <BugReportsButton style={{ marginHorizontal: 20 }} />
 
       {appsOpen && <ConnectionFilterModal
         visible={appsOpen}
