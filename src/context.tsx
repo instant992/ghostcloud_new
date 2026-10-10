@@ -89,7 +89,7 @@ async function migrateLegacyNodesCache() {
   } catch {}
 }
 
-type NodesCache = { nodes: VpnNode[]; unsupportedCount: number };
+type NodesCache = { nodes: VpnNode[]; unsupportedCount: number; subscriptionUpdatedAt: number | null };
 
 /** Сохранённые серверы по сегментам: подписка и LTE Open отдельно — сбой
  *  скачивания одного сегмента не затирает другой (раньше общий кэш
@@ -106,6 +106,7 @@ async function readNodesCache(): Promise<NodesCache | null> {
     return {
       nodes: [...subNodes, ...lteNodes],
       unsupportedCount: Number(sub?.unsupportedCount) || 0,
+      subscriptionUpdatedAt: Number(sub?.ts) > 0 ? Number(sub.ts) : null,
     };
   } catch {
     return null;
@@ -169,6 +170,7 @@ type AppState = {
   me: MeInfo | null;
   nodes: VpnNode[];
   unsupportedCount: number;
+  subscriptionUpdatedAt: number | null;
   selectedNodeId: string | null;
   vpnRunning: boolean;
   subscriptionActive: boolean;
@@ -203,6 +205,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<MeInfo | null>(null);
   const [nodes, setNodes] = useState<VpnNode[]>([]);
   const [unsupportedCount, setUnsupportedCount] = useState(0);
+  const [subscriptionUpdatedAt, setSubscriptionUpdatedAt] = useState<number | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [vpnRunning, setVpnRunning] = useState(false);
   /** Текущее уведомление безопасности (модалка «Вход по коду 2FA») */
@@ -448,6 +451,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
         setMe(null);
         setNodes([]);
+        setSubscriptionUpdatedAt(null);
         setSecurityAlert(null);
         const err: any = new Error(data?.error || "Сессия завершена — войдите заново");
         err.sessionRevoked = true;
@@ -547,6 +551,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNodes((prev) => (allNodes.length === 0 && prev.length > 0 ? prev : allNodes));
     if (subFresh) {
       setUnsupportedCount(subResult!.unsupportedCount);
+      setSubscriptionUpdatedAt(Date.now());
       // кэш для офлайн-запуска — только сегменты со свежими данными
       writeNodesSegment("sub", subNodes, subResult!.unsupportedCount);
     }
@@ -583,6 +588,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (cachedNodes && cachedNodes.nodes.length > 0) {
             setNodes(cachedNodes.nodes);
             setUnsupportedCount(cachedNodes.unsupportedCount);
+            setSubscriptionUpdatedAt(cachedNodes.subscriptionUpdatedAt);
           }
           setLoading(false);
         }
@@ -822,6 +828,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       setMe(null);
       setNodes([]);
+        setSubscriptionUpdatedAt(null);
       setSecurityAlert(null);
     } finally {
       setSecurityBusy(false);
@@ -861,6 +868,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSession(null);
     setMe(null);
     setNodes([]);
+        setSubscriptionUpdatedAt(null);
   }, []);
 
   const selectNode = useCallback((id: string) => {
@@ -886,6 +894,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       me,
       nodes,
       unsupportedCount,
+      subscriptionUpdatedAt,
       selectedNodeId,
       vpnRunning,
       subscriptionActive,
@@ -904,7 +913,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       securityDisable2fa,
       securityKickAll,
     }),
-    [loading, session, me, nodes, unsupportedCount, selectedNodeId, vpnRunning, subscriptionActive, isFoxcloudMode, signIn, signIn2fa, signInViaToken, signOut, refreshMe, reloadNodes, selectNode, securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll]
+    [loading, session, me, nodes, unsupportedCount, subscriptionUpdatedAt, selectedNodeId, vpnRunning, subscriptionActive, isFoxcloudMode, signIn, signIn2fa, signInViaToken, signOut, refreshMe, reloadNodes, selectNode, securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -15,7 +15,7 @@ import * as Application from "expo-application";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
-import { BugReportsButton } from "../../components/BugReportsButton";
+import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
@@ -446,7 +446,7 @@ export default function MinimalistScreen() {
             Нет других серверов
           </Text>
         )}
-        <BugReportsButton style={{ marginTop: 12 }} />
+        <SubscriptionUpdatedLabel style={{ marginTop: 12 }} />
       </ScrollView>
 
       {/* Док рендерится как таб-бар потока темы (см. App.tsx) */}

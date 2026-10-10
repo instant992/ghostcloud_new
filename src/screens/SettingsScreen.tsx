@@ -203,6 +203,7 @@ export default function SettingsScreen() {
         {/* ─── Секция «Прочее»: о программе, выход ─── */}
         <Text style={styles.sectionLabel}>Прочее</Text>
         <ThemedCard style={styles.sectionCard}>
+          {!isFoxcloud && <NavRow r={{ key: "bugs", icon: "bug-outline", title: "Ошибки приложения", sub: "Сообщить о проблеме и следить за исправлениями", onPress: () => nav.navigate("Bugs") }} />}
           <NavRow
             r={{
               key: "about",

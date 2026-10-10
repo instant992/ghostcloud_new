@@ -15,7 +15,7 @@ import * as Application from "expo-application";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
-import { BugReportsButton } from "../../components/BugReportsButton";
+import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
@@ -218,9 +218,11 @@ export default function GlassScreen() {
           <Text style={styles.headerTitle}>GhostCloud</Text>
           <Text style={styles.headerVersion}>v{Application.nativeApplicationVersion || "1.0"}</Text>
           <View style={{ flex: 1 }} />
-          <GlassCard radius={14} intensity={35} style={styles.headerIconBox} onPress={() => nav.navigate("Support")}>
-            <Ionicons name="headset-outline" size={22} color={colors.text} />
-          </GlassCard>
+          <Pressable onPress={() => nav.navigate("Support")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Поддержка">
+            <GlassCard radius={8} intensity={35} style={styles.headerIconBox}>
+              <Ionicons name="headset-outline" size={20} color={colors.text} />
+            </GlassCard>
+          </Pressable>
         </View>
 
         {/* Объявления с сервера — над балансом */}
@@ -357,7 +359,7 @@ export default function GlassScreen() {
             </View>
           </GlassCard>
         </View>
-        <BugReportsButton style={{ marginTop: 12 }} />
+        <SubscriptionUpdatedLabel style={{ marginTop: 12 }} />
       </ScrollView>
 
       <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
@@ -393,7 +395,7 @@ const makeStyles = () => StyleSheet.create({
     marginLeft: 8,
   },
   headerVersion: { color: colors.green, fontSize: 12, fontWeight: "500", marginLeft: 8, marginTop: 8 },
-  headerIconBox: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  headerIconBox: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   status: { fontSize: 14, fontWeight: "600" },
   statIconBox: {
     width: 30,
