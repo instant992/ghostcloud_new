@@ -1,4 +1,5 @@
 import React from "react";
+import { Button as PaperButton, TextInput as PaperInput, Surface } from "react-native-paper";
 import {
   ActivityIndicator,
   Pressable,
@@ -141,6 +142,8 @@ export function ThemedCard({
   const backdrop = useGlassBackdrop();
   const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
 
+  if (theme.style === "material") return <Surface elevation={0} style={[style, { borderRadius: radius ?? Number(flat?.borderRadius ?? 24), backgroundColor: colors.card }]}>{onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>{children}</Pressable> : children}</Surface>;
+
   if (theme.style === "glass" && backdrop) {
     const {
       backgroundColor: _bg,
@@ -209,8 +212,10 @@ type BtnProps = {
 export function Button({ title, onPress, loading, disabled, variant = "primary", size = "md" }: BtnProps) {
   useTheme();
   const styles = makeStyles();
+  const material = useTheme().style === "material";
   const isDisabled = disabled || loading;
   const compact = size === "sm";
+  if (material) return <PaperButton mode={variant === "ghost" ? "text" : "contained"} onPress={onPress} loading={loading} disabled={isDisabled} compact={compact} buttonColor={variant === "danger" ? colors.red : undefined} style={{ marginVertical: 4 }} contentStyle={{ minHeight: compact ? 40 : 48 }}>{title}</PaperButton>;
   return (
     <PressableScale
       onPress={onPress}
@@ -242,9 +247,11 @@ export function Button({ title, onPress, loading, disabled, variant = "primary",
 }
 
 export function Input({ label, style, onFocus, onContentSizeChange, ...props }: TextInputProps & { label?: string }) {
+  const material = useTheme().style === "material";
   const reveal = React.useContext(KeyboardFormContext);
   useTheme();
   const styles = makeStyles();
+  if (material) return <PaperInput {...props} selectionColor={typeof props.selectionColor === "string" ? props.selectionColor : undefined} cursorColor={typeof props.cursorColor === "string" ? props.cursorColor : undefined} label={label} mode="outlined" style={[{ marginBottom: 12 }, style]} onFocus={event => { onFocus?.(event); reveal?.(); }} onContentSizeChange={event => { onContentSizeChange?.(event); reveal?.(); }} />;
   return (
     <View>
       {!!label && <Text style={styles.inputLabel}>{label}</Text>}

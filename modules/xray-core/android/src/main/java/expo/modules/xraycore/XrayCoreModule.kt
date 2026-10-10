@@ -214,6 +214,31 @@ class XrayCoreModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("XrayCore")
 
+    // Android 12+ Monet colors are system resources, not a wallpaper seed approximation.
+    Function("getSystemMaterialPalette") {
+      if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        null
+      } else {
+        try {
+          val resources = context.resources
+          val shades = intArrayOf(0, 10, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000)
+          val palette = mutableMapOf<String, String>()
+          for (family in listOf("accent1", "accent2", "accent3", "neutral1", "neutral2")) {
+            for (shade in shades) {
+              val name = "system_${family}_${shade}"
+              val id = resources.getIdentifier(name, "color", "android")
+              check(id != 0) { "Missing system palette resource: $name" }
+              val color = resources.getColor(id, context.theme)
+              palette["${family}_${shade}"] = String.format(java.util.Locale.ROOT, "#%06X", color and 0xFFFFFF)
+            }
+          }
+          palette
+        } catch (_: Throwable) {
+          null
+        }
+      }
+    }
+
     Events("onVpnStateChanged", "onCoreDownloadProgress", "onNetworkTypeChanged")
 
     OnCreate {

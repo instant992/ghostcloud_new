@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { AppState } from "react-native";
 import { getThemeName, getThemeMode, getSetting, type ThemeMode } from "./settings";
 import { fontForTheme, setAppFont } from "./fontPatch";
+import { getMaterialAppPalette, refreshMaterialPalette } from "./material/palette";
 
 /** Стили темы (дизайн/UX). Режим (тёмный/светлый/авто) хранится отдельно. */
 export type ThemeName =
@@ -13,7 +14,8 @@ export type ThemeName =
   | "pickme"
   | "happ"
   | "simple"
-  | "awg";
+  | "awg"
+  | "material";
 
 export type { ThemeMode };
 
@@ -389,6 +391,7 @@ const PALETTES: Record<ThemeName, PalettePair> = {
   happ: { dark: happDark, light: happLight },
   simple: { dark: simpleDark, light: simpleLight },
   awg: { dark: awgDark, light: awgLight },
+  material: { dark: getMaterialAppPalette(true), light: getMaterialAppPalette(false) },
 };
 
 /** «Авто»: светлая днём (в интервале восход–закат), тёмная ночью.
@@ -421,7 +424,8 @@ function resolveMode(mode: ThemeMode): "dark" | "light" {
   return mode === "auto" ? resolveAutoMode() : mode;
 }
 
-export const colors: any = { ...PALETTES[getThemeName()][resolveMode(getThemeMode())] };
+let activePaletteMode = resolveMode(getThemeMode());
+export const colors: any = { ...PALETTES[getThemeName()][activePaletteMode] };
 
 /** Фирменный фиолетовый — как акцент приложения (иконки, значки): яркий
  *  purple-500. Единый цвет названия приложения во всех темах. */
@@ -431,7 +435,9 @@ export const BRAND_PURPLE = "#A855F7";
  *  Также переключает шрифт темы (свои шрифты у Liquid Glass и v2ray). */
 export function applyTheme(style: ThemeName, mode: ThemeMode) {
   const pair = PALETTES[style] || PALETTES.default;
-  Object.assign(colors, pair[resolveMode(mode)] || pair.dark);
+  const resolved = resolveMode(mode);
+  Object.assign(colors, style === "material" ? getMaterialAppPalette(resolved === "dark") : pair[resolved] || pair.dark);
+  activePaletteMode = resolved;
   setAppFont(fontForTheme(style));
 }
 
@@ -445,6 +451,7 @@ export const THEME_LABELS: Record<ThemeName, string> = {
   happ: "Happ",
   simple: "Простой",
   awg: "AWG",
+  material: "Material You",
 };
 
 /** Код разблокировки секретной темы «Простой» (общий для настроек и экрана блокировки) */
@@ -461,11 +468,12 @@ export const THEME_ORDER: ThemeName[] = [
   "v2ray",
   "happ",
   "awg",
+  "material",
 ];
 
 /** Светлая ли сейчас палитра (для статус-бара и стеклянных эффектов) */
 export function isLightPalette(): boolean {
-  return colors.text !== "#FFFFFF" && colors.text !== "#F0F0FF";
+  return activePaletteMode === "light";
 }
 
 /** Непрозрачный фон для всплывающих штор/модалок. В теме Liquid Glass
@@ -498,7 +506,8 @@ const ThemeCtx = createContext<{ style: ThemeName; mode: ThemeMode; version: num
 
 /** Вызывать в компонентах, чтобы они перерисовывались при смене темы */
 export function useTheme() {
-  return useContext(ThemeCtx);
+  const theme = useContext(ThemeCtx);
+  return { ...theme, dark: resolveMode(theme.mode) === "dark" };
 }
 
 export type ThemePatch = { style?: ThemeName; mode?: ThemeMode };
@@ -520,6 +529,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       return { style, mode, version: s.version + 1 };
     });
   };
+
+  // Refresh Monet resources even in explicit dark/light mode.
+  useEffect(() => {
+    const refresh = () => {
+      const changed = refreshMaterialPalette();
+      if (!changed) return;
+      setState((prev) => {
+        if (prev.style === "material") applyTheme(prev.style, prev.mode);
+        return { ...prev, version: prev.version + 1 };
+      });
+    };
+    refresh();
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next === "active") refresh();
+    });
+    return () => subscription.remove();
+  }, []);
 
   // Авто-режим: переоцениваем при возврате в приложение и раз в минуту
   useEffect(() => {

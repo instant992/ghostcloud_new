@@ -1,4 +1,5 @@
 import React from "react";
+import { BottomNavigation } from "react-native-paper";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -38,6 +39,7 @@ function itemsForTheme(theme: ThemeName): NavItem[] {
     case "pickme":
     case "foxcloud":
       return [HOME, SUB, PROFILE, SETTINGS];
+    case "material":
     case "awg":
       return [HOME, PROFILE, SETTINGS];
     default:
@@ -89,6 +91,12 @@ export function QuickNavBar() {
     }
   };
 
+  if (theme === "material") return <View style={styles.wrap}><BottomNavigation.Bar
+    navigationState={{ index: Math.max(0, items.findIndex(it => it.routes.includes(route.name))), routes: items.map(it => ({ key: it.key, title: it.label })) }}
+    safeAreaInsets={{ bottom: insets.bottom }}
+    onTabPress={({ route: selected }) => { const item = items.find(it => it.key === selected.key); if (item) { if (item.key === "settings" && hasDockTabs) nav.navigate("ThemeTabs", { screen: "Настройки" }); else go(item); } }}
+    renderIcon={({ route: selected, focused, color }) => { const item = items.find(it => it.key === selected.key)!; return <Ionicons name={(focused ? item.iconActive : item.icon) as any} size={24} color={color}/>; }}
+    getLabelText={({ route: selected }) => selected.title} /></View>;
   const isAwg = theme === "awg";
   const isGlass = theme === "glass";
 

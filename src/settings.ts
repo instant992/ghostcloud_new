@@ -19,7 +19,8 @@ export type ThemeName =
   | "pickme"
   | "happ"
   | "simple"
-  | "awg";
+  | "awg"
+  | "material";
 export type ThemeMode = "dark" | "light" | "auto";
 export type CoreName = "xray" | "sing-box" | "uwuray";
 
@@ -48,6 +49,7 @@ const THEME_NAMES: ThemeName[] = [
   "happ",
   "simple",
   "awg",
+  "material",
 ];
 
 export function getThemeName(): ThemeName {

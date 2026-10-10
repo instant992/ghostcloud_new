@@ -38,6 +38,9 @@ import SubscriptionScreen from "./src/screens/SubscriptionScreen";
 import V2rayScreen from "./src/screens/themes/V2rayScreen";
 import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
+import MaterialScreen from "./src/screens/themes/MaterialScreen";
+import MaterialDockBar from "./src/material/MaterialDockBar";
+import { MaterialProvider } from "./src/material/MaterialProvider";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import { GlassBackdropProvider, GlassScreenBackdrop, LiquidBottomTabs } from "./src/components/liquidGlass";
 import { GlassNavigationMotion } from "./src/components/liquidGlass/GlassNavigationMotion";
@@ -552,10 +555,12 @@ function DockedThemedFlow({
   Home,
   DockBar,
   transparent,
+  material = false,
 }: {
   Home: React.ComponentType;
   DockBar: React.ComponentType<any>;
   transparent?: boolean;
+  material?: boolean;
 }) {
   useTheme();
   // До чтения accessibility-настройки оставляем безопасный мгновенный переход.
@@ -610,8 +615,9 @@ function DockedThemedFlow({
               tabBar={(props) => <DockBar {...props} />}
             >
               <DockTabs.Screen name="Главная" component={Home} />
-              <DockTabs.Screen name="Подписка" component={SubscriptionScreen} />
+              {!material && <DockTabs.Screen name="Подписка" component={SubscriptionScreen} />}
               <DockTabs.Screen name="Профиль" component={ProfileScreen} />
+              {material && <DockTabs.Screen name="Настройки" component={SettingsScreen} />}
             </DockTabs.Navigator>
           </TabAreaContext.Provider>
         )}
@@ -667,6 +673,10 @@ function DockedThemedFlow({
       <Stack.Screen name="GlassPlayground" component={GlassPlaygroundWithBack} />
     </Stack.Navigator>
   );
+}
+
+function MaterialFlow() {
+  return <MaterialProvider><DockedThemedFlow Home={MaterialScreen} DockBar={MaterialDockBar} material /></MaterialProvider>;
 }
 
 function MinimalistFlow() {
@@ -735,7 +745,9 @@ function Root() {
       ? V2rayFlow
       : style === "happ"
         ? HappFlow
-        : style === "minimalist" || style === "pickme" || style === "foxcloud"
+        : style === "material"
+          ? MaterialFlow
+          : style === "minimalist" || style === "pickme" || style === "foxcloud"
           ? MinimalistFlow
           : style === "glass"
             ? GlassFlow
