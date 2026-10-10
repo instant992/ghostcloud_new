@@ -1,8 +1,8 @@
 import { BrandName } from "../../components/BrandName";
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AccessibilityInfo, AppState, Image, ScrollView, StyleSheet, View } from "react-native";
+import { AppState, Image, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Appbar, Button, Divider, Text, TouchableRipple, useTheme, type MD3Theme } from "react-native-paper";
-import Animated, { interpolate, ReduceMotion, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
+import { PowerButton } from "../../components/PowerButton";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,8 +47,7 @@ export default function MaterialScreen() {
   const [today, setToday] = useState<stats.DayStat | null>(null);
   const [statsError, setStatsError] = useState(false);
   const [now, setNow] = useState(Date.now());
-  // Do not move until the system preference has been read successfully.
-  const [reducedMotion, setReducedMotion] = useState(true);
+
   const mounted = useRef(true);
   const updatedAtRef = useRef(subscriptionUpdatedAt);
   updatedAtRef.current = subscriptionUpdatedAt;
@@ -57,19 +56,6 @@ export default function MaterialScreen() {
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  useEffect(() => {
-    let active = true;
-    let receivedEvent = false;
-    const listener = AccessibilityInfo.addEventListener("reduceMotionChanged", value => {
-      receivedEvent = true;
-      if (active) setReducedMotion(value);
-    });
-    AccessibilityInfo.isReduceMotionEnabled().then(value => {
-      if (active && !receivedEvent) setReducedMotion(value);
-    }).catch(() => {});
-    return () => { active = false; listener.remove(); };
-  }, []);
-
   // Only read persisted, real traffic; no speed estimates or fabricated chart.
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -97,19 +83,6 @@ export default function MaterialScreen() {
   const canConnect = subscriptionActive && (!expiryValid || expiry!.getTime() > now);
   const busy = operation !== null;
   const powerDisabled = busy || loading || (!vpnRunning && !canConnect);
-  const shape = useSharedValue(vpnRunning ? 1 : 0);
-  useEffect(() => {
-    const target = vpnRunning ? 1 : 0;
-    shape.value = reducedMotion ? target : withSpring(target, { damping: 17, stiffness: 150, mass: 0.85, overshootClamping: true, reduceMotion: ReduceMotion.System });
-  }, [vpnRunning, reducedMotion, shape]);
-  const powerStyle = useAnimatedStyle(() => ({
-    borderTopLeftRadius: interpolate(shape.value, [0, 1], [88, 52]),
-    borderTopRightRadius: interpolate(shape.value, [0, 1], [88, 88]),
-    borderBottomLeftRadius: interpolate(shape.value, [0, 1], [88, 88]),
-    borderBottomRightRadius: interpolate(shape.value, [0, 1], [88, 52]),
-    transform: [{ scale: interpolate(shape.value, [0, 1], [0.94, 1]) }],
-  }));
-
   const reportConnectionError = async (cause: unknown, fallback: string) => {
     // A reconnect may have stopped the old tunnel before failing. Query native truth.
     try {
@@ -186,15 +159,12 @@ export default function MaterialScreen() {
             {icon(vpnRunning ? "shield-checkmark-outline" : "shield-outline", vpnRunning ? c.onPrimaryContainer : c.onSurfaceVariant, 17)}
             <Text variant="labelLarge" style={{ color: vpnRunning ? c.onPrimaryContainer : c.onSurfaceVariant }}>{busy ? "Соединение" : vpnRunning ? "VPN включён" : "VPN выключен"}</Text>
           </View>
-          <Animated.View style={[s.power, powerStyle, { backgroundColor: vpnRunning ? c.primary : c.primaryContainer, opacity: powerDisabled ? 0.6 : 1 }]}>
-            <TouchableRipple onPress={toggle} disabled={powerDisabled} borderless style={s.powerTouch} accessibilityRole="button" accessibilityLabel={vpnRunning ? "Отключить VPN" : selected ? "Подключить VPN" : "Выбрать сервер для VPN"} accessibilityState={{ busy, disabled: powerDisabled }}>
-              <View style={s.powerContent}>
-                {busy || loading ? <ActivityIndicator size={48} color={vpnRunning ? c.onPrimary : c.onPrimaryContainer} /> : icon("power", vpnRunning ? c.onPrimary : c.onPrimaryContainer, 58)}
-                <Text variant="labelLarge" style={{ color: vpnRunning ? c.onPrimary : c.onPrimaryContainer }}>{busy ? "Подождите" : vpnRunning ? "Отключить" : "Подключить"}</Text>
-              </View>
-            </TouchableRipple>
-          </Animated.View>
-          <Text variant="headlineSmall" style={s.headline} accessibilityLiveRegion="polite">{status}</Text>
+          <View style={s.power}>
+            <View style={s.powerScaled}>
+              <PowerButton connected={vpnRunning} busy={powerDisabled} onToggle={toggle} />
+            </View>
+          </View>
+          <Text variant="titleLarge" style={s.headline} accessibilityLiveRegion="polite">{status}</Text>
           <Text variant="bodyMedium" style={[s.hint, { color: c.onSurfaceVariant }]}>{hint}</Text>
         </View>
 
@@ -212,7 +182,7 @@ export default function MaterialScreen() {
               </View>
               <View style={[s.row, { justifyContent: "flex-start", gap: 12 }]}>
                 {!!info?.flag && <Text style={s.flag} accessibilityElementsHidden>{info.flag}</Text>}
-                <Text variant="titleLarge" style={[s.grow, { color: c.onSecondaryContainer }]}>{loading ? "Загружаем серверы…" : info?.name || "Выберите сервер"}</Text>
+                <Text variant="titleMedium" style={[s.grow, { color: c.onSecondaryContainer }]}>{loading ? "Загружаем серверы…" : info?.name || "Выберите сервер"}</Text>
               </View>
               <View style={s.serverMeta}>
                 <Text variant="bodySmall" style={{ color: c.onSecondaryContainer }}>{selected ? `${selected.source === "lte" ? "LTE OPEN · " : ""}${transportLabel(selected)}` : nodes.length ? "Доступные локации и LTE OPEN" : "Список пуст — обновите подписку"}</Text>
@@ -240,7 +210,7 @@ export default function MaterialScreen() {
         <View style={s.traffic}>
           {([{ key: "rx", label: "Получено", glyph: "arrow-down-outline" }, { key: "tx", label: "Отправлено", glyph: "arrow-up-outline" }] as const).map(metric => <View key={metric.key} style={[s.metric, { backgroundColor: c.surfaceVariant }]}>
             <View style={s.metricLabel}>{icon(metric.glyph, c.onSurfaceVariant, 18)}<Text variant="labelMedium" style={{ color: c.onSurfaceVariant }}>{metric.label}</Text></View>
-            <Text variant="headlineSmall" style={s.metricValue}>{today ? formatBytes(today[metric.key]) : "—"}</Text>
+            <Text variant="titleLarge" style={s.metricValue}>{today ? formatBytes(today[metric.key]) : "—"}</Text>
           </View>)}
         </View>
         {statsError && <Text variant="bodySmall" style={{ color: c.error }}>Статистика временно недоступна. Повторим чтение автоматически.</Text>}
@@ -275,28 +245,27 @@ const s = StyleSheet.create({
   logo: { width: 34, height: 34, borderRadius: 11, marginLeft: 20, marginRight: 6 },
   brand: { fontWeight: "700", letterSpacing: -0.5 },
   content: { width: "100%", maxWidth: 600, alignSelf: "center", paddingHorizontal: 20 },
-  hero: { alignItems: "center", paddingTop: 14, paddingBottom: 28 },
-  statusPill: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 24, marginBottom: 24 },
-  power: { width: 176, height: 176, overflow: "hidden" },
-  powerTouch: { width: "100%", height: "100%" },
-  powerContent: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
-  headline: { marginTop: 24, textAlign: "center", fontWeight: "600" },
+  hero: { alignItems: "center", paddingTop: 4, paddingBottom: 14 },
+  statusPill: { flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 18, marginBottom: 6 },
+  power: { width: 200, height: 200 },
+  powerScaled: { position: "absolute", left: -52, top: -52, width: 304, height: 304, transform: [{ scale: 200 / 304 }] },
+  headline: { marginTop: 6, textAlign: "center", fontWeight: "600" },
   hint: { marginTop: 6, textAlign: "center" },
   notice: { borderRadius: 20, padding: 16, marginBottom: 16, alignItems: "flex-start" },
-  serverSurface: { borderRadius: 28, overflow: "hidden" },
-  serverBody: { padding: 20, gap: 13 },
+  serverSurface: { borderRadius: 20, overflow: "hidden" },
+  serverBody: { padding: 14, gap: 8 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   grow: { flex: 1 },
-  flag: { fontSize: 30 },
+  flag: { fontSize: 24 },
   serverMeta: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
-  refreshArea: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingVertical: 12 },
+  refreshArea: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8, paddingVertical: 8 },
   refreshNote: { marginBottom: 14 },
   buttonContent: { minHeight: 48 },
-  sectionHeading: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", marginTop: 12, marginBottom: 6 },
+  sectionHeading: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", marginTop: 6, marginBottom: 4 },
   traffic: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  metric: { flexGrow: 1, flexBasis: 140, borderRadius: 20, padding: 16, gap: 9 },
+  metric: { flexGrow: 1, flexBasis: 120, borderRadius: 16, padding: 12, gap: 5 },
   metricLabel: { flexDirection: "row", alignItems: "center", gap: 6 },
   metricValue: { fontWeight: "600" },
-  subscription: { paddingVertical: 22, borderRadius: 12 },
-  split: { paddingVertical: 20, borderRadius: 12 },
+  subscription: { paddingVertical: 14, borderRadius: 12 },
+  split: { paddingVertical: 14, borderRadius: 12 },
 });
