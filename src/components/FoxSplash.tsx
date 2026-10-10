@@ -1,3 +1,4 @@
+import { BrandName } from "./BrandName";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Image, StyleSheet, Text, View, ActivityIndicator } from "react-native";
 import { colors, useTheme, BRAND_PURPLE } from "../theme";
@@ -82,7 +83,7 @@ export default function FoxSplash({ onDone }: { onDone: () => void }) {
           />
         ))}
       </View>
-      <Text style={styles.appName}>GhostCloud</Text>
+      <BrandName style={styles.appName} />
       <Text style={styles.factLabel}>А вы знали?</Text>
       <Text style={styles.fact}>{fact}</Text>
       <ActivityIndicator color={BRAND_PURPLE} style={{ marginTop: 28 }} />

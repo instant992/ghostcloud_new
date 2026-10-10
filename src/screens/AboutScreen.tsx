@@ -1,3 +1,4 @@
+import { BrandName } from "../components/BrandName";
 import React, { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
@@ -235,7 +236,7 @@ export default function AboutScreen() {
             <Image source={{ uri: "app_icon" }} style={styles.heroIcon} resizeMode="cover" />
           </Pressable>
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroApp}>GhostCloud</Text>
+            <BrandName style={styles.heroApp} />
             <Text style={styles.heroVersion}>
               v{Application.nativeApplicationVersion || "?"} (сборка{" "}
               {Application.nativeBuildVersion || "?"})

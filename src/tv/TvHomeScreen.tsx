@@ -1,3 +1,4 @@
+import { BrandName } from "../components/BrandName";
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -37,7 +38,7 @@ export function TvHomeScreen() {
       <View style={s.rail}>
         <View style={s.railBrand}>
           <Image source={{ uri: "app_icon" }} style={s.railLogo} resizeMode="cover" />
-          <Text style={s.railName}>GhostCloud</Text>
+          <BrandName style={s.railName} />
         </View>
         <View style={s.railNav}>
           {TABS.map((t, i) => (

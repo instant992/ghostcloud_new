@@ -1,3 +1,4 @@
+import { BrandName } from "../../components/BrandName";
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
@@ -174,7 +175,7 @@ export default function MinimalistScreen() {
         </View>
         <View style={styles.headerCenter}>
           <Image source={{ uri: "app_icon" }} style={styles.headerLogo} resizeMode="cover" />
-          <Text style={styles.headerTitle}>GhostCloud</Text>
+          <BrandName style={styles.headerTitle} />
         </View>
         <Pressable
           onPress={() => nav.navigate("Support")}

@@ -1,3 +1,4 @@
+import { BrandName } from "../../components/BrandName";
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
@@ -215,7 +216,7 @@ export default function GlassScreen() {
         {/* Шапка */}
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Image source={{ uri: "app_icon" }} style={styles.headerLogo} resizeMode="cover" />
-          <Text style={styles.headerTitle}>GhostCloud</Text>
+          <BrandName style={styles.headerTitle} />
           <Text style={styles.headerVersion}>v{Application.nativeApplicationVersion || "1.0"}</Text>
           <View style={{ flex: 1 }} />
           <Pressable onPress={() => nav.navigate("Support")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Поддержка">

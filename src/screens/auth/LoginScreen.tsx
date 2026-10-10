@@ -1,3 +1,4 @@
+import { BrandName } from "../../components/BrandName";
 import React, { useState } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
@@ -64,7 +65,7 @@ export default function LoginScreen() {
       <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.brand}>
           <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
-          <Text style={styles.brandName}>GhostCloud</Text>
+          <BrandName style={styles.brandName} />
           <Text style={styles.brandSub}>Ваш приватный доступ в интернет</Text>
         </View>
 
@@ -152,7 +153,7 @@ export default function LoginScreen() {
             </View>
             <View style={styles.secondaryHalf}>
               <Button
-                title="Telegram"
+                title="Telegram · только FoxCloud"
                 variant="ghost"
                 size="sm"
                 onPress={() => nav.navigate("TelegramLogin")}

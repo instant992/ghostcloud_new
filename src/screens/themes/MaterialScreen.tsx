@@ -1,3 +1,4 @@
+import { BrandName } from "../../components/BrandName";
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AccessibilityInfo, AppState, Image, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Appbar, Button, Divider, Text, TouchableRipple, useTheme, type MD3Theme } from "react-native-paper";
@@ -176,7 +177,7 @@ export default function MaterialScreen() {
     <View style={[s.screen, { backgroundColor: c.background }]}>
       <Appbar.Header statusBarHeight={insets.top} style={{ backgroundColor: c.background }}>
         <Image source={{ uri: "app_icon" }} style={s.logo} accessibilityIgnoresInvertColors accessibilityLabel="" />
-        <Appbar.Content title="GhostCloud" titleStyle={s.brand} />
+        <View style={{ flex: 1 }}><BrandName style={s.brand} /></View>
         <Appbar.Action icon={() => icon("headset-outline", c.onSurface)} accessibilityLabel="Открыть поддержку" onPress={() => nav.navigate("Support")} />
       </Appbar.Header>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 28 }]}>

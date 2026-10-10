@@ -1,3 +1,4 @@
+import { BrandName } from "../components/BrandName";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Image, StyleSheet, Text, TextInput, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -133,7 +134,7 @@ export function TvLoginScreen() {
       {/* Левая колонка — бренд */}
       <View style={styles.left}>
         <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
-        <Text style={styles.brandName}>GhostCloud</Text>
+        <BrandName style={styles.brandName} />
         <Text style={styles.brandSub}>Ваш приватный доступ в интернет</Text>
         <View style={styles.hintBox}>
           <Ionicons name="game-controller-outline" size={18} color={colors.textDim} />

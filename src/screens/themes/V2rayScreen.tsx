@@ -1,3 +1,4 @@
+import { BrandName } from "../../components/BrandName";
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
@@ -245,7 +246,7 @@ export default function V2rayScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <View style={styles.appBar}>
           <IconBtn icon="menu" onPress={() => setDrawerOpen(true)} />
-          <Text style={styles.appTitle}>GhostCloud</Text>
+          <BrandName style={styles.appTitle} />
           <View style={{ flex: 1 }} />
           <IconBtn icon="person-outline" onPress={() => nav.navigate("Профиль")} />
           <IconBtn icon="ellipsis-vertical" onPress={() => setMenuOpen(true)} />

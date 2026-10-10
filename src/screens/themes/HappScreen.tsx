@@ -1,3 +1,4 @@
+import { BrandName } from "../../components/BrandName";
 import { KeyboardFormModalContent, KeyboardTextInput } from "../../components/KeyboardForm";
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -234,7 +235,7 @@ export default function HappScreen() {
           <HeaderIcon icon="settings-outline" size={24} onPress={() => nav.navigate("Настройки")} label="Настройки" />
           <HeaderIcon icon="shield-half-outline" size={21} onPress={() => setAppsOpen(true)} label="Фильтр соединения" />
         </View>
-        <Text style={styles.appTitle}>GhostCloud</Text>
+        <BrandName style={styles.appTitle} />
         <View style={styles.headerSide}>
           <HeaderIcon icon="headset-outline" size={22} onPress={() => nav.navigate("Support")} label="Поддержка" />
           <HeaderIcon icon="add" size={28} onPress={() => nav.navigate("Тарифы")} label="Тарифы, пополнить" />

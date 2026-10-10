@@ -1,3 +1,4 @@
+import { BrandName } from "../components/BrandName";
 import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
@@ -196,9 +197,7 @@ export default function HomeScreen() {
             resizeMode="cover"
           />
           <View style={{ flex: 1 }}>
-            <Text style={styles.clientName} numberOfLines={1}>
-              GhostCloud
-            </Text>
+            <BrandName style={styles.clientName} />
           </View>
         </View>
         {/* Дни подписки + баланс — без сплошного овала: два лёгких мини-блока */}
