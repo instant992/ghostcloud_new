@@ -39,6 +39,7 @@ import HappScreen from "./src/screens/themes/HappScreen";
 import MinimalistScreen from "./src/screens/themes/MinimalistScreen";
 import GlassScreen, { GlassCard } from "./src/screens/themes/GlassScreen";
 import { GlassBackdropProvider, GlassScreenBackdrop, LiquidBottomTabs } from "./src/components/liquidGlass";
+import { GlassNavigationMotion } from "./src/components/liquidGlass/GlassNavigationMotion";
 import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import AwgScreen from "./src/screens/themes/AwgScreen";
 import { TabChain } from "./src/components/TabIcon";
@@ -582,13 +583,14 @@ function DockedThemedFlow({
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: screenBg },
-        // Нативный iOS push: только translateX, без alpha/scale, которые
-        // раньше оставляли стеклянную сцену пустой. Android-ресурсы задают
-        // общий easing и 300 мс для обоих слоёв; iOS использует native push.
-        ...(transparent ? {
-          animation: reduceMotion ? "none" as const : "ios_from_right" as const,
-        } : null),
+        // Reanimated owns glass motion; never run two scene transitions.
+        ...(transparent ? { animation: "none" as const, gestureEnabled: false,
+          headerBackButtonMenuEnabled: false } : null),
       }}
+      screenLayout={transparent ? ({ route, children }) => route.name === "ThemeTabs"
+        ? <>{children}</>
+        : <GlassNavigationMotion reduceMotion={reduceMotion}>{children}</GlassNavigationMotion>
+        : undefined}
     >
       <Stack.Screen name="ThemeTabs">
         {() => (
