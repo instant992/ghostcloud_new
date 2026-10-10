@@ -8,6 +8,8 @@ import React, {
   useState,
 } from "react";
 import * as api from "./api";
+import { AppState as NativeAppState } from "react-native";
+import { avatarOwner, resolveAvatarUrl, userAvatarCache } from "./avatarCache";
 import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session, loadDismissedAlerts, addDismissedAlerts } from "./storage";
 import { VpnNode } from "./vpn/parse";
 import { isVpnRunning, onVpnStateChanged, nodeFingerprint, resolveSavedNode } from "./vpn/manager";
@@ -17,7 +19,7 @@ import { useTheme, useThemeSwitcher } from "./theme";
 import * as FileSystem from "expo-file-system/legacy";
 
 const NODES_CACHE_FILE = "nodes_cache.json";
-const ME_CACHE_FILE = "me_cache.json";
+
 /** Кэш серверов живёт в documentDirectory, а не в cacheDirectory: Android может
  *  вычистить cacheDirectory в любой момент (и тогда без интернета список
  *  пустой), а документная директория переживает очистку кэша ОС и удаление
@@ -168,6 +170,8 @@ type AppState = {
   loading: boolean;
   session: Session | null;
   me: MeInfo | null;
+  avatarUri: string | null;
+  avatarUploaded: (owner: string | null, url?: string) => Promise<void>;
   nodes: VpnNode[];
   unsupportedCount: number;
   subscriptionUpdatedAt: number | null;
@@ -203,6 +207,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [me, setMe] = useState<MeInfo | null>(null);
+  // Update synchronously at each auth transition, before any late profile response.
+  const authRef = useRef<{ owner: string | null; epoch: number }>({ owner: null, epoch: 0 });
+  const meOwnerRef = useRef<string | null>(null);
+  const changeSession = (next: Session | null) => {
+    const owner = avatarOwner(next);
+    if (owner !== authRef.current.owner) {
+      authRef.current = { owner, epoch: authRef.current.epoch + 1 };
+      meOwnerRef.current = null;
+      setMe(null);
+    }
+    setSession(next);
+  };
+  const owner = useMemo(() => avatarOwner(session), [session?.subUrl, session?.tgId]);
+  const visibleMe = owner && meOwnerRef.current === owner ? me : null;
+  const avatarUrl = resolveAvatarUrl(api.BASE_URL, visibleMe?.avatar_url);
+  const [avatarRevision, setAvatarRevision] = useState(0);
+  useEffect(() => userAvatarCache.subscribe(() => setAvatarRevision(v => v + 1)), []);
+  const avatarUri = owner && visibleMe?.avatar_url ? userAvatarCache.peek(owner) : null;
+  useEffect(() => {
+    if (!owner || !visibleMe) return;
+    const refresh = () => { void userAvatarCache.load(owner, avatarUrl); };
+    refresh();
+    const timer = setInterval(refresh, 60000);
+    const sub = NativeAppState.addEventListener("change", state => { if (state === "active") refresh(); });
+    return () => { clearInterval(timer); sub.remove(); };
+  }, [owner, avatarUrl, !!visibleMe]);
+  const avatarUploaded = useCallback(async (uploadOwner: string | null, url?: string) => {
+    if (!uploadOwner || authRef.current.owner !== uploadOwner) return;
+    const resolved = resolveAvatarUrl(api.BASE_URL, url);
+    if (resolved) {
+      // Use the upload response immediately, even when /me is offline or URL unchanged.
+      setMe(previous => previous ? { ...previous, avatar_url: url } : previous);
+      await userAvatarCache.load(uploadOwner, resolved, true);
+    }
+  }, []);
   const [nodes, setNodes] = useState<VpnNode[]>([]);
   const [unsupportedCount, setUnsupportedCount] = useState(0);
   const [subscriptionUpdatedAt, setSubscriptionUpdatedAt] = useState<number | null>(null);
@@ -438,7 +477,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [vpnRunning]);
 
   const refreshMe = useCallback(async (): Promise<MeInfo | null> => {
+    const auth = authRef.current;
     const data = await api.getMe();
+    if (authRef.current !== auth) return null;
     if (!data?.success) {
       // Кик: сервер отозвал мобильную сессию — разлогиниваемся
       if (data?.session_revoked) {
@@ -448,7 +489,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           await mod.disconnect();
         } catch {}
         await clearSession();
-        setSession(null);
+        changeSession(null);
         setMe(null);
         setNodes([]);
         setSubscriptionUpdatedAt(null);
@@ -460,8 +501,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       throw new Error(data?.error || "Не удалось получить профиль");
     }
     if (!mounted.current) return data as MeInfo;
+    meOwnerRef.current = auth.owner;
     setMe(data as MeInfo);
-    writeCacheFile(ME_CACHE_FILE, data);
+    if (auth.owner && FileSystem.documentDirectory) {
+      const path = `${FileSystem.documentDirectory}avatar_profile_${auth.owner}.json`;
+      void FileSystem.writeAsStringAsync(path, JSON.stringify(data)).catch(() => {});
+    }
     // Лента уведомлений безопасности (вход по 2FA): показать последнее, если ещё не показывали
     const rawAlerts: SecurityAlert[] = (data.security_alerts as SecurityAlert[]) || [];
     const alerts: SecurityAlert[] = rawAlerts.filter(
@@ -472,6 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSecurityAlert((prev) => (prev && prev.id === alerts[0].id ? prev : alerts[0]));
     }
     const newSession = await loadSession();
+    if (authRef.current !== auth) return null;
     const rw = data.subscription_url || newSession?.rwSubUrl;
     const combined = data.combined_subscription_url || undefined;
     // Telegram-авторизация (FoxiCloud): держим tgId/флаг в сессии в актуальном
@@ -493,7 +539,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           isFoxcloud: isFox,
         };
         await saveSession(updated);
-        setSession(updated);
+        if (authRef.current !== auth) return null;
+        changeSession(updated);
       }
     }
     return data as MeInfo;
@@ -565,7 +612,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await migrateLegacyNodesCache();
       const s = await loadSession();
       if (!mounted.current) return;
-      setSession(s);
+      changeSession(s);
       if (s) {
         // Сначала подгружаем список закрытых алертов, иначе refreshMe ниже
         // может показать уже закрытое уведомление (гонка при холодном старте)
@@ -582,9 +629,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ).catch(() => {});
         // Мгновенный старт: показываем кэш профиля и серверов, сеть догоняет в фоне.
         // Так приложение полноценно работает офлайн.
-        const [cachedMe, cachedNodes] = await Promise.all([readCacheFile(ME_CACHE_FILE), readNodesCache()]);
+        const bootOwner = avatarOwner(s);
+        const [cachedMe, cachedNodes] = await Promise.all([
+          FileSystem.documentDirectory && bootOwner
+            ? FileSystem.readAsStringAsync(`${FileSystem.documentDirectory}avatar_profile_${bootOwner}.json`).then(raw => ({ owner: bootOwner, data: JSON.parse(raw) })).catch(() => null)
+            : Promise.resolve(null),
+          readNodesCache(),
+        ]);
         if (mounted.current) {
-          if (cachedMe && typeof cachedMe === "object") setMe(cachedMe as MeInfo);
+          if (cachedMe?.owner === avatarOwner(s) && cachedMe?.data && authRef.current.owner === avatarOwner(s)) {
+            meOwnerRef.current = cachedMe.owner;
+            setMe(cachedMe.data as MeInfo);
+          }
           if (cachedNodes && cachedNodes.nodes.length > 0) {
             setNodes(cachedNodes.nodes);
             setUnsupportedCount(cachedNodes.unsupportedCount);
@@ -743,7 +799,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       email: data.user?.email,
     });
     const s = await loadSession();
-    setSession(s);
+    changeSession(s);
     // Push: регистрируем FCM-токен устройства для уведомлений безопасности
     import("./push").then((p) => p.initPush()).catch(() => {});
     try {
@@ -825,7 +881,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await mod.disconnect();
       } catch {}
       await clearSession();
-      setSession(null);
+      changeSession(null);
       setMe(null);
       setNodes([]);
         setSubscriptionUpdatedAt(null);
@@ -846,7 +902,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isFoxcloud: isFoxcloud ?? false,
     });
     const s = await loadSession();
-    setSession(s);
+    changeSession(s);
     try {
       await refreshMe();
       await reloadNodes();
@@ -865,7 +921,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       await mod.disconnect();
     } catch {}
     await clearSession();
-    setSession(null);
+    changeSession(null);
     setMe(null);
     setNodes([]);
         setSubscriptionUpdatedAt(null);
@@ -891,7 +947,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => ({
       loading,
       session,
-      me,
+      me: visibleMe,
+      avatarUri,
+      avatarUploaded,
       nodes,
       unsupportedCount,
       subscriptionUpdatedAt,
@@ -913,7 +971,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       securityDisable2fa,
       securityKickAll,
     }),
-    [loading, session, me, nodes, unsupportedCount, subscriptionUpdatedAt, selectedNodeId, vpnRunning, subscriptionActive, isFoxcloudMode, signIn, signIn2fa, signInViaToken, signOut, refreshMe, reloadNodes, selectNode, securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll]
+    [loading, session, me, visibleMe, avatarUri, avatarRevision, avatarUploaded, nodes, unsupportedCount, subscriptionUpdatedAt, selectedNodeId, vpnRunning, subscriptionActive, isFoxcloudMode, signIn, signIn2fa, signInViaToken, signOut, refreshMe, reloadNodes, selectNode, securityAlert, securityBusy, securityConfirm, securityDisable2fa, securityKickAll]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

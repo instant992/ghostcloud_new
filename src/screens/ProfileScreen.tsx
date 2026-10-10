@@ -30,6 +30,7 @@ import { SponsorBenefitsSheet } from "../components/SponsorBenefits";
 import { CustomBadge, SponsorHeart, VerifiedBadge } from "../components/Badges";
 import QRCode from "react-native-qrcode-svg";
 import { useApp } from "../context";
+import { avatarOwner } from "../avatarCache";
 import {
   BASE_URL,
   BOT_USERNAME,
@@ -102,7 +103,7 @@ export default function ProfileScreen() {
   const inTabs = useInTabArea();
 
   const nav = useNavigation<any>();
-  const { me, refreshMe, subscriptionActive, isFoxcloud } = useApp();
+  const { me, session, avatarUri, avatarUploaded, refreshMe, subscriptionActive, isFoxcloud } = useApp();
 
   const [editOpen, setEditOpen] = useState(false);
   const [nick, setNick] = useState("");
@@ -137,9 +138,7 @@ export default function ProfileScreen() {
   const [twoFaBusy, setTwoFaBusy] = useState(false);
   const [benefitsOpen, setBenefitsOpen] = useState(false);
 
-  const avatarUri = me?.avatar_url
-    ? `${BASE_URL}${me.avatar_url}?t=${String(Math.floor(Date.now() / 60000))}`
-    : null;
+
   const isSponsor = me?.is_sponsor === true;
   // Эффективный бейдж: явный из nick_style либо автоматический «спонсор»
   const effectiveBadge = me?.nick_style?.badge_type ?? (isSponsor ? "sponsor" : null);
@@ -187,6 +186,7 @@ export default function ProfileScreen() {
       setBusy(true);
       const r = await uploadAvatar(res.assets[0].uri);
       if (!r?.success) throw new Error(r?.error || "Ошибка загрузки");
+      await avatarUploaded(avatarOwner(session), r.avatar_url || me?.avatar_url);
       await refreshMe();
       showToast("Аватар обновлён");
     } catch (e: any) {
@@ -572,7 +572,7 @@ export default function ProfileScreen() {
           <View style={styles.accRow}>
             <PressableScale onPress={isFoxcloud ? undefined : openEditor} accessibilityLabel="Изменить профиль">
               {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                <Image fadeDuration={0} source={{ uri: avatarUri }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatar}>
                   <Ionicons name="person" size={26} color={colors.accent} />
@@ -796,7 +796,7 @@ export default function ProfileScreen() {
             <Text style={styles.modalTitle}>Редактирование профиля</Text>
             <PressableScale style={{ alignItems: "center", marginBottom: 14 }} onPress={pickAvatar} disabled={busy}>
               {avatarUri ? (
-                <Image source={{ uri: avatarUri }} style={styles.avatarImageBig} />
+                <Image fadeDuration={0} source={{ uri: avatarUri }} style={styles.avatarImageBig} />
               ) : (
                 <View style={[styles.avatar, styles.avatarBig, { marginBottom: 0 }]}>
                   <Ionicons name="camera" size={30} color={colors.accent} />

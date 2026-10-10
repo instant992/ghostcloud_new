@@ -22,6 +22,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
+import { avatarOwner } from "../../avatarCache";
 import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
@@ -36,7 +37,7 @@ import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
 import * as stats from "../../stats";
 import {
-  BASE_URL,
+
   BOT_USERNAME,
   applyPromo,
   telegramLink,
@@ -80,6 +81,7 @@ export default function HappScreen() {
     vpnRunning,
     setVpnRunning,
     me,
+    avatarUri,
     subscriptionActive,
     reloadNodes,
     refreshMe,
@@ -225,7 +227,7 @@ export default function HappScreen() {
     return [...fav, ...rest];
   };
 
-  const avatarUri = me?.avatar_url ? `${BASE_URL}${me.avatar_url}` : null;
+
   const displayName = me?.display_name || me?.login || "Пользователь";
 
   return (
@@ -307,7 +309,7 @@ export default function HappScreen() {
         <View style={neu(14, { marginTop: 12 })}>
           <View style={styles.panelHeader}>
             {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              <Image fadeDuration={0} source={{ uri: avatarUri }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarLetter}>{(displayName[0] || "?").toUpperCase()}</Text>
@@ -413,7 +415,7 @@ export default function HappScreen() {
             <View style={styles.heroCard}>
               <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 10 }}>
                 {avatarUri ? (
-                  <Image source={{ uri: avatarUri }} style={styles.avatar} />
+                  <Image fadeDuration={0} source={{ uri: avatarUri }} style={styles.avatar} />
                 ) : (
                   <View style={[styles.avatar, styles.avatarPlaceholder]}>
                     <Text style={styles.avatarLetter}>{(displayName[0] || "?").toUpperCase()}</Text>
@@ -724,11 +726,11 @@ function MenuRow({
 
 function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const styles = makeStyles();
-  const { me, refreshMe } = useApp();
+  const { me, session, avatarUri, avatarUploaded, refreshMe } = useApp();
   const [nick, setNick] = useState("");
   const [loginStr, setLoginStr] = useState("");
   const [saving, setSaving] = useState(false);
-  const avatarUri = me?.avatar_url ? `${BASE_URL}${me.avatar_url}` : null;
+
 
   useEffect(() => {
     if (visible) {
@@ -754,6 +756,7 @@ function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () 
       setSaving(true);
       const r = await uploadAvatar(res.assets[0].uri);
       if (!r?.success) throw new Error(r?.error || "Ошибка загрузки");
+      await avatarUploaded(avatarOwner(session), r.avatar_url || me?.avatar_url);
       await refreshMe();
       showToast("Аватар обновлён");
     } catch (e: any) {
@@ -804,7 +807,7 @@ function EditProfileSheet({ visible, onClose }: { visible: boolean; onClose: () 
                   accessibilityLabel="Изменить аватар: выбрать фото"
                 >
                   {avatarUri ? (
-                    <Image source={{ uri: avatarUri }} style={styles.editAvatar} />
+                    <Image fadeDuration={0} source={{ uri: avatarUri }} style={styles.editAvatar} />
                   ) : (
                     <View style={[styles.editAvatar, styles.avatarPlaceholder]}>
                       <Text style={{ fontSize: 30, fontWeight: "800", color: colors.accent }}>

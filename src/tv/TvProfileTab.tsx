@@ -3,7 +3,7 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from "re
 import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import { useApp } from "../context";
-import { BASE_URL } from "../api";
+
 import * as stats from "../stats";
 import { formatBytes } from "../theme";
 import { getXrayVersion } from "../vpn/native";
@@ -14,7 +14,7 @@ import { pluralDays } from "./TvHomeScreen";
  *  как в телефонном «Профиле», но только просмотр (действия с вводом
  *  (2FA, промокоды, подарки) остаются в мобильном приложении). */
 export function TvProfileTab() {
-  const { me, subscriptionActive, refreshMe, signOut } = useApp();
+  const { me, avatarUri, subscriptionActive, refreshMe, signOut } = useApp();
   const [weekStat, setWeekStat] = useState<stats.DayStat | null>(null);
   const [monthStat, setMonthStat] = useState<stats.DayStat | null>(null);
   const [xrayVersion, setXrayVersion] = useState("");
@@ -30,9 +30,7 @@ export function TvProfileTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const avatarUri = me?.avatar_url
-    ? `${BASE_URL}${me.avatar_url}?t=${String(Math.floor(Date.now() / 60000))}`
-    : null;
+
   const isSponsor = me?.is_sponsor === true;
 
   const daysLeft = useMemo(() => {
@@ -105,7 +103,7 @@ export function TvProfileTab() {
       {/* Шапка: аватар, ник, логин, бейджи */}
       <View style={s.heroCard}>
         {avatarUri ? (
-          <Image source={{ uri: avatarUri }} style={s.avatar} resizeMode="cover" />
+          <Image fadeDuration={0} source={{ uri: avatarUri }} style={s.avatar} resizeMode="cover" />
         ) : (
           <Image source={{ uri: "app_icon" }} style={s.avatar} resizeMode="cover" />
         )}

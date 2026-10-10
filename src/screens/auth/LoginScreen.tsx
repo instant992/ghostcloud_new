@@ -152,12 +152,19 @@ export default function LoginScreen() {
               />
             </View>
             <View style={styles.secondaryHalf}>
-              <Button
-                title="Telegram · только FoxCloud"
-                variant="ghost"
-                size="sm"
+              <Pressable
                 onPress={() => nav.navigate("TelegramLogin")}
-              />
+                accessibilityRole="button"
+                accessibilityLabel="Вход через Telegram — только для FoxCloud"
+                style={({ pressed }) => ({
+                  minHeight: 48, paddingVertical: 10, paddingHorizontal: 8,
+                  borderRadius: 12, borderWidth: 1, borderColor: colors.border,
+                  alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1,
+                })}
+              >
+                <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600", textAlign: "center" }}>Telegram</Text>
+                <Text style={{ color: colors.textDim, fontSize: 11, textAlign: "center", marginTop: 2 }}>Только для FoxCloud</Text>
+              </Pressable>
             </View>
           </View>
         </View>
