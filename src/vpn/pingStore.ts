@@ -24,8 +24,8 @@ let waveSeq = 0;
 const PING_BATCH_CHUNK_TIMEOUT_MS = 30_000;
 /** Жёсткий потолок одной TCP-пробы: 1500 мс. Замер с реальных серверов (РФ-сеть,
  *  VPN выкл.): живые узлы отвечают на TCP-рукопожатие за 43–117 мс, т.е. 1500 мс —
- *  это ~12× запаса. Всё, что не уложилось, — мёртвый/закрытый узел (dropped SYN),
- *  его незачем ждать дольше. Именно прежний потолок 5 с + ретраи на мёртвых узлах
+ *  это ~12× запаса. Отсутствие ответа — не доказательство смерти сервера;
+ *  прямую пробу незачем ждать дольше. Именно прежний потолок 5 с + ретраи на мёртвых узлах
  *  (6 из 20 сгорали по 5 с) растягивали волну; не «последовательный await». */
 const TCP_HARD_TIMEOUT_MS = 1_500;
 
@@ -120,8 +120,8 @@ async function urlPingOne(n: VpnNode): Promise<PingState> {
 /** Быстрая TCP-проба одного узла: ОДИН выстрел, жёсткий потолок 1500 мс,
  *  без ретраев и БЕЗ reject. Живой узел отвечает на рукопожатие за 43–117 мс
  *  (замер с реальных серверов, РФ-сеть, VPN выкл.), так что 1500 мс — ~12× запаса;
- *  всё, что не уложилось, — мёртвый/закрытый узел (dropped SYN), ждать его дольше
- *  незачем. Нативный `tcpPing` (Kotlin `java.net.Socket().connect(addr, 1500)` на
+ *  отсутствие ответа не доказывает смерть сервера (анти-блокировка, DNS, сеть).
+ *  Результат относится только к прямой пробе, без скрытого URL-фолбэка. Нативный `tcpPing` (Kotlin `java.net.Socket().connect(addr, 1500)` на
  *  отдельном потоке `gc-tcp-ping`) — это и есть «fast TCP check»: реальный сокет,
  *  жёсткий таймаут, замер времени рукопожатия, не блокирует JS-поток.
  *
@@ -144,24 +144,27 @@ async function tcpPingOne(n: VpnNode): Promise<PingState> {
 }
 
 /** Пинг одной ноды (кнопка «скорость» в списке серверов). Метод — из настроек.
- *  LTE OPEN: только URL-тест через прокси и только при выключенном VPN —
+ *  LTE OPEN: URL-тест только в URL-режиме и при выключенном VPN —
  *  прямой TCP к LTE-нодам физически невозможен (см. комментарий pingAll). */
 export async function pingOne(node: VpnNode): Promise<void> {
-  if (!node.supportedByXray && getPingMethod() === "url") {
+  const method = getPingMethod();
+  if (!node.supportedByXray && node.protocol !== "hysteria2" && method === "url") {
     map[node.id] = { status: "done", delay: -1, error: "URL-тест только для Xray-узлов" };
     emit();
     return;
   }
-  const vpnUp = await isVpnRunning();
-  if (node.source === "lte" && vpnUp) {
-    map[node.id] = { status: "done", delay: -1, error: "не проверить при вкл. VPN" };
+  const vpnUp = method === "url" ? await isVpnRunning() : false;
+  if (node.source === "lte" && node.protocol !== "hysteria2" && (method === "tcp" || vpnUp)) {
+    map[node.id] = { status: "done", delay: -1, error: method === "tcp"
+      ? "LTE не измеряется через TCP; выберите URL-тест при выключенном VPN"
+      : "не проверить при вкл. VPN" };
     emit();
     return;
   }
   map[node.id] = { status: "pending" };
   emit();
   // hysteria2: всегда QUIC-зонд напрямую (URL-тест через Xray невозможен)
-  const useUrl = node.source === "lte" || (getPingMethod() === "url" && canUrlTest(node));
+  const useUrl = method === "url" && !vpnUp && canUrlTest(node);
   map[node.id] = useUrl ? await urlPingOne(node) : await tcpPingOne(node);
   emit();
 }
@@ -201,6 +204,7 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
     if (waveSeq !== waveToken) return doneIds;
     const chunk = withOb.slice(i, i + 5);
     let results = await runChunk(chunk, candidates[urlIdx]);
+    if (waveSeq !== waveToken) return doneIds;
     // Порция упала целиком — пробуем следующий URL пула (один раз на порцию,
     // всего ≤2 переключений на волну, чтобы не утроить длительность).
     const allFailed = !results || results.length === 0 || results.every((r) => !r?.success);
@@ -209,7 +213,9 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
       switchesLeft--;
       if (waveSeq !== waveToken) return doneIds;
       await new Promise((r) => setTimeout(r, 200));
+      if (waveSeq !== waveToken) return doneIds;
       results = await runChunk(chunk, candidates[urlIdx]);
+      if (waveSeq !== waveToken) return doneIds;
     }
     for (let j = 0; j < chunk.length; j++) {
       const r = results?.[j];
@@ -239,8 +245,10 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
     for (let i = 0; i < retry.length; i += 3) {
       if (waveSeq !== waveToken) return doneIds;
       await new Promise((r) => setTimeout(r, 400));
+      if (waveSeq !== waveToken) return doneIds;
       const chunk = retry.slice(i, i + 3);
       const results = await runChunk(chunk, candidates[urlIdx]);
+      if (waveSeq !== waveToken) return doneIds;
       for (let j = 0; j < chunk.length; j++) {
         const r = results?.[j];
         if (r?.success && r.delay >= 0) {
@@ -254,10 +262,11 @@ async function urlWave(targets: VpnNode[], waveToken = 0): Promise<Set<string>> 
 }
 
 /** Пинг всех нод, результаты появляются по мере готовности.
- *  Обычные узлы: TCP (8 воркеров) или URL-тест (настройка ping_method).
+ *  Обычные узлы: параллельный TCP или URL-тест (настройка ping_method).
  *  LTE OPEN: прямой TCP к ним физически невозможен — провайдер не принимает
  *  рукопожатия на свои порты из обычной сети (узел работает только как прокси),
- *  поэтому LTE всегда проверяется URL-тестом через сам прокси; при включённом
+ *  поэтому LTE проверяется только в URL-режиме через прокси; в TCP-режиме
+ *  возвращается явная ошибка неприменимости метода. При включённом
  *  VPN pingBatch ядром запрещён (один инстанс Xray на процесс) — LTE помечается
  *  «не проверить при вкл. VPN» вместо бесполезного 5-секундного таймаута. */
 export async function pingAll(nodes: VpnNode[]): Promise<void> {
@@ -278,9 +287,10 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
 
   try {
     const method = getPingMethod();
-    const vpnUp = await isVpnRunning();
-    const lteTargets = targets.filter((n) => n.source === "lte");
-    const normalTargets = targets.filter((n) => n.source !== "lte");
+    const vpnUp = method === "url" ? await isVpnRunning() : false;
+    if (cancelled()) return;
+    const lteTargets = targets.filter((n) => n.source === "lte" && n.protocol !== "hysteria2");
+    const normalTargets = targets.filter((n) => n.source !== "lte" || n.protocol === "hysteria2");
 
     if (method === "url" && !vpnUp) {
       // URL-тест: сам pingNodesBatch режет на порции по 5, но отдаёт всё в конце —
@@ -290,7 +300,7 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
         // hysteria2-узлы не в URL-волну (см. canUrlTest) — они добьются
         // TCP/QUIC-волной ниже через failedOb.
         const doneIds = await urlWave(
-          targets.filter((n) => n.source === "lte" || canUrlTest(n)),
+          targets.filter(canUrlTest),
           mySeq
         );
         if (cancelled()) return;
@@ -312,30 +322,11 @@ export async function pingAll(nodes: VpnNode[]): Promise<void> {
       for (const n of lteTargets) {
         map[n.id] = vpnUp
           ? { status: "done", delay: -1, error: "не проверить при вкл. VPN" }
-          : { status: "pending" };
+          : { status: "done", delay: -1, error: "LTE не измеряется через TCP; выберите URL-тест при выключенном VPN" };
       }
       if (lteTargets.length > 0) emit();
-      if (!vpnUp) {
-        // Обычные ноды, упавшие по TCP: часть серверов не принимает прямые
-        // рукопожатия (анти-блокировка отвечает только на REALITY/TLS с
-        // корректного клиента) — при этом через прокси они рабочие. Добиваем
-        // их URL-тестом, чтобы «работает, но прочерк» не вводило в заблуждение.
-        const tcpFailed = normalTargets.filter((n) => {
-          const s = map[n.id];
-          return s && s.status === "done" && !!s.error;
-        });
-        try {
-          await urlWave([...lteTargets, ...tcpFailed], mySeq);
-        } catch {
-          if (cancelled()) return;
-          for (const n of [...lteTargets, ...tcpFailed]) {
-            if (map[n.id]?.status === "pending") {
-              map[n.id] = { status: "done", delay: -1, error: "недоступен" };
-            }
-          }
-          emit();
-        }
-      }
+      // Explicit TCP mode never starts a proxy URL test, even on failed handshakes.
+      // URL mode enters this branch only with VPN up, where pingBatch is forbidden.
     }
   } finally {
     // ОБЯЗАТЕЛЬНО в finally: любой бросок выше (потерянный нативный промис,

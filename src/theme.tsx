@@ -643,6 +643,7 @@ export function pingColor(delay: number): string {
  *  иначе «Timeout» вводил бы в заблуждение. */
 export function pingFailLabel(error?: string): string {
   if (error && /вкл\. VPN/i.test(error)) return "нет при VPN";
+  if (error && /LTE не измеряется через TCP/i.test(error)) return "нужен True Ping";
   return "Timeout";
 }
 
