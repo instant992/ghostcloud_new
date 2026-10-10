@@ -49,7 +49,7 @@ const BENEFITS: Array<{ emoji: string; color: string; title: string; desc: strin
     emoji: "✨",
     color: "#42A5F5",
     title: "Дополнительные темы оформления",
-    desc: "Открываются дополнительные темы оформления: v2ray и Happ.",
+    desc: "Открываются дополнительные темы оформления: V2ray, Happ, Liquid Glass, FoxCloud, Pink и AWG.",
   },
   {
     emoji: "🏆",
