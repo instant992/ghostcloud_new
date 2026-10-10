@@ -15,7 +15,7 @@ import { getLauncherIcon, setLauncherIcon } from "../../vpn/native";
 import { makeStyles } from "../settingsStyles";
 
 /** Стили, доступные только спонсорам — как во Flutter-версии */
-const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ"];
+const SPONSOR_STYLES: ThemeName[] = ["v2ray", "happ", "glass", "foxcloud", "pickme", "awg"];
 
 /** Ключ сохранённой разблокировки секретной темы «Простой» */
 const SIMPLE_UNLOCK_KEY = "simple_theme_unlocked";
