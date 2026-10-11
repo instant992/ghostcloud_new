@@ -2,6 +2,7 @@ import { BrandName } from "../../components/BrandName";
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppState, Image, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Appbar, Button, Divider, Text, TouchableRipple, useTheme, type MD3Theme } from "react-native-paper";
+import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { PowerButton } from "../../components/PowerButton";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -147,8 +148,9 @@ export default function MaterialScreen() {
   const icon = (name: React.ComponentProps<typeof Ionicons>["name"], color = c.primary, size = 22) => <Ionicons name={name} color={color} size={size} />;
 
   return (
-    <View style={[s.screen, { backgroundColor: c.background }]}>
-      <Appbar.Header statusBarHeight={insets.top} style={{ backgroundColor: c.background }}>
+    <View style={[s.screen, { backgroundColor: c.background, paddingTop: insets.top }]}>
+      <ScrollView style={{ maxHeight: 220, flexGrow: 0 }}><AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 8 }} /></ScrollView>
+      <Appbar.Header statusBarHeight={0} style={{ backgroundColor: c.background }}>
         <Image source={{ uri: "app_icon" }} style={s.logo} accessibilityIgnoresInvertColors accessibilityLabel="" />
         <View style={{ flex: 1 }}><BrandName style={s.brand} /></View>
         <Appbar.Action icon={() => icon("headset-outline", c.onSurface)} accessibilityLabel="Открыть поддержку" onPress={() => nav.navigate("Support")} />

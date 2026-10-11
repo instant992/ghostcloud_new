@@ -167,9 +167,10 @@ export default function MinimalistScreen() {
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <ScrollView style={{ maxHeight: 220, flexGrow: 0 }}><AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 8 }} /></ScrollView>
       {/* Шапка: версия — иконка+название — поддержка */}
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.versionBadge}>
           <Text style={styles.versionText}>v{Application.nativeApplicationVersion || "1.0"}</Text>
         </View>
@@ -253,8 +254,6 @@ export default function MinimalistScreen() {
         contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 116 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Объявления с сервера — в самом верху */}
-        <AnnouncementsArea style={{ marginTop: 10, marginBottom: 6 }} />
 
         {/* Кнопка питания — цвета как в основной теме */}
         <View style={styles.powerArea}>

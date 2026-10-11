@@ -1,10 +1,11 @@
 import React, { useMemo, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
+import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
 import { connect, disconnect } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
@@ -222,6 +223,7 @@ export default function AwgScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
+      <ScrollView style={{ maxHeight: 220, flexGrow: 0 }}><AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 8 }} /></ScrollView>
       {/* Сверху: дни подписки по центру, баланс справа — оба с «+» и тапом */}
       <View style={styles.topRow}>
         <Pressable
