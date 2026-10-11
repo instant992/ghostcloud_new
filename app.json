@@ -2,7 +2,7 @@
   "expo": {
     "name": "GhostCloud",
     "slug": "ghostcloud",
-    "version": "1.0.0",
+    "version": "0.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#0F0B1E",
@@ -13,7 +13,7 @@
         "expo-channel-name": "production"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "0.0.1",
     "android": {
       "package": "com.ghostcloud.app",
       "googleServicesFile": "./android/app/google-services.json",
