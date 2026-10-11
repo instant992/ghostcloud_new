@@ -182,13 +182,14 @@ export async function downloadAndInstall(info: UpdateInfo): Promise<void> {
       const receipt = JSON.parse(await FileSystem.readAsStringAsync(receiptUri));
       const existing = await FileSystem.getInfoAsync(fileUri);
       ready = existing.exists && !existing.isDirectory && existing.size > 0
-        && receipt.identity === identity && receipt.size === existing.size
-        && (!info.apkSize || existing.size === info.apkSize);
+        && receipt.identity === identity && receipt.size === existing.size;
     } catch {}
     if (!ready) {
       await FileSystem.deleteAsync(receiptUri, { idempotent: true });
       await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      let transferExpected = 0;
       const task = FileSystem.createDownloadResumable(info.apkUrl, fileUri, {}, (p) => {
+      if (p.totalBytesExpectedToWrite > 0) transferExpected = p.totalBytesExpectedToWrite;
       const total = p.totalBytesExpectedToWrite > 0 ? p.totalBytesExpectedToWrite : info.apkSize || 0;
       emit({
         status: "downloading",
@@ -201,8 +202,9 @@ export async function downloadAndInstall(info: UpdateInfo): Promise<void> {
     const result = await task.downloadAsync();
     if (!result?.uri || result.status !== 200) throw new Error("Не удалось скачать файл обновления");
     const completed = await FileSystem.getInfoAsync(fileUri);
+    // Feed apkSize is display metadata, not proof of transfer completeness.
     if (!completed.exists || completed.isDirectory || completed.size <= 0
-        || (info.apkSize > 0 && completed.size !== info.apkSize)) {
+        || (transferExpected > 0 && completed.size !== transferExpected)) {
       throw new Error("Файл обновления скачан не полностью");
     }
     await FileSystem.writeAsStringAsync(receiptUri, JSON.stringify({ identity, size: completed.size }));

@@ -121,10 +121,28 @@ test('permission retry and process restart reuse completed APK without downloadi
   await restarted.store.downloadAndInstall(info);
   assert.equal(restarted.calls.download.length, 0); assert.equal(restarted.calls.install.length, 1);
 });
-test('partial APK is not installed or marked complete', async () => {
+test('complete download at 90 percent of stale feed size installs and reuses APK', async () => {
+  const h = harness({ size: 90 }), info = await h.store.checkForUpdate();
+  const d = h.store.downloadAndInstall(info); await h.flush();
+  h.progress({ totalBytesExpectedToWrite: 90, totalBytesWritten: 90 });
+  h.download.resolve({ status: 200, uri: 'file:///cache/update.apk' }); await d;
+  assert.equal(h.calls.install.length, 1);
+  await h.store.downloadAndInstall(info);
+  assert.equal(h.calls.download.length, 1);
+  assert.equal(h.calls.install.length, 2);
+});
+test('transport size detects truncated download independently of feed metadata', async () => {
   const h = harness({ size: 40 }), info = await h.store.checkForUpdate();
   const d = h.store.downloadAndInstall(info); await h.flush();
+  h.progress({ totalBytesExpectedToWrite: 90, totalBytesWritten: 40 });
   h.download.resolve({ status: 200, uri: 'file:///cache/update.apk' }); await d;
+  assert.equal(h.calls.install.length, 0);
+  assert.equal([...h.files.keys()].some(k => k.endsWith('.json')), false);
+});
+test('failed download is not installed or marked complete' , async () => {
+  const h = harness(), info = await h.store.checkForUpdate();
+  const d = h.store.downloadAndInstall(info); await h.flush();
+  h.download.resolve({ status: 503, uri: 'file:///cache/update.apk' }); await d;
   assert.equal(h.calls.install.length, 0);
   assert.equal([...h.files.keys()].some(k => k.endsWith('.json')), false);
 });
