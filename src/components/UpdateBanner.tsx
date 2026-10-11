@@ -1,79 +1,66 @@
-import React, { useSyncExternalStore } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
+import { AppState, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { SafeAreaInsetsContext, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, useTheme } from "../theme";
-import { IS_TV } from "../tv";
-import { TvFocusable } from "../tv/TvFocusable";
 import * as update from "../update";
 
-/** Reserved root band: never covers login controls, stack headers or theme docks. */
 export function UpdateLayout({ children }: { children: React.ReactNode }) {
-  useTheme();
-  const insets = useSafeAreaInsets();
-  const state = useSyncExternalStore(update.subscribe, update.getSnapshot);
-  const visible = state.status === "available" || state.status === "downloading";
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      {visible && <View style={{ paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }}><UpdateBanner /></View>}
-      <SafeAreaInsetsContext.Provider value={visible ? { ...insets, top: 0 } : insets}>
-        <View style={{ flex: 1 }}>{children}</View>
-      </SafeAreaInsetsContext.Provider>
-    </View>
-  );
+  return <View style={{ flex: 1 }}>{children}<UpdateBanner /></View>;
 }
 
-/** No dismiss button or persisted dismissal: visible until the installed version is current. */
 export function UpdateBanner() {
   const state = useSyncExternalStore(update.subscribe, update.getSnapshot);
   const { mode } = useTheme();
-  const { width, fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    let previous = AppState.currentState;
+    const subscription = AppState.addEventListener("change", next => {
+      if (next === "active" && previous !== "active") setDismissed(false);
+      previous = next;
+    });
+    return () => subscription.remove();
+  }, []);
   if (state.status !== "available" && state.status !== "downloading") return null;
-  const { info } = state;
   const busy = state.status === "downloading";
-  const compact = width < 380 || fontScale > 1.3;
-  const detail = [update.firstChangelogLine(info.changelog), update.formatSizeMb(info.apkSize)].filter(Boolean).join(" • ");
-  const progress = state.status === "downloading"
-    ? state.progress >= 0 ? `${Math.round(Math.min(1, state.progress) * 100)}%` : "Скачивание…"
-    : "Обновить";
+  if (dismissed && !busy) return null;
+  const { info } = state;
+  const dismiss = () => { if (!busy) setDismissed(true); };
   const action = () => { if (!busy) void update.downloadAndInstall(info); };
-  const buttonContent = <Text style={styles.buttonText}>{busy ? progress : "Обновить"}</Text>;
-  const dark = mode === "dark";
+  const progress = busy && state.progress >= 0 ? `${Math.round(Math.min(1, state.progress) * 100)}%` : "…";
   return (
-    <View testID="app-update-banner" style={[styles.banner, { backgroundColor: colors.bg }]}>
-      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-        <Defs><LinearGradient id="update-purple" x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0" stopColor="#7C4DFF" stopOpacity={dark ? 0.22 : 0.14} />
-          <Stop offset="1" stopColor="#651FFF" stopOpacity={dark ? 0.14 : 0.08} />
-        </LinearGradient></Defs>
-        <Rect width="100%" height="100%" rx="16" fill="url(#update-purple)" />
-      </Svg>
-      <View style={styles.row}>
-        <View style={styles.icon}><MaterialIcons name="system-update" size={24} color={dark ? "#B79AFF" : "#651FFF"} /></View>
-        <View style={styles.copy}>
-          <Text style={[styles.title, { color: colors.text }]}>Доступно обновление v{info.version}</Text>
-          {!!detail && <Text numberOfLines={2} style={[styles.detail, { color: colors.textDim }]}>{detail}</Text>}
-          {state.status === "available" && !!state.message && <Text style={[styles.detail, { color: colors.text }]} accessibilityLiveRegion="polite">{state.message}</Text>}
-          {busy && <View style={styles.progressRow}><ActivityIndicator size="small" color="#B79AFF" /><Text style={[styles.detail, { color: colors.text }]} accessibilityLiveRegion="polite">Скачивание {progress}</Text></View>}
+    <Modal transparent animationType="slide" visible onRequestClose={dismiss} statusBarTranslucent>
+      <View style={styles.overlay}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} disabled={busy} accessibilityLabel="Закрыть окно обновления" />
+        <View testID="app-update-sheet" accessibilityViewIsModal style={[styles.sheet, { backgroundColor: mode === "dark" ? "#141020" : "#F5F3FA", maxHeight: height * 0.75, paddingBottom: insets.bottom + 16 }]}>
+          <View style={styles.handle} />
+          <View style={styles.icon}><MaterialIcons name="system-update" size={36} color="#7C4DFF" /></View>
+          <Text style={[styles.title, { color: colors.text }]}>Доступно обновление!</Text>
+          <Text style={[styles.version, { color: colors.textDim }]}>Версия {info.version}{info.apkSize > 0 ? `  •  ${update.formatSizeMb(info.apkSize)}` : ""}</Text>
+          <ScrollView style={styles.changes}>
+            {info.changelog.split("\n").map(line => line.trim()).filter(Boolean).map((line, index) => <Text key={index} style={[styles.change, { color: colors.text }]}>{line.startsWith("-") ? line : `– ${line}`}</Text>)}
+            {state.status === "available" && !!state.message && <Text accessibilityLiveRegion="polite" style={[styles.change, { color: colors.text }]}>{state.message}</Text>}
+          </ScrollView>
+          <Pressable onPress={action} disabled={busy} accessibilityRole="button" accessibilityState={{ disabled: busy, busy }} style={styles.button}><Text style={styles.buttonText}>{busy ? `Скачивание ${progress}` : "Загрузить сейчас"}</Text></Pressable>
+          <Pressable onPress={dismiss} disabled={busy} accessibilityRole="button" style={styles.later}><Text style={{ color: colors.textDim, fontSize: 14 }}>Напомнить позже</Text></Pressable>
         </View>
-        {!compact && !IS_TV && <Pressable accessibilityRole="button" accessibilityLabel={`Обновить до версии ${info.version}`} accessibilityState={{ disabled: busy, busy }} disabled={busy} onPress={action} style={styles.button}>{buttonContent}</Pressable>}
-        {IS_TV && <TvFocusable disabled={busy} onPress={action} accessibilityLabel={`Обновить до версии ${info.version}`} borderRadius={24} contentStyle={styles.button}>{buttonContent}</TvFocusable>}
       </View>
-      {compact && !IS_TV && <Pressable accessibilityRole="button" accessibilityLabel={`Обновить до версии ${info.version}`} accessibilityState={{ disabled: busy, busy }} disabled={busy} onPress={action} style={[styles.button, styles.compactButton]}>{buttonContent}</Pressable>}
-    </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: { marginHorizontal: IS_TV ? 28 : 12, marginVertical: 8, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: "rgba(124,77,255,0.4)", overflow: "hidden" },
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  icon: { width: 40, height: 40, borderRadius: 12, backgroundColor: "rgba(124,77,255,0.15)", alignItems: "center", justifyContent: "center" },
-  copy: { flex: 1, minWidth: 0 },
-  title: { fontSize: IS_TV ? 18 : 14, fontWeight: "700" },
-  detail: { fontSize: IS_TV ? 15 : 12, marginTop: 3 },
-  button: { backgroundColor: "#651FFF", borderRadius: 24, paddingHorizontal: 16, paddingVertical: 12, minHeight: 48, justifyContent: "center", alignItems: "center" },
-  buttonText: { color: "#FFFFFF", fontWeight: "700", fontSize: IS_TV ? 17 : 14 },
-  compactButton: { alignSelf: "flex-end", marginTop: 8 },
-  progressRow: { flexDirection: "row", gap: 8, alignItems: "center", marginTop: 4 },
+  overlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, paddingHorizontal: 24 },
+  handle: { width: 36, height: 4, borderRadius: 2, backgroundColor: "#888", opacity: 0.3, alignSelf: "center", marginBottom: 24 },
+  icon: { width: 72, height: 72, borderRadius: 36, backgroundColor: "rgba(124,77,255,0.12)", alignSelf: "center", alignItems: "center", justifyContent: "center", marginBottom: 20 },
+  title: { fontSize: 22, fontWeight: "700", textAlign: "center" },
+  version: { fontSize: 14, textAlign: "center", marginTop: 6 },
+  changes: { flexShrink: 1, marginTop: 20, marginBottom: 20 },
+  change: { fontSize: 14, lineHeight: 20, marginBottom: 8 },
+  button: { backgroundColor: "#7C4DFF", borderRadius: 14, minHeight: 50, paddingVertical: 14, alignItems: "center", justifyContent: "center" },
+  buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
+  later: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 10 },
 });
