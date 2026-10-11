@@ -54,7 +54,7 @@ export default function BugsScreen() {
     if (busy) return;
     setBusy(true);
     try {
-      await createBug({ title: title.trim(), description: description.trim(), steps: steps.trim(), app_version: Constants.expoConfig?.version || "0.0.1", theme: theme.style });
+      await createBug({ title: title.trim(), description: description.trim(), steps: steps.trim(), app_version: Constants.expoConfig?.version || "1.0.0", theme: theme.style });
       setTitle(""); setDescription(""); setSteps(""); setForm(false);
       Alert.alert("Отправлено", "Ошибка появится в общем списке после проверки. Следить за ней можно во вкладке «Мои».");
       setScope("mine"); if (scope === "mine") void load();

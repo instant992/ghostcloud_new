@@ -56,6 +56,7 @@ const TESTERS: Person[] = [
     avatarUri: "avatar_lazzy2wice",
     prefix: "Тестировщик",
     name: "LAZZY2WICE",
+    username: "LAZZY2WICE23",
     platforms: ["android"],
   },
   {

@@ -513,7 +513,7 @@ export default function V2rayScreen() {
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.updateTitle}>Проверить обновления</Text>
                 <Text style={styles.updateSub}>
-                  v{Application.nativeApplicationVersion || "0.0.1"} — актуальная
+                  v{Application.nativeApplicationVersion || "1.0.0"} — актуальная
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textDim} />
