@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState, useSyncExternalStore 
 import {
   ActivityIndicator,
   FlatList,
+  ScrollView,
   Image,
   Modal,
   StyleSheet,
@@ -185,7 +186,8 @@ export default function HomeScreen() {
     // Плавающий таб-бар не занимает место в потоке — возвращаем контенту
     // нижний отступ под меню (как у остальных вкладок через Screen),
     // чтобы кнопка питания и нижние блоки не уходили под круги меню.
-    <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 116 }]}>
+    <View style={styles.screen}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 116 }}>
       {/* Объявления с сервера — над шапкой с балансом */}
       <AnnouncementsArea style={{ marginHorizontal: 20, marginBottom: 10 }} />
 
@@ -350,6 +352,7 @@ export default function HomeScreen() {
       </View>
 
       <SubscriptionUpdatedLabel style={{ marginHorizontal: 20 }} />
+      </ScrollView>
 
       {appsOpen && <ConnectionFilterModal
         visible={appsOpen}
@@ -610,7 +613,7 @@ const makeStyles = () => StyleSheet.create({
   miniRub: { color: colors.accent, fontSize: 13, fontWeight: "900" },
   miniValue: { color: colors.text, fontSize: 12.5, fontWeight: "800", lineHeight: 14 },
   miniLabel: { color: colors.textDim, fontSize: 9, marginTop: 1 },
-  powerArea: { flex: 1, alignItems: "center", justifyContent: "center" },
+  powerArea: { flexGrow: 1, flexShrink: 0, minHeight: 344, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
   timer: { marginTop: 4, fontSize: 14, color: colors.textDim, letterSpacing: 2 },
   error: { marginTop: 8, fontSize: 12, color: colors.red, textAlign: "center", paddingHorizontal: 30 },
   serverIcon: {
