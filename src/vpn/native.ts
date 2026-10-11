@@ -67,6 +67,13 @@ export type XrayLastStatus = { downloaded: boolean; size: number; path: string; 
 export function getXrayLastStatus(): XrayLastStatus {
   return XrayNative?.getXrayLastStatus?.() || { downloaded: false, size: 0, path: "", version: "", pendingVersion: "", loaded: false };
 }
+export function getMihomoStatus(): XrayLastStatus {
+  return XrayNative?.getMihomoStatus?.() || { ...getCoreStatus("libclash.so"), version: "", pendingVersion: "", loaded: false };
+}
+export async function downloadMihomo(url: string, sha256: string, size: number, version: string): Promise<string> {
+  if (!XrayNative) throw new Error("Модуль недоступен");
+  return XrayNative.downloadMihomo(url, sha256, size, version);
+}
 export async function downloadXrayLast(url: string, sha256: string, size: number, version: string): Promise<string> {
   if (!XrayNative) throw new Error("Модуль недоступен");
   return XrayNative.downloadXrayLast(url, sha256, size, version);

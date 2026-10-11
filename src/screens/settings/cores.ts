@@ -19,7 +19,7 @@ export const CORES: Array<{
   { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "официальный v1.19.32 · VLESS, VMess, Trojan, SS, Hysteria2 · без XHTTP", mb: 40 },
   { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "альтернативное ядро · все протоколы", mb: 36 },
   { key: "uwuray", label: "UwuRay", file: "libuwuray.so", lib: "uwuray", note: "форк Xray · расширенный BT-снаффер", mb: 34 },
-  { key: "xray-last", label: "Xray Last", file: "libxraylast.so", lib: "xray-last", note: "официальный XTLS/Xray-core · обновление вручную", mb: 35 },
+  { key: "xray-last", label: "Xray Last", file: "libxraylast.so", lib: "xray-last", note: "официальный XTLS/Xray-core · автообновление перед подключением", mb: 35 },
 ];
 
 // Фолбэк, если манифест недоступен
@@ -76,14 +76,20 @@ export async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const base = core === "mihomo" ? MIHOMO_REPO_BASE : "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/";
-    const res = await fetch(core === "mihomo" ? `${base}manifest.json` : CORES_REPO_MANIFEST, { signal: controller.signal });
+    const github = core === "mihomo" || core === "xray-last";
+    const base = github ? MIHOMO_REPO_BASE : "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/";
+    const res = await fetch(github ? `${base}manifest.json` : CORES_REPO_MANIFEST, { signal: controller.signal });
     if (!res.ok) return null;
     const manifest = await res.json();
     const entry = manifest?.cores?.[core];
     const file = entry?.files?.[abi];
     if (!file?.path) return null;
-    if (core === "mihomo" && (entry.version !== "1.19.32" || !/^cores\/mihomo-v1\.19\.32\/(arm64-v8a|armeabi-v7a|x86|x86_64)\/libclash\.so$/.test(file.path) || !/^[0-9a-f]{64}$/i.test(file.sha256 || "") || !Number.isSafeInteger(file.size) || file.size <= 0)) return null;
+    if (github) {
+      const name = core === "mihomo" ? "libclash.so" : "libxraylast.so";
+      if (!/^\d+\.\d+\.\d+$/.test(entry.version || "") || !["arm64-v8a", "armeabi-v7a", "x86", "x86_64"].includes(abi) ||
+          file.path !== `cores/${core}-v${entry.version}/${abi}/${name}` || !/^[0-9a-f]{64}$/i.test(file.sha256 || "") ||
+          !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > 150000000) return null;
+    }
     return {
       url: `${base}${file.path}`,
       sha256: String(file.sha256 || ""),

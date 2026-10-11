@@ -1,3 +1,4 @@
+import { ensureSelectedCoreUpdated } from "./coreAutoUpdater";
 import { deviceHeaders, loadSession } from "../storage";
 import { getSelectedCore, getSetting, setSetting, getPingMethod } from "../settings";
 import { markVpnConnected, clearVpnConnected } from "./timer";
@@ -396,6 +397,8 @@ function currentBypass(): { packages: string[]; domains: string[] } {
 
 export type ConnectOptions = {
   isSponsor?: boolean;
+  /** Background restore/reconnect must not initiate downloads. */
+  autoUpdateCore?: boolean;
 };
 
 /** UwuRay — скачиваемое ядро: после рестарта процесса библиотека не загружена.
@@ -490,6 +493,8 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   const granted = await ensurePermission();
   if (!granted) throw new Error("Нет разрешения на создание VPN-подключения");
   const running = await isVpnRunning();
+  const core = getSelectedCore();
+  if (!running && opts.autoUpdateCore !== false) await ensureSelectedCoreUpdated(core);
   if (running) {
     stopVpn();
     // Ждём фактической остановки (нативная сторона может гасить failover-монитор
@@ -524,7 +529,6 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     blocked = [...new Set([...blocked, ...bypass.packages])];
   }
 
-  const core = getSelectedCore();
   const isSponsor = opts.isSponsor === true;
   // RoscomVPN-роутинг: LTE Open-серверы ВСЕГДА получают WHITELIST-роутинг
   // (напрямую только белые списки РФ) — профиль для этого включать не нужно;
@@ -566,6 +570,15 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     await ensureSingBoxLoaded();
     saveTileConfig(config, "singbox");
     await startLibCoreVpn("singbox", config, allowed, blocked, failover);
+    lastConnectedNodeId = node.id;
+    markVpnConnected();
+    return;
+  }
+  if (core === "mihomo") {
+    const config = buildMihomoConfig(node, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
+    await loadLibCore("mihomo");
+    saveTileConfig(config, "mihomo");
+    await startLibCoreVpn("mihomo", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
     markVpnConnected();
     return;

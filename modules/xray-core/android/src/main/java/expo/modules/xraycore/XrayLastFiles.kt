@@ -52,13 +52,14 @@ object XrayLastFiles {
     progress: (Long, Long) -> Unit): String = synchronized(downloadLock) {
     check(Regex("[0-9a-fA-F]{64}").matches(sha256) && size in 1000000..150000000 && Regex("[0-9]+[.][0-9]+[.][0-9]+").matches(version)) { "Некорректные метаданные Xray Last" }
     val target = URL(url)
-    check(target.protocol == "https" && target.host == "gitlab.com" && target.userInfo == null && (target.port == -1 || target.port == 443) && target.path.startsWith("/instant99/ghostcloudcore_new/-/raw/main/cores/xray-last-") && !target.path.contains("..")) { "Недоверенный адрес ядра" }
+    check(target.protocol == "https" && target.host == "raw.githubusercontent.com" && target.userInfo == null && (target.port == -1 || target.port == 443) && target.path.startsWith("/instant992/ghostcloudcore_new/main/cores/xray-last-v") && !target.path.contains("..")) { "Недоверенный адрес ядра" }
     val dir = File(context.filesDir, "cores").also { it.mkdirs() }
     val tmp = File.createTempFile("xray-last-", ".part", dir)
     val conn = target.openConnection() as HttpURLConnection
     try {
       conn.instanceFollowRedirects = false
-      conn.connectTimeout = 20000; conn.readTimeout = 60000
+      conn.connectTimeout = 15000; conn.readTimeout = 15000
+      val deadline = System.nanoTime() + 90000000000L
       conn.setRequestProperty("User-Agent", "GhostCloud-Android")
       check(conn.responseCode == 200 && conn.url.protocol == "https") { "HTTP ${conn.responseCode}" }
       val digest = MessageDigest.getInstance("SHA-256")
@@ -66,6 +67,7 @@ object XrayLastFiles {
       conn.inputStream.use { input -> tmp.outputStream().use { output ->
         val buf = ByteArray(256 * 1024)
         while (true) {
+          check(System.nanoTime() < deadline) { "Core download timed out" }
           val n = input.read(buf); if (n < 0) break
           received += n; check(received <= size) { "Превышен размер ядра" }
           output.write(buf, 0, n); digest.update(buf, 0, n); progress(received, size)

@@ -365,7 +365,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
             if (!node) return; // нет выбранного сервера в списке — не трогаем туннель
             await mgr.disconnect();
-            await mgr.connect(node, { isSponsor: meRef.current?.is_sponsor === true });
+            await mgr.connect(node, { isSponsor: meRef.current?.is_sponsor === true, autoUpdateCore: false });
           } catch {}
         });
       })
@@ -696,7 +696,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }
                 if (node) {
                   if (savedId && node.id !== savedId) setSelectedNodeId(node.id);
-                  await mgr.connect(node, { isSponsor: meInfo?.is_sponsor === true });
+                  await mgr.connect(node, { isSponsor: meInfo?.is_sponsor === true, autoUpdateCore: false });
                 }
               }
             }

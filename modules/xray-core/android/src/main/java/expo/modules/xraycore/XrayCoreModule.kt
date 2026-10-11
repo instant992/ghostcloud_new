@@ -512,10 +512,33 @@ class XrayCoreModule : Module() {
       )
     }
 
+    Function("getMihomoStatus") { MihomoFiles.status(context) }
+    AsyncFunction("downloadMihomo") { url: String, sha256: String, size: Double, version: String, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-mihomo-download") {
+        try {
+          check(size.isFinite() && size == size.toLong().toDouble()) { "Invalid core size" }
+          val path = MihomoFiles.download(context, url, sha256, size.toLong(), version) { received, total ->
+            sendEvent("onCoreDownloadProgress", mapOf("name" to "libclash.so", "received" to received, "total" to total, "progress" to (received * 100 / total)))
+          }
+          promise.resolve(path)
+        } catch (e: Throwable) { promise.reject("ERR_DOWNLOAD", e.message, e) }
+      }
+    }
+
     AsyncFunction("downloadCore") { name: String, url: String, expectedSha256: String, expectedSize: Double, promise: Promise ->
       kotlin.concurrent.thread(name = "gc-core-download") {
         try {
           check(name != XrayLastFiles.NAME) { "Use downloadXrayLast for staged installs" }
+          if (name == MihomoFiles.NAME) {
+            val version = Regex("/mihomo-v([0-9]+[.][0-9]+[.][0-9]+)/").find(url)?.groupValues?.get(1)
+              ?: error("Некорректная версия Mihomo")
+            check(expectedSize.isFinite() && expectedSize == expectedSize.toLong().toDouble()) { "Invalid core size" }
+            val path = MihomoFiles.download(context, url, expectedSha256, expectedSize.toLong(), version) { received, total ->
+              sendEvent("onCoreDownloadProgress", mapOf("name" to name, "received" to received, "total" to total, "progress" to (received * 100 / total)))
+            }
+            promise.resolve(path)
+            return@thread
+          }
           val dir = File(context.filesDir, "cores")
           if (!dir.exists()) dir.mkdirs()
           val tmp = File(dir, "$name.tmp")
@@ -584,7 +607,7 @@ class XrayCoreModule : Module() {
           promise.reject("ERR_CORE_LOADED", "Перезапустите приложение перед удалением ядра", null)
         } else {
           val file = File(context.filesDir, "cores/$name")
-          if (name == XrayLastFiles.NAME) {
+          if (name == XrayLastFiles.NAME || name == MihomoFiles.NAME) {
             File(context.filesDir, "cores/$name.pending").delete()
             File(context.filesDir, "cores/$name.pending.json").delete()
             File(context.filesDir, "cores/$name.json").delete()

@@ -15,6 +15,7 @@ object GcCore {
 
   fun load(path: String): Boolean {
     synchronized(CoreRuntime) {
+      MihomoFiles.activatePath(path)
       CoreRuntime.claim("mihomo")
       if (loaded) return true
       System.load(path)
