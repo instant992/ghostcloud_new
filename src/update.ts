@@ -21,7 +21,7 @@ export type UpdateInfo = {
 export type UpdateState =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "available"; info: UpdateInfo; message?: string }
+  | { status: "available"; info: UpdateInfo; message?: string; downloaded?: boolean }
   | { status: "up-to-date" }
   | { status: "error"; message: string }
   | {
@@ -137,7 +137,10 @@ async function performCheck(opts: { silent?: boolean }): Promise<UpdateInfo | nu
       publish({ status: "error", message: "Сервер не отдал ссылку на APK" });
       return null;
     }
-    publish({ status: "available", info });
+    const sameDownload = previous?.downloaded && previous.info.version === info.version
+      && previous.info.versionCode === info.versionCode && previous.info.apkUrl === info.apkUrl
+      && previous.info.apkSize === info.apkSize;
+    publish({ status: "available", info, downloaded: !!sameDownload });
     return info;
   } catch (e: any) {
     const message = e?.message || "Не удалось проверить";
@@ -170,13 +173,22 @@ export async function downloadAndInstall(info: UpdateInfo): Promise<void> {
     if (!dir) throw new Error("Недоступно хранилище приложения");
     const fileUri = `${dir}GhostCloud-update-${info.version}.apk`;
 
-    // Старый файл мешал бы повторной загрузке — удаляем
+    // A completion receipt distinguishes a fully downloaded APK from a partial file.
+    // Bind it to the feed identity and actual size; reuse survives process restarts.
+    const receiptUri = `${fileUri}.json`;
+    const identity = JSON.stringify([info.version, info.versionCode ?? null, info.apkUrl, info.apkSize, deviceAbi()]);
+    let ready = false;
     try {
+      const receipt = JSON.parse(await FileSystem.readAsStringAsync(receiptUri));
       const existing = await FileSystem.getInfoAsync(fileUri);
-      if (existing.exists) await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      ready = existing.exists && !existing.isDirectory && existing.size > 0
+        && receipt.identity === identity && receipt.size === existing.size
+        && (!info.apkSize || existing.size === info.apkSize);
     } catch {}
-
-    const task = FileSystem.createDownloadResumable(info.apkUrl, fileUri, {}, (p) => {
+    if (!ready) {
+      await FileSystem.deleteAsync(receiptUri, { idempotent: true });
+      await FileSystem.deleteAsync(fileUri, { idempotent: true });
+      const task = FileSystem.createDownloadResumable(info.apkUrl, fileUri, {}, (p) => {
       const total = p.totalBytesExpectedToWrite > 0 ? p.totalBytesExpectedToWrite : info.apkSize || 0;
       emit({
         status: "downloading",
@@ -188,21 +200,28 @@ export async function downloadAndInstall(info: UpdateInfo): Promise<void> {
     });
     const result = await task.downloadAsync();
     if (!result?.uri || result.status !== 200) throw new Error("Не удалось скачать файл обновления");
+    const completed = await FileSystem.getInfoAsync(fileUri);
+    if (!completed.exists || completed.isDirectory || completed.size <= 0
+        || (info.apkSize > 0 && completed.size !== info.apkSize)) {
+      throw new Error("Файл обновления скачан не полностью");
+    }
+    await FileSystem.writeAsStringAsync(receiptUri, JSON.stringify({ identity, size: completed.size }));
+    }
 
     // Разрешение «установка неизвестных приложений» — без него установщик не запустится
     if (!canInstallPackages()) {
       openInstallPermissionSettings();
-      emit({ status: "available", info, message: "Разрешите установку и нажмите «Обновить» ещё раз" });
+      emit({ status: "available", info, downloaded: true, message: "APK уже скачан. Разрешите установку и нажмите «Установить»" });
       downloading = false;
       return;
     }
 
     // Нативный метод ждёт обычный файловый путь, а не file://-URI
-    const path = result.uri.replace(/^file:\/\//, "");
+    const path = fileUri.replace(/^file:\/\//, "");
     const ok = await installApk(path);
     if (!ok) throw new Error("Не удалось запустить установку");
     // Возвращаем баннер в состояние «доступно» — установка идёт в системном диалоге
-    emit({ status: "available", info });
+    emit({ status: "available", info, downloaded: true });
   } catch (e: any) {
     emit({ status: "available", info, message: e?.message || "Ошибка скачивания" });
   } finally {

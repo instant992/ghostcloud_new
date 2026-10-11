@@ -43,7 +43,7 @@ export function UpdateBanner() {
             {info.changelog.split("\n").map(line => line.trim()).filter(Boolean).map((line, index) => <Text key={index} style={[styles.change, { color: colors.text }]}>{line.startsWith("-") ? line : `– ${line}`}</Text>)}
             {state.status === "available" && !!state.message && <Text accessibilityLiveRegion="polite" style={[styles.change, { color: colors.text }]}>{state.message}</Text>}
           </ScrollView>
-          <Pressable onPress={action} disabled={busy} accessibilityRole="button" accessibilityState={{ disabled: busy, busy }} style={styles.button}><Text style={styles.buttonText}>{busy ? `Скачивание ${progress}` : "Загрузить сейчас"}</Text></Pressable>
+          <Pressable onPress={action} disabled={busy} accessibilityRole="button" accessibilityState={{ disabled: busy, busy }} style={styles.button}><Text style={styles.buttonText}>{busy ? `Скачивание ${progress}` : state.status === "available" && state.downloaded ? "Установить" : "Загрузить сейчас"}</Text></Pressable>
           <Pressable onPress={dismiss} disabled={busy} accessibilityRole="button" style={styles.later}><Text style={{ color: colors.textDim, fontSize: 14 }}>Напомнить позже</Text></Pressable>
         </View>
       </View>

@@ -10,7 +10,7 @@ const deferred = () => { let resolve; const promise = new Promise(r => resolve =
 const payload = (version = '0.0.2') => ({ update_available: true, version, changelog: '- Fix\nMore', apk_url: 'https://vpnghost.space/api/app/download?abi=arm64-v8a', apk_size: 100 });
 function harness(options = {}) {
   const exports = {}, calls = { fetch: [], install: [], download: [] }, queue = [];
-  let progress;
+  let progress; const files = options.files || new Map();
   const download = deferred();
   vm.runInNewContext(source, { exports, URL, AbortController, setTimeout, clearTimeout,
     fetch: async url => { calls.fetch.push(url); const data = await (queue.length ? queue.shift() : payload()); if (data instanceof Error) throw data; return { ok: true, json: async () => data }; },
@@ -20,12 +20,14 @@ function harness(options = {}) {
       if (name === './api') return { BASE_URL: 'https://ghostcloud.space' };
       if (name === './vpn/native') return { getCpuAbi: () => options.abi || 'arm64-v8a', canInstallPackages: () => options.permission !== false,
         openInstallPermissionSettings: () => {}, installApk: async p => { calls.install.push(p); return true; } };
-      if (name === 'expo-file-system/legacy') return { cacheDirectory: 'file:///cache/', getInfoAsync: async () => ({ exists: false }),
-        createDownloadResumable: (url, uri, opts, cb) => { calls.download.push(url); progress = cb; return { downloadAsync: () => download.promise }; } };
+      if (name === 'expo-file-system/legacy') return { cacheDirectory: 'file:///cache/', getInfoAsync: async uri => ({ exists: files.has(uri), size: files.get(uri)?.size || 0 }),
+        readAsStringAsync: async uri => { if (!files.has(uri)) throw Error('missing'); return files.get(uri).text; },
+        writeAsStringAsync: async (uri, text) => files.set(uri, { text }), deleteAsync: async uri => files.delete(uri),
+        createDownloadResumable: (url, uri, opts, cb) => { calls.download.push(url); progress = cb; return { downloadAsync: async () => { const result = await download.promise; if (result.status === 200) files.set(uri, { size: options.size ?? 100 }); return result; } }; } };
       throw Error(name);
     },
   });
-  return { store: exports, calls, queue, download, progress: p => progress(p), flush: async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); } };
+  return { store: exports, calls, queue, download, files, progress: p => progress(p), flush: async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); } };
 }
 test('cold entry and each active transition check, duplicate active events do not', async () => {
   const h = harness(); let callback, removed = false;
@@ -105,4 +107,24 @@ test('unknown-sources permission returns to actionable banner', async () => {
   h.download.resolve({ status: 200, uri: 'file:///cache/update.apk' }); await d;
   assert.equal(h.store.getSnapshot().status, 'available'); assert.equal(h.calls.install.length, 0);
   assert.ok(h.store.getSnapshot().message);
+});
+
+test('permission retry and process restart reuse completed APK without downloading', async () => {
+  const options = { permission: false };
+  const h = harness(options), info = await h.store.checkForUpdate();
+  const d = h.store.downloadAndInstall(info); await h.flush();
+  h.download.resolve({ status: 200, uri: 'file:///cache/update.apk' }); await d;
+  options.permission = true;
+  await h.store.downloadAndInstall(info);
+  assert.equal(h.calls.download.length, 1); assert.equal(h.calls.install.length, 1);
+  const restarted = harness({ files: h.files });
+  await restarted.store.downloadAndInstall(info);
+  assert.equal(restarted.calls.download.length, 0); assert.equal(restarted.calls.install.length, 1);
+});
+test('partial APK is not installed or marked complete', async () => {
+  const h = harness({ size: 40 }), info = await h.store.checkForUpdate();
+  const d = h.store.downloadAndInstall(info); await h.flush();
+  h.download.resolve({ status: 200, uri: 'file:///cache/update.apk' }); await d;
+  assert.equal(h.calls.install.length, 0);
+  assert.equal([...h.files.keys()].some(k => k.endsWith('.json')), false);
 });
