@@ -149,13 +149,15 @@ export default function MaterialScreen() {
 
   return (
     <View style={[s.screen, { backgroundColor: c.background, paddingTop: insets.top }]}>
-      <ScrollView style={{ maxHeight: 220, flexGrow: 0 }}><AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 8 }} /></ScrollView>
+      {/* One viewport lets long/scaled announcements grow without a 220dp clip. */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+      <AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 8 }} />
       <Appbar.Header statusBarHeight={0} style={{ backgroundColor: c.background }}>
         <Image source={{ uri: "app_icon" }} style={s.logo} accessibilityIgnoresInvertColors accessibilityLabel="" />
         <View style={{ flex: 1 }}><BrandName style={s.brand} /></View>
         <Appbar.Action icon={() => icon("headset-outline", c.onSurface)} accessibilityLabel="Открыть поддержку" onPress={() => nav.navigate("Support")} />
       </Appbar.Header>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 28 }]}>
+      <View style={[s.content, { paddingBottom: insets.bottom + 28 }]}>
         <View style={s.hero}>
           <View style={[s.statusPill, { backgroundColor: vpnRunning ? c.primaryContainer : c.surfaceVariant }]}>
             {icon(vpnRunning ? "shield-checkmark-outline" : "shield-outline", vpnRunning ? c.onPrimaryContainer : c.onSurfaceVariant, 17)}
@@ -235,6 +237,7 @@ export default function MaterialScreen() {
             {icon("chevron-forward", c.onSurfaceVariant, 20)}
           </View>
         </TouchableRipple>
+      </View>
       </ScrollView>
       <ServerSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} nodes={nodes} selectedId={selected?.id || null} onSelect={id => { void chooseNode(id); }} />
       <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
