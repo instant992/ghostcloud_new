@@ -53,6 +53,12 @@ const CONTRIBUTORS: Person[] = [
 
 const TESTERS: Person[] = [
   {
+    avatarUri: "avatar_lazzy2wice",
+    prefix: "Тестировщик",
+    name: "LAZZY2WICE",
+    platforms: ["android"],
+  },
+  {
     avatarUri: "avatar_cottonbunny",
     prefix: "Тестировщик",
     name: "CottonBunny",
@@ -246,7 +252,7 @@ export default function AboutScreen() {
         </View>
 
         <Text style={styles.desc}>
-          Приватный VPN-клиент на ядрах Xray и Sing-box: VLESS REALITY, Trojan,
+          Открытый VPN-клиент на ядрах Xray и Sing-box: VLESS REALITY, Trojan,
           VMess, Shadowsocks, Hysteria2. Простой и удобный, с автопереключением при обрыве.
         </Text>
 

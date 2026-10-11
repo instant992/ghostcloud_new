@@ -5,9 +5,9 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const test = require('node:test');
 function render(state, tv = false) {
-  const exports = {}, calls = []; let dismissed = false, listener;
+  const exports = {}, calls = []; let dismissed, listener;
   const React = { createElement: (type, props, ...children) => ({ type, props: props || {}, children: children.flat() }),
-    useState: () => [dismissed, v => { dismissed = v; }], useEffect: fn => { if (!listener) fn(); }, useSyncExternalStore: () => state };
+    useState: initial => { if (dismissed === undefined) dismissed = initial; return [dismissed, v => { dismissed = v; }]; }, useEffect: fn => { if (!listener) fn(); }, useSyncExternalStore: () => state };
   const source = ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/components/UpdateBanner.tsx'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React, esModuleInterop: true },
   }).outputText;
@@ -23,7 +23,7 @@ function render(state, tv = false) {
     if (name === '../update') return { subscribe: () => {}, getSnapshot: () => state, downloadAndInstall: info => calls.push(info), firstChangelogLine: x => x, formatSizeMb: () => '1 МБ' };
     throw Error(name);
   }});
-  return { tree: exports.UpdateBanner(), rerender: () => exports.UpdateBanner(), enter: () => { listener('background'); listener('active'); }, layout: children => exports.UpdateLayout({ children }), calls };
+  return { tree: exports.UpdateBanner(), rerender: () => exports.UpdateBanner(), remount: () => { dismissed = undefined; return exports.UpdateBanner(); }, enter: () => { if (listener) { listener('background'); listener('active'); } }, layout: children => exports.UpdateLayout({ children }), calls };
 }
 const nodes = tree => tree && typeof tree === 'object' ? [tree, ...tree.children.flatMap(nodes)] : [];
 test('bottom sheet download, later and reentry work', () => {
@@ -33,7 +33,9 @@ test('bottom sheet download, later and reentry work', () => {
   const buttons = nodes(r.tree).filter(x => x.type === 'Pressable');
   buttons[1].props.onPress(); assert.equal(r.calls[0], info);
   buttons[2].props.onPress(); assert.equal(r.rerender(), null);
-  r.enter(); assert.equal(r.rerender().type, 'Modal');
+  r.enter(); assert.equal(r.rerender(), null);
+  assert.equal(r.remount(), null);
+  assert.equal(render({ status: 'available', info }).tree.type, 'Modal');
   assert.ok(JSON.stringify(r.tree).includes('Second'));
 });
 test('root does not consume safe area or resize screens', () => {

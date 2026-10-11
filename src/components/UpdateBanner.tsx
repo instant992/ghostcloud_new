@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useSyncExternalStore } from "react";
-import { AppState, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import React, { useState, useSyncExternalStore } from "react";
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { colors, useTheme } from "../theme";
@@ -9,25 +9,20 @@ export function UpdateLayout({ children }: { children: React.ReactNode }) {
   return <View style={{ flex: 1 }}>{children}<UpdateBanner /></View>;
 }
 
+// Session-only: reset only when the JS runtime starts again, not on foreground/remount.
+let dismissedForSession = false;
+
 export function UpdateBanner() {
   const state = useSyncExternalStore(update.subscribe, update.getSnapshot);
   const { mode } = useTheme();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
-  const [dismissed, setDismissed] = useState(false);
-  useEffect(() => {
-    let previous = AppState.currentState;
-    const subscription = AppState.addEventListener("change", next => {
-      if (next === "active" && previous !== "active") setDismissed(false);
-      previous = next;
-    });
-    return () => subscription.remove();
-  }, []);
+  const [dismissed, setDismissed] = useState(dismissedForSession);
   if (state.status !== "available" && state.status !== "downloading") return null;
   const busy = state.status === "downloading";
   if (dismissed && !busy) return null;
   const { info } = state;
-  const dismiss = () => { if (!busy) setDismissed(true); };
+  const dismiss = () => { if (!busy) { dismissedForSession = true; setDismissed(true); } };
   const action = () => { if (!busy) void update.downloadAndInstall(info); };
   const progress = busy && state.progress >= 0 ? `${Math.round(Math.min(1, state.progress) * 100)}%` : "…";
   return (
