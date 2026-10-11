@@ -35,6 +35,7 @@ import { DNS_PROVIDERS, getDnsProvider } from "../../vpn/dns";
 import { disconnect } from "../../vpn/manager";
 import {
   downloadCore,
+  selectCore,
   getCpuAbi,
   getCoreStatus,
   getXrayVersion,
@@ -107,6 +108,7 @@ export default function VpnNetworkScreen() {
   useEffect(() => {
     setXrayVersion(getXrayVersion());
     setDownloaded({
+      "libclash.so": getCoreStatus("libclash.so").downloaded,
       "libsingbox.so": getCoreStatus("libsingbox.so").downloaded,
       "libuwuray.so": getCoreStatus("libuwuray.so").downloaded,
     });
@@ -141,20 +143,17 @@ export default function VpnNetworkScreen() {
     showToast(`DNS: ${p.name}. Применится при следующем подключении`, "top");
   };
 
-  const changeCore = (next: CoreName) => {
+  const changeCore = async (next: CoreName) => {
     const meta = CORES.find((c) => c.key === next);
     if (meta?.file && !(next === "xray-last" ? xrayLast.status.downloaded : downloaded[meta.file])) return;
-    const prev = core;
-    setCore(next);
-    setSetting("core", next);
-    // Скачиваемые ядра (sing-box/uwuray) содержат собственный Go-рантайм:
-    // в одном процессе может жить только одно. Если в этой сессии уже
-    // подключались другим скачиваемым ядром — нужен перезапуск приложения.
-    const prevLib = CORES.find((c) => c.key === prev)?.lib;
-    const nextLib = meta?.lib;
-    if (prevLib && nextLib && prevLib !== nextLib) {
-      showToast("Ядро изменено — перезапустите приложение перед подключением", "top");
-    }
+    if (next === core || stopBusy) return;
+    setStopBusy(true);
+    try {
+      if (vpnRunning) { await disconnect(); setVpnRunning(false); }
+      selectCore(next);
+      setCore(next);
+    } catch (e: any) { showToast(e.message || "Не удалось сменить ядро"); }
+    finally { setStopBusy(false); }
   };
 
   const startDownload = (c: (typeof CORES)[number]) => {
@@ -163,7 +162,7 @@ export default function VpnNetworkScreen() {
       xrayLast.install().then(() => showToast("Xray Last загружен. Если ядро уже использовалось — перезапустите приложение", "top")).catch((e) => showToast(e.message));
       return;
     }
-    const lib = c.lib as "singbox" | "uwuray";
+    const lib = c.lib as "mihomo" | "singbox" | "uwuray";
     const abi = getCpuAbi();
     setConfirmCore(null);
     setProgress((p) => ({ ...p, [c.file]: 0 }));
@@ -174,7 +173,8 @@ export default function VpnNetworkScreen() {
         await downloadCore(c.file, meta.url, meta.sha256, meta.size);
         setDownloaded((d) => ({ ...d, [c.file]: true }));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        const v = await loadLibCore(lib).catch(() => "");
+        // Downloading Mihomo must not claim the Go runtime before selection.
+        const v = lib === "mihomo" ? "mihomo v1.19.32" : await loadLibCore(lib).catch(() => "");
         if (v) setVersions((vv) => ({ ...vv, [c.key]: v }));
       } catch (e: any) {
         showToast(e?.message || "Не удалось скачать ядро");
@@ -243,9 +243,9 @@ export default function VpnNetworkScreen() {
                     hitSlop={6}
                     onPress={() => setConfirmCore(c)}
                     accessibilityRole="button"
-                    accessibilityLabel={`Скачать ядро ${c.label}`}
+                    accessibilityLabel={`${updateAvailable ? "Обновить" : "Скачать"} ядро ${c.label}`}
                   >
-                    <Text style={{ color: "#fff" }}>{updateAvailable ? "Обновить" : "Скачать"}</Text>
+                    <Ionicons name={updateAvailable ? "refresh" : "download"} size={18} color="#fff" />
                   </PressableScale>
                 )}
                 {busy && <Text style={styles.progressPct}>{pct === undefined ? "…" : `${pct}%`}</Text>}

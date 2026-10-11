@@ -58,6 +58,11 @@ export function getCoreStatus(name: string): { downloaded: boolean; size: number
   }
 }
 
+export function selectCore(core: string): boolean {
+  if (!XrayNative) throw new Error("Модуль недоступен");
+  return Boolean(XrayNative.selectCore(core));
+}
+
 export type XrayLastStatus = { downloaded: boolean; size: number; path: string; version: string; pendingVersion: string; loaded: boolean };
 export function getXrayLastStatus(): XrayLastStatus {
   return XrayNative?.getXrayLastStatus?.() || { downloaded: false, size: 0, path: "", version: "", pendingVersion: "", loaded: false };

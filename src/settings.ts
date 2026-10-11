@@ -22,7 +22,7 @@ export type ThemeName =
   | "awg"
   | "material";
 export type ThemeMode = "dark" | "light" | "auto";
-export type CoreName = "xray" | "sing-box" | "uwuray" | "xray-last";
+export type CoreName = "xray" | "sing-box" | "uwuray" | "xray-last" | "mihomo";
 
 export function getSetting(key: string, fallback: string): string {
   try {
@@ -79,12 +79,7 @@ export function getSelectedCore(): CoreName {
   if (v === "sing-box") return "sing-box";
   if (v === "uwuray") return "uwuray";
   if (v === "xray-last") return "xray-last";
-  // Mihomo убран из приложения: ранее выбранное ядро мигрируем на встроенный Xray,
-  // иначе в настройках не было бы активного пункта, а подключение падало бы.
-  if (v === "mihomo") {
-    setSetting("core", "xray");
-    return "xray";
-  }
+  if (v === "mihomo") return "mihomo";
   return "xray";
 }
 

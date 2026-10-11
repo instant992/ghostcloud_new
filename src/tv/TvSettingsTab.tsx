@@ -4,12 +4,14 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import { useApp } from "../context";
 import { getAutoConnect, getKillSwitch, getPingMethod, setAutoConnect, setKillSwitch, setPingMethod, type PingMethod } from "../settings";
-import { getXrayVersion } from "../vpn/native";
+import { selectCore, getXrayVersion, getCoreStatus, getCpuAbi, downloadCore } from "../vpn/native";
+import { CORES, FALLBACK, fetchCoreMeta } from "../screens/settings/cores";
 import { colors, useTheme } from "../theme";
 import { TvFocusable } from "./TvFocusable";
-import { getSelectedCore, setSetting, type CoreName } from "../settings";
+import { getSelectedCore, type CoreName } from "../settings";
 import { useXrayLast } from "../screens/settings/xrayLast";
 import { showToast } from "../components/Toast";
+import { disconnect } from "../vpn/manager";
 
 /** Настройки Android TV: урезанный набор — только то, чем реально пользуются
  *  с пульта. Каждый Switch обёрнут в фокусируемую строку (TvFocusable), а сам
@@ -18,7 +20,8 @@ import { showToast } from "../components/Toast";
  *  Тема/иконки на TV не переключаются: TV-интерфейс один. */
 export function TvSettingsTab() {
   useTheme();
-  const { signOut, me } = useApp();
+  const { signOut, me, vpnRunning, setVpnRunning } = useApp();
+  const [coreBusy, setCoreBusy] = useState(false);
   const [autoConnect, setAutoConnectState] = useState(getAutoConnect());
   const [killSwitch, setKillSwitchState] = useState(getKillSwitch());
   const [pingMethod, setPingMethodState] = useState<PingMethod>(getPingMethod());
@@ -26,6 +29,7 @@ export function TvSettingsTab() {
   const [xrayVersion, setXrayVersion] = useState("");
   const [selectedCore, setCore] = useState<CoreName>(getSelectedCore());
   const xrayLast = useXrayLast();
+  const [mihomoDownloaded, setMihomoDownloaded] = useState(() => getCoreStatus("libclash.so").downloaded);
 
   useEffect(() => {
     try {
@@ -35,9 +39,10 @@ export function TvSettingsTab() {
 
   const appVersion = Application.nativeApplicationVersion || "?";
   const coreLabel = useMemo(() => {
+    if (selectedCore !== "xray") return CORES.find((c) => c.key === selectedCore)?.label || selectedCore;
     if (!xrayVersion) return "встроенный Xray";
     return `встроенный Xray · ${xrayVersion}`;
-  }, [xrayVersion]);
+  }, [xrayVersion, selectedCore]);
 
   const cyclePing = () => {
     const next: PingMethod = pingMethod === "tcp" ? "url" : "tcp";
@@ -181,15 +186,21 @@ export function TvSettingsTab() {
       </TvFocusable>
 
       <Text style={s.rowTitle}>Ядро VPN</Text>
-      {(["xray", "xray-last"] as const).map((key) => (
-        <TvFocusable key={key} style={s.row} borderRadius={17} onPress={() => {
+      {(["xray", "xray-last", "mihomo"] as const).map((key) => (
+        <TvFocusable key={key} style={s.row} borderRadius={17} onPress={async () => {
+          if (coreBusy || key === selectedCore) return;
           if (key === "xray-last" && !xrayLast.status.downloaded) { showToast("Сначала скачайте ядро"); return; }
-          setCore(key); setSetting("core", key);
-          showToast("Ядро выбрано — перезапустите приложение перед подключением");
+          if (key === "mihomo" && !mihomoDownloaded) { showToast("Сначала скачайте ядро"); return; }
+          setCoreBusy(true);
+          try {
+            if (vpnRunning) { await disconnect(); setVpnRunning(false); }
+            selectCore(key); setCore(key);
+          } catch (e: any) { showToast(e.message || "Не удалось сменить ядро"); }
+          finally { setCoreBusy(false); }
         }}>
           <View style={s.rowInner}><View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>{key === "xray" ? "Xray (встроенный)" : "Xray Last"}{selectedCore === key ? " · выбрано" : ""}</Text>
-            <Text style={s.rowSub}>{key === "xray-last" ? xrayLast.note : coreLabel}</Text>
+            <Text style={s.rowTitle}>{key === "xray" ? "Xray (встроенный)" : key === "mihomo" ? "Mihomo v1.19.32" : "Xray Last"}{selectedCore === key ? " · выбрано" : ""}</Text>
+            <Text style={s.rowSub}>{key === "xray-last" ? xrayLast.note : key === "mihomo" ? CORES.find((c) => c.key === "mihomo")?.note : coreLabel}</Text>
           </View></View>
         </TvFocusable>
       ))}
@@ -200,6 +211,19 @@ export function TvSettingsTab() {
           <View style={s.rowInner}><Text style={s.rowTitle}>{xrayLast.busy ? "Загрузка…" : xrayLast.status.downloaded ? "Обновить Xray Last" : "Скачать Xray Last"}</Text></View>
         </TvFocusable>
       )}
+      {!mihomoDownloaded && <TvFocusable style={s.row} onPress={async () => {
+        if (coreBusy) return;
+        setCoreBusy(true);
+        try {
+          const abi = getCpuAbi();
+          const meta = (await fetchCoreMeta("mihomo", abi)) || FALLBACK.mihomo?.[abi];
+          if (!meta) throw new Error("Mihomo недоступен для архитектуры устройства");
+          await downloadCore("libclash.so", meta.url, meta.sha256, meta.size);
+          setMihomoDownloaded(getCoreStatus("libclash.so").downloaded);
+          showToast("Mihomo загружен");
+        } catch (e: any) { showToast(e.message || "Ошибка загрузки Mihomo"); }
+        finally { setCoreBusy(false); }
+      }}><View style={s.rowInner}><Text style={s.rowTitle}>{coreBusy ? "Загрузка…" : "Скачать Mihomo v1.19.32"}</Text></View></TvFocusable>}
       {/* О программе */}
       <View style={[s.row, s.rowStatic]}>
         <View style={s.rowInner}>

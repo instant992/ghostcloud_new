@@ -473,6 +473,22 @@ class XrayCoreModule : Module() {
       }
     }
 
+    Function("selectCore") { core: String ->
+      val runtime = when (core) {
+        "xray", "uwuray", "xray-last", "mihomo" -> core
+        "sing-box" -> "singbox"
+        else -> throw IllegalArgumentException("Неизвестное ядро")
+      }
+      val prefs = context.getSharedPreferences("gc_settings", android.content.Context.MODE_PRIVATE)
+      check(prefs.edit().putString("core", core).commit()) { "Не удалось сохранить ядро" }
+      val restart = CoreRuntime.requiresRestart(runtime)
+      if (restart) {
+        val activity = appContext.currentActivity ?: throw IllegalStateException("Нет активного экрана для перезапуска")
+        activity.startActivity(Intent(activity, CoreRestartActivity::class.java).putExtra("oldPid", android.os.Process.myPid()))
+      }
+      restart
+    }
+
     Function("getXrayLastStatus") { XrayLastFiles.status(context) }
 
     AsyncFunction("downloadXrayLast") { url: String, sha256: String, size: Double, version: String, promise: Promise ->

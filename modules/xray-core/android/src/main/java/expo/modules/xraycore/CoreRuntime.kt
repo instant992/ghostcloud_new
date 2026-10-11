@@ -7,6 +7,7 @@ object CoreRuntime {
     check(owner == null || owner == core) { "Другое ядро уже загружено — перезапустите приложение" }
     owner = core
   }
+  @Synchronized fun requiresRestart(core: String): Boolean = owner != null && owner != core
   @Synchronized fun owns(core: String): Boolean = owner == core
   @Synchronized fun isLoadedFile(name: String): Boolean = when (name) {
     "libxraylast.so" -> owner == "xray-last"

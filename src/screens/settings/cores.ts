@@ -5,15 +5,18 @@ import type { CoreName } from "../../settings";
 export const CORES_REPO_MANIFEST =
   "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/manifest.json";
 
+export const MIHOMO_REPO_BASE = "https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/";
+
 export const CORES: Array<{
   key: CoreName;
   label: string;
   file: string;
-  lib: "singbox" | "uwuray" | "xray-last" | null;
+  lib: "mihomo" | "singbox" | "uwuray" | "xray-last" | null;
   note: string;
   mb: number;
 }> = [
   { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS, Hysteria2", mb: 0 },
+  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "официальный v1.19.32 · VLESS, VMess, Trojan, SS, Hysteria2 · без XHTTP", mb: 40 },
   { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "альтернативное ядро · все протоколы", mb: 36 },
   { key: "uwuray", label: "UwuRay", file: "libuwuray.so", lib: "uwuray", note: "форк Xray · расширенный BT-снаффер", mb: 34 },
   { key: "xray-last", label: "Xray Last", file: "libxraylast.so", lib: "xray-last", note: "официальный XTLS/Xray-core · обновление вручную", mb: 35 },
@@ -73,14 +76,16 @@ export async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const res = await fetch(CORES_REPO_MANIFEST, { signal: controller.signal });
+    const base = core === "mihomo" ? MIHOMO_REPO_BASE : "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/";
+    const res = await fetch(core === "mihomo" ? `${base}manifest.json` : CORES_REPO_MANIFEST, { signal: controller.signal });
     if (!res.ok) return null;
     const manifest = await res.json();
     const entry = manifest?.cores?.[core];
     const file = entry?.files?.[abi];
     if (!file?.path) return null;
+    if (core === "mihomo" && (entry.version !== "1.19.32" || !/^cores\/mihomo-v1\.19\.32\/(arm64-v8a|armeabi-v7a|x86|x86_64)\/libclash\.so$/.test(file.path) || !/^[0-9a-f]{64}$/i.test(file.sha256 || "") || !Number.isSafeInteger(file.size) || file.size <= 0)) return null;
     return {
-      url: `https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/${file.path}`,
+      url: `${base}${file.path}`,
       sha256: String(file.sha256 || ""),
       size: Number(file.size || 0),
       version: String(entry.version || ""),

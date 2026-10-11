@@ -148,7 +148,7 @@ class LibCoreVpnService : VpnService() {
       // tunInterface. Без дубля на ошибке старта получался double-close одного fd →
       // fdsan abort (SIGABRT «double-close of file descriptor») — краш процесса,
       // который к тому же терял текст ошибки ядра (pendingPromise.reject не успевал).
-      val coreFd = if (currentLib == "xray-last") pfd.fd else run {
+      val coreFd = if (currentLib == "xray-last" || currentLib == "mihomo") pfd.fd else run {
         val dup = pfd.dup()
         dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
       }
@@ -244,7 +244,7 @@ class LibCoreVpnService : VpnService() {
       "singbox" -> { GcSbCore.load(file.absolutePath); GcSbCore.gcInit(home.absolutePath) }
       "uwuray" -> { GcUwuCore.load(file.absolutePath); GcUwuCore.gcInit(home.absolutePath) }
       "xray-last" -> { GcXrayLastCore.load(file.absolutePath); check(GcXrayLastCore.gcInit(home.absolutePath).isEmpty()) }
-      else -> { GcCore.load(file.absolutePath); GcCore.gcInit(home.absolutePath) }
+      else -> { GcCore.load(file.absolutePath); val err = GcCore.gcInit(home.absolutePath); check(err.isEmpty()) { err } }
     }
   }
 
@@ -317,7 +317,7 @@ class LibCoreVpnService : VpnService() {
       }
       // Дубликат fd — как при первом старте: ядро закрывает свой fd само
       // (inst.Close), оригинал остаётся у Java (см. комментарий в startCore).
-      val coreFd = if (currentLib == "xray-last") pfd.fd else run {
+      val coreFd = if (currentLib == "xray-last" || currentLib == "mihomo") pfd.fd else run {
         val dup = pfd.dup()
         dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
       }

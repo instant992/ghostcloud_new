@@ -47,6 +47,13 @@
       android:excludeFromRecents="true"
       android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+    <activity
+      android:name=".CoreRestartActivity"
+      android:process=":core_restart"
+      android:exported="false"
+      android:excludeFromRecents="true"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
     <!-- Автоподключение VPN после загрузки устройства (настройка autoboot) -->
     <receiver
       android:name=".GcBootReceiver"
