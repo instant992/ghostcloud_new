@@ -48,6 +48,7 @@ import SimpleScreen from "./src/screens/themes/SimpleScreen";
 import AwgScreen from "./src/screens/themes/AwgScreen";
 import { TabChain } from "./src/components/TabIcon";
 import FoxSplash from "./src/components/FoxSplash";
+import { UpdateLayout } from "./src/components/UpdateBanner";
 import { SecurityAlertModal } from "./src/components/SecurityAlertModal";
 import { ToastHost } from "./src/components/Toast";
 import { TabAreaContext, useScreenBgColor } from "./src/components/UI";
@@ -851,7 +852,7 @@ export default function App() {
           <AppProvider>
             {IS_TV && <TvThemeLock />}
             <ThemedContainer>
-              <Root />
+              <UpdateLayout><Root /></UpdateLayout>
             </ThemedContainer>
             <ToastHost />
             <SecurityAlertHost />

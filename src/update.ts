@@ -1,3 +1,4 @@
+import { AppState, Platform } from "react-native";
 import * as Application from "expo-application";
 import * as FileSystem from "expo-file-system/legacy";
 import { BASE_URL } from "./api";
@@ -20,7 +21,7 @@ export type UpdateInfo = {
 export type UpdateState =
   | { status: "idle" }
   | { status: "checking" }
-  | { status: "available"; info: UpdateInfo }
+  | { status: "available"; info: UpdateInfo; message?: string }
   | { status: "up-to-date" }
   | { status: "error"; message: string }
   | {
@@ -67,19 +68,44 @@ export function compareVersions(v1: string, v2: string): number {
 function deviceAbi(): string {
   const abi = getCpuAbi();
   if (abi === "arm64-v8a" || abi === "armeabi-v7a") return abi;
-  return "arm64-v8a";
+  throw new Error(`Обновление APK для архитектуры ${abi || "неизвестно"} недоступно на сервере`);
 }
 
-/** Проверка обновления на сервере. Возвращает UpdateInfo или null,
- *  если обновление не нужно (актуальная версия / сервер молчит). */
-export async function checkForUpdate(opts: { silent?: boolean } = {}): Promise<UpdateInfo | null> {
-  if (!opts.silent) emit({ status: "checking" });
+/** The production feed advertises the legacy vpnghost alias. No arbitrary APK hosts. */
+function trustedApkUrl(value: string): string {
+  const url = new URL(value);
+  const abi = deviceAbi();
+  if (url.protocol !== "https:" || ![new URL(BASE_URL).origin, "https://vpnghost.space"].includes(url.origin)
+      || url.username || url.password || url.pathname !== "/api/app/download" || url.hash
+      || url.searchParams.get("abi") !== abi || Array.from(url.searchParams.keys()).some(k => k !== "abi")) {
+    throw new Error("Сервер отдал недоверенную ссылку или APK другой архитектуры");
+  }
+  return url.toString();
+}
+
+let operation = 0;
+let checkInFlight: Promise<UpdateInfo | null> | null = null;
+
+/** Share cold-entry, foreground and manual checks. */
+export function checkForUpdate(opts: { silent?: boolean } = {}): Promise<UpdateInfo | null> {
+  if (downloading) return Promise.resolve(state.status === "downloading" ? state.info : null);
+  if (checkInFlight) return checkInFlight;
+  checkInFlight = performCheck(opts).finally(() => { checkInFlight = null; });
+  return checkInFlight;
+}
+
+async function performCheck(opts: { silent?: boolean }): Promise<UpdateInfo | null> {
+  const previous = state.status === "available" ? state : null;
+  const generation = operation;
+  const publish = (next: UpdateState) => { if (generation === operation && !downloading) emit(next); };
+  if (!opts.silent && !previous) publish({ status: "checking" });
   try {
+    const abi = deviceAbi();
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
     let res: Response;
     try {
-      res = await fetch(`${BASE_URL}/api/app/update?abi=${deviceAbi()}`, {
+      res = await fetch(`${BASE_URL}/api/app/update?abi=${encodeURIComponent(abi)}`, {
         headers: { Accept: "application/json" },
         signal: controller.signal,
       });
@@ -89,31 +115,34 @@ export async function checkForUpdate(opts: { silent?: boolean } = {}): Promise<U
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data: any = await res.json();
     if (!data || data.update_available !== true) {
-      emit({ status: "up-to-date" });
+      publish({ status: "up-to-date" });
       return null;
     }
     const remote = String(data.version || "").replace(/^v/, "");
     const local = Application.nativeApplicationVersion || "";
-    if (!remote || compareVersions(remote, local) <= 0) {
-      emit({ status: "up-to-date" });
+    if (!/^\d+\.\d+\.\d+(?:\+\d+)?$/.test(remote)) throw new Error("Некорректная версия обновления");
+    if (!local) throw new Error("Не удалось определить установленную версию");
+    if (compareVersions(remote, local) <= 0) {
+      publish({ status: "up-to-date" });
       return null;
     }
     const info: UpdateInfo = {
       version: remote,
       versionCode: typeof data.version_code === "number" ? data.version_code : undefined,
       changelog: String(data.changelog || ""),
-      apkUrl: String(data.apk_url || ""),
-      apkSize: Number(data.apk_size || 0),
+      apkUrl: trustedApkUrl(String(data.apk_url || "")),
+      apkSize: Number.isFinite(Number(data.apk_size)) ? Math.max(0, Number(data.apk_size)) : 0,
     };
     if (!info.apkUrl) {
-      emit({ status: "error", message: "Сервер не отдал ссылку на APK" });
+      publish({ status: "error", message: "Сервер не отдал ссылку на APK" });
       return null;
     }
-    emit({ status: "available", info });
+    publish({ status: "available", info });
     return info;
   } catch (e: any) {
     const message = e?.message || "Не удалось проверить";
-    if (!opts.silent) emit({ status: "error", message });
+    if (previous) publish({ ...previous, message });
+    else publish({ status: "error", message });
     return null;
   }
 }
@@ -124,7 +153,10 @@ let downloading = false;
  *  Прогресс виден через subscribe() (баннер на главной). */
 export async function downloadAndInstall(info: UpdateInfo): Promise<void> {
   if (downloading) return;
+  try { trustedApkUrl(info.apkUrl); }
+  catch (e: any) { emit({ status: "error", message: e?.message || "Недоступный APK" }); return; }
   downloading = true;
+  operation++;
   const started: UpdateState = {
     status: "downloading",
     info,
@@ -155,12 +187,12 @@ export async function downloadAndInstall(info: UpdateInfo): Promise<void> {
       });
     });
     const result = await task.downloadAsync();
-    if (!result?.uri) throw new Error("Не удалось скачать файл обновления");
+    if (!result?.uri || result.status !== 200) throw new Error("Не удалось скачать файл обновления");
 
     // Разрешение «установка неизвестных приложений» — без него установщик не запустится
     if (!canInstallPackages()) {
       openInstallPermissionSettings();
-      emit({ status: "available", info });
+      emit({ status: "available", info, message: "Разрешите установку и нажмите «Обновить» ещё раз" });
       downloading = false;
       return;
     }
@@ -172,10 +204,22 @@ export async function downloadAndInstall(info: UpdateInfo): Promise<void> {
     // Возвращаем баннер в состояние «доступно» — установка идёт в системном диалоге
     emit({ status: "available", info });
   } catch (e: any) {
-    emit({ status: "error", message: e?.message || "Ошибка скачивания" });
+    emit({ status: "available", info, message: e?.message || "Ошибка скачивания" });
   } finally {
     downloading = false;
   }
+}
+
+/** One root-owned lifecycle subscription, independent of login/theme remounts. */
+export function startUpdateChecks(appState: Pick<typeof AppState, "currentState" | "addEventListener"> = AppState): () => void {
+  if (Platform.OS !== "android") return () => {};
+  let previous = appState.currentState;
+  void checkForUpdate({ silent: true });
+  const subscription = appState.addEventListener("change", next => {
+    if (next === "active" && previous !== "active") void checkForUpdate({ silent: true });
+    previous = next;
+  });
+  return () => subscription.remove();
 }
 
 /** Первая строка changelog для компактного баннера */

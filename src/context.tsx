@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import * as api from "./api";
+import { startUpdateChecks } from "./update";
 import { AppState as NativeAppState } from "react-native";
 import { avatarOwner, resolveAvatarUrl, userAvatarCache } from "./avatarCache";
 import { clearSession, loadSession, loadSelectedNodeId, saveSession, saveSelectedNodeId, Session, loadDismissedAlerts, addDismissedAlerts } from "./storage";
@@ -311,17 +312,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return off;
   }, []);
 
-  // Автопроверка APK-обновлений при старте (как в старом приложении):
-  // молча, без всплывающих сообщений — баннер появится сам, если есть обновление.
-  // EAS OTA (expo-updates) при этом продолжает работать независимо.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      import("./update")
-        .then((u) => u.checkForUpdate({ silent: true }))
-        .catch(() => {});
-    }, 4000);
-    return () => clearTimeout(t);
-  }, []);
+  // APK lifecycle is auth/theme independent. EAS OTA remains separate.
+  useEffect(() => startUpdateChecks(), []);
 
   // Фильтр соединения: при смене сети (Wi-Fi ↔ LTE) перезапускаем туннель,
   // если активны профили с сетевым режимом — как в эталонном приложении.
