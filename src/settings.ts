@@ -53,11 +53,11 @@ const THEME_NAMES: ThemeName[] = [
 ];
 
 export function getThemeName(): ThemeName {
-  const v = getSetting("theme", "glass");
+  const v = getSetting("theme", "default");
   if ((THEME_NAMES as string[]).includes(v)) return v as ThemeName;
   // старые значения (когда режим и стиль хранились вместе) → стиль «Основная»
   if (v === "dark" || v === "light" || v === "auto") return "default";
-  return "glass";
+  return "default";
 }
 
 const THEME_MODES: ThemeMode[] = ["dark", "light", "auto"];
