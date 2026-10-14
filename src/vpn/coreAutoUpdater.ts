@@ -38,8 +38,11 @@ export async function ensureSelectedCoreUpdated(core: string): Promise<void> {
       checked.set(core, Date.now());
       const meta = await fetchCoreMeta(core, getCpuAbi());
       if (!meta) throw new Error("Обновление ядра недоступно; ядро не установлено — повторите загрузку при доступной сети");
-      if (installed.downloaded && !newer(meta.version, installed.version) && installed.size === meta.size) return;
-      if (installed.downloaded && installed.version && !newer(meta.version, installed.version)) return;
+      if (installed.downloaded && installed.version === meta.version && installed.size === meta.size) return;
+      // The upstream semantic version can stay unchanged while our JNI wrapper
+      // changes (for example when socket protection is added). A size mismatch
+      // must therefore trigger a download even when versions are equal.
+      if (installed.downloaded && installed.version && !newer(meta.version, installed.version) && installed.size === meta.size) return;
       // A VPN may have started while metadata was being fetched.
       if (await isVpnRunning()) return;
       const download = core === "mihomo" ? downloadMihomo : downloadXrayLast;
