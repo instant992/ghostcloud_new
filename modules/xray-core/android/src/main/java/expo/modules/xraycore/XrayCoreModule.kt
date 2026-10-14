@@ -530,7 +530,7 @@ class XrayCoreModule : Module() {
         try {
           check(name != XrayLastFiles.NAME) { "Use downloadXrayLast for staged installs" }
           if (name == MihomoFiles.NAME) {
-            val version = Regex("/mihomo-v([0-9]+[.][0-9]+[.][0-9]+)/").find(url)?.groupValues?.get(1)
+            val version = Regex("/mihomo-v([0-9]+[.][0-9]+[.][0-9]+)(?:-[0-9a-f]+-[0-9]+-[0-9]+)?/").find(url)?.groupValues?.get(1)
               ?: error("Некорректная версия Mihomo")
             check(expectedSize.isFinite() && expectedSize == expectedSize.toLong().toDouble()) { "Invalid core size" }
             val path = MihomoFiles.download(context, url, expectedSha256, expectedSize.toLong(), version) { received, total ->
