@@ -86,8 +86,9 @@ export async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta
     if (!file?.path) return null;
     if (github) {
       const name = core === "mihomo" ? "libclash.so" : "libxraylast.so";
+      const expectedPath = new RegExp(`^cores/${core}-v${String(entry.version).replace(/\./g, "\\.")}(?:-[0-9a-f]+-[0-9]+-[0-9]+)?/${abi}/${name}$`);
       if (!/^\d+\.\d+\.\d+$/.test(entry.version || "") || !["arm64-v8a", "armeabi-v7a", "x86", "x86_64"].includes(abi) ||
-          file.path !== `cores/${core}-v${entry.version}/${abi}/${name}` || !/^[0-9a-f]{64}$/i.test(file.sha256 || "") ||
+          !expectedPath.test(file.path) || !/^[0-9a-f]{64}$/i.test(file.sha256 || "") ||
           !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > 150000000) return null;
     }
     return {

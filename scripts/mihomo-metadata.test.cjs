@@ -6,6 +6,9 @@ vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/screens/settings/core
  const m=await exportsObject.fetchCoreMeta('mihomo','x86_64');
  assert.equal(fetched,'https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/manifest.json');
  assert.equal(m.url,'https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/cores/mihomo-v1.19.32/x86_64/libclash.so');
+ manifest.cores.mihomo.files.x86_64.path='cores/mihomo-v1.19.32-88dcbf7f1614-38296044511-1/x86_64/libclash.so';
+ const published=await exportsObject.fetchCoreMeta('mihomo','x86_64');
+ assert.equal(published.url,'https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/cores/mihomo-v1.19.32-88dcbf7f1614-38296044511-1/x86_64/libclash.so');
  manifest.cores.mihomo.files.x86_64.path='../libclash.so';assert.equal(await exportsObject.fetchCoreMeta('mihomo','x86_64'),null);
  manifest={cores:{'sing-box':{version:'2',files:{x86:{path:'cores/sb/x86/libsingbox.so',sha256:'b',size:2}}}}};
  const s=await exportsObject.fetchCoreMeta('sing-box','x86');assert.ok(s.url.startsWith('https://gitlab.com/'));assert.ok(fetched.startsWith('https://gitlab.com/'));
