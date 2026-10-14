@@ -31,7 +31,8 @@ object GcCore {
   }
 
   external fun gcInit(homeDir: String): String
-  external fun gcStart(configYaml: String, fd: Int): String
+  @JvmStatic external fun gcSetVpnService(service: Any?)
+  @JvmStatic external fun gcStart(configYaml: String, fd: Int): String
   external fun gcStop()
   external fun gcVersion(): String
 }

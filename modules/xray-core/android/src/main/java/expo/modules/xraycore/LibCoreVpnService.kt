@@ -187,7 +187,13 @@ class LibCoreVpnService : VpnService() {
       ensureLibLoaded(lib)
 
       val err = when (lib) {
-        "mihomo" -> GcCore.gcStart(configRef.get(), coreFd)
+        "mihomo" -> {
+          // Mihomo's cmfa dialer calls the JNI hook before every outbound
+          // socket. Protecting the socket prevents TCP/UDP proxy connections
+          // from re-entering this VPN's own TUN and timing out.
+          GcCore.gcSetVpnService(this)
+          GcCore.gcStart(configRef.get(), coreFd)
+        }
         "singbox" -> GcSbCore.gcStart(configRef.get(), coreFd)
         "uwuray" -> GcUwuCore.gcStart(configRef.get(), coreFd)
         "xray-last" -> GcXrayLastCore.gcStart(configRef.get(), coreFd)
@@ -250,7 +256,10 @@ class LibCoreVpnService : VpnService() {
 
   private fun stopLibCore(lib: String) {
     when (lib) {
-      "mihomo" -> if (GcCore.loaded) GcCore.gcStop()
+      "mihomo" -> if (GcCore.loaded) {
+        GcCore.gcStop()
+        GcCore.gcSetVpnService(null)
+      }
       "singbox" -> if (GcSbCore.loaded) GcSbCore.gcStop()
       "uwuray" -> if (GcUwuCore.loaded) GcUwuCore.gcStop()
       "xray-last" -> if (GcXrayLastCore.loaded) GcXrayLastCore.gcStop()
@@ -272,7 +281,10 @@ class LibCoreVpnService : VpnService() {
     }
     monitor = null
     try {
-      if (GcCore.loaded) GcCore.gcStop()
+      if (GcCore.loaded) {
+        GcCore.gcStop()
+        GcCore.gcSetVpnService(null)
+      }
       if (GcSbCore.loaded) GcSbCore.gcStop()
       if (GcUwuCore.loaded) GcUwuCore.gcStop()
       if (GcXrayLastCore.loaded) GcXrayLastCore.gcStop()
