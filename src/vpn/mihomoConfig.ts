@@ -5,7 +5,7 @@ import { mihomoRoscom, type RoscomMode } from "./roscomRouting";
 /** JSON is a YAML subset; no interpolation of credentials into YAML text. */
 export function buildMihomoProxy(node: VpnNode): Record<string, any> {
   const network = node.network || "tcp";
-  if (!["tcp", "ws", "grpc", "http", "h2"].includes(network)) {
+  if (!["tcp", "ws", "grpc", "http", "h2", "xhttp"].includes(network)) {
     throw new Error(`Mihomo: транспорт ${network} пока не поддерживается клиентом — выберите Xray`);
   }
   if (node.headerType && node.headerType !== "none") throw new Error("Mihomo: TCP header не поддерживается клиентом");
@@ -68,6 +68,16 @@ export function buildMihomoProxy(node: VpnNode): Record<string, any> {
     if (network === "grpc") proxy["grpc-opts"] = { "grpc-service-name": node.serviceName || node.path || "" };
     if (network === "h2") proxy["h2-opts"] = { path: node.path || "/", host: [node.host || node.address] };
     if (network === "http") proxy["http-opts"] = { path: [node.path || "/"], headers: { Host: [node.host || node.address] } };
+    if (network === "xhttp") {
+      // Mihomo expects transport-specific options in xhttp-opts. Without this
+      // block it connects to the server but uses the default "/" path.
+      proxy["xhttp-opts"] = {
+        ...(node.xhttpOpts || {}),
+        ...(node.path ? { path: node.path } : {}),
+        ...(node.host ? { host: node.host } : {}),
+        ...(node.mode ? { mode: node.mode } : {}),
+      };
+    }
   }
   return proxy;
 }
