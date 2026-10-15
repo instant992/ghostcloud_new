@@ -573,7 +573,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     return;
   }
   if (core === "xray-joly") {
-    if (!getCoreStatus("libxrayjoly.so").downloaded) throw new Error("Xray Joly не установлен — скачайте ядро в настройках");
+    if (!getCoreStatus("libxrayjoly.so").downloaded) throw new Error("Joly Xray не установлен — скачайте ядро в настройках");
     await loadLibCore("xray-joly");
     const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
     saveTileConfig(config, "xray-joly");

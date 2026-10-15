@@ -186,24 +186,37 @@ export function TvSettingsTab() {
       </TvFocusable>
 
       <Text style={s.rowTitle}>Ядро VPN</Text>
-      {(["xray", "xray-last", "xray-joly"] as const).map((key) => (
-        <TvFocusable key={key} style={s.row} borderRadius={17} onPress={async () => {
-          if (coreBusy || key === selectedCore) return;
-          if (key === "xray-last" && !xrayLast.status.downloaded) { showToast("Сначала скачайте ядро"); return; }
-          if (key === "xray-joly" && !jolyDownloaded) { showToast("Сначала скачайте ядро"); return; }
-          setCoreBusy(true);
-          try {
-            if (vpnRunning) { await disconnect(); setVpnRunning(false); }
-            selectCore(key); setCore(key);
-          } catch (e: any) { showToast(e.message || "Не удалось сменить ядро"); }
-          finally { setCoreBusy(false); }
-        }}>
-          <View style={s.rowInner}><View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>{key === "xray" ? "Xray (встроенный)" : key === "xray-joly" ? "Xray Joly" : "Xray Last"}{selectedCore === key ? " · выбрано" : ""}</Text>
-            <Text style={s.rowSub}>{key === "xray-last" ? xrayLast.note : key === "xray-joly" ? CORES.find((c) => c.key === "xray-joly")?.note : coreLabel}</Text>
-          </View></View>
-        </TvFocusable>
-      ))}
+      {(["xray", "xray-last", "xray-joly"] as const).map((key, index, list) => {
+        const info = CORES.find((c) => c.key === key)!;
+        const previous = index > 0 ? CORES.find((c) => c.key === list[index - 1]) : undefined;
+        return (
+          <React.Fragment key={key}>
+            {(!previous || previous.group !== info.group) && (
+              <View style={{ marginTop: 14, marginBottom: 6, paddingHorizontal: 4 }}>
+                <Text style={s.rowTitle}>{info.group === "official" ? "Официальные ядра" : "Форки Xray"}</Text>
+                <Text style={s.rowSub}>{info.group === "official" ? "Оригинальные проекты" : "Сторонние сборки на базе Xray"}</Text>
+              </View>
+            )}
+            <TvFocusable style={s.row} borderRadius={17} onPress={async () => {
+              if (coreBusy || key === selectedCore) return;
+              if (key === "xray-last" && !xrayLast.status.downloaded) { showToast("Сначала скачайте ядро"); return; }
+              if (key === "xray-joly" && !jolyDownloaded) { showToast("Сначала скачайте ядро"); return; }
+              setCoreBusy(true);
+              try {
+                if (vpnRunning) { await disconnect(); setVpnRunning(false); }
+                selectCore(key); setCore(key);
+              } catch (e: any) { showToast(e.message || "Не удалось сменить ядро"); }
+              finally { setCoreBusy(false); }
+            }}>
+              <View style={s.rowInner}><View style={{ flex: 1 }}>
+                <Text style={s.rowTitle}>{key === "xray" ? "Xray (встроенный)" : key === "xray-joly" ? "Joly Xray" : "Xray Last"}{selectedCore === key ? " · выбрано" : ""}</Text>
+                <Text style={s.rowSub}>{info.note}</Text>
+                <Text style={s.rowSub}>Источник: {info.source}</Text>
+              </View></View>
+            </TvFocusable>
+          </React.Fragment>
+        );
+      })}
       {(!xrayLast.status.downloaded || xrayLast.canUpdate) && (
         <TvFocusable style={s.row} onPress={() => {
           xrayLast.install().then(() => showToast("Ядро загружено — перезапустите приложение")).catch((e) => showToast(e.message));
@@ -217,13 +230,13 @@ export function TvSettingsTab() {
         try {
           const abi = getCpuAbi();
           const meta = (await fetchCoreMeta("xray-joly", abi)) || FALLBACK["xray-joly"]?.[abi];
-          if (!meta) throw new Error("Xray Joly недоступен для архитектуры устройства");
+          if (!meta) throw new Error("Joly Xray недоступен для архитектуры устройства");
           await downloadXrayJoly(meta.url, meta.sha256, meta.size, meta.version || "0.0.0");
           setJolyDownloaded(getCoreStatus("libxrayjoly.so").downloaded);
-          showToast("Xray Joly загружен");
-        } catch (e: any) { showToast(e.message || "Ошибка загрузки Xray Joly"); }
+          showToast("Joly Xray загружен");
+        } catch (e: any) { showToast(e.message || "Ошибка загрузки Joly Xray"); }
         finally { setCoreBusy(false); }
-      }}><View style={s.rowInner}><Text style={s.rowTitle}>{coreBusy ? "Загрузка…" : "Скачать Xray Joly"}</Text></View></TvFocusable>}
+      }}><View style={s.rowInner}><Text style={s.rowTitle}>{coreBusy ? "Загрузка…" : "Скачать Joly Xray"}</Text></View></TvFocusable>}
       {/* О программе */}
       <View style={[s.row, s.rowStatic]}>
         <View style={s.rowInner}>

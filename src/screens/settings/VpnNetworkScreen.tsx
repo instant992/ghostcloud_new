@@ -202,14 +202,22 @@ export default function VpnNetworkScreen() {
         {/* ─── Ядро VPN + маскировка трафика ─── */}
         <Card>
           <Text style={styles.sectionTitle}>Ядро VPN</Text>
-          {CORES.map((c) => {
+          {CORES.map((c, index) => {
             const active = core === c.key;
             const needDownload = !!c.file && !(c.key === "xray-last" ? xrayLast.status.downloaded : downloaded[c.file]);
             const updateAvailable = c.key === "xray-last" && xrayLast.canUpdate;
             const pct = c.file ? progress[c.file] : undefined;
             const busy = pct !== undefined || (c.key === "xray-last" && xrayLast.busy);
+            const previous = CORES[index - 1];
             return (
-              <PressableScale
+              <React.Fragment key={c.key}>
+                {(!previous || previous.group !== c.group) && (
+                  <View style={styles.coreGroupHeader}>
+                    <Text style={styles.coreGroupTitle}>{c.group === "official" ? "Официальные ядра" : "Форки Xray"}</Text>
+                    <Text style={styles.coreGroupSource}>{c.group === "official" ? "Оригинальные проекты" : "Сторонние сборки на базе Xray"}</Text>
+                  </View>
+                )}
+                <PressableScale
                 key={c.key}
                 disabled={needDownload || busy}
                 style={[styles.coreItem, active && styles.coreItemOn, needDownload && { opacity: 0.85 }]}
@@ -235,6 +243,7 @@ export default function VpnNetworkScreen() {
                         : `не установлено · ~${c.mb} МБ`
                       : c.note}
                   </Text>
+                  <Text style={styles.coreSource}>Источник: {c.source}</Text>
                   {busy && (
                     <View style={styles.progressTrack}>
                       <View style={[styles.progressFill, { width: `${pct ?? 0}%` }]} />
@@ -255,6 +264,7 @@ export default function VpnNetworkScreen() {
                 {busy && <Text style={styles.progressPct}>{pct === undefined ? "…" : `${pct}%`}</Text>}
                 {!needDownload && !busy && <View style={[styles.radio, active && styles.radioOn]} />}
               </PressableScale>
+              </React.Fragment>
             );
           })}
           <Text style={styles.hint}>
@@ -263,11 +273,11 @@ export default function VpnNetworkScreen() {
 
           {/* Маскировка трафика (анти-DPI) — fragment/tlshello ядра Xray */}
           <View style={[styles.themeRowLine, { marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 14 }]}>
-            <Ionicons name="shield-checkmark-outline" size={20} color={core === "xray" || core === "uwuray" || core === "xray-last" ? colors.accent : colors.textFaint} />
+            <Ionicons name="shield-checkmark-outline" size={20} color={core === "xray" || core === "uwuray" || core === "xray-last" || core === "xray-joly" ? colors.accent : colors.textFaint} />
             <View style={{ flex: 1 }}>
               <Text style={styles.themeRowTitle}>Маскировка трафика</Text>
               <Text style={styles.themeRowSub}>
-                {core === "xray" || core === "uwuray" || core === "xray-last"
+                {core === "xray" || core === "uwuray" || core === "xray-last" || core === "xray-joly"
                   ? "Дробит TLS-рукопожатие — обход блокировок по DPI"
                   : "Только на ядрах Xray/UwuRay"}
               </Text>

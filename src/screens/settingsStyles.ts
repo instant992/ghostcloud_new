@@ -277,6 +277,23 @@ export const makeStyles = () =>
       backgroundColor: colors.red,
     },
     stopVpnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+    coreGroupHeader: {
+      marginTop: 14,
+      marginBottom: 6,
+      paddingHorizontal: 4,
+    },
+    coreGroupTitle: {
+      color: colors.text,
+      fontSize: 13,
+      fontWeight: "800",
+      letterSpacing: 0.7,
+      textTransform: "uppercase",
+    },
+    coreGroupSource: {
+      color: colors.textFaint,
+      fontSize: 11,
+      marginTop: 2,
+    },
     coreItem: {
       flexDirection: "row",
       alignItems: "center",
@@ -307,6 +324,12 @@ export const makeStyles = () =>
       color: colors.textDim,
       fontSize: 11,
       marginTop: 2,
+      marginBottom: 4,
+    },
+    coreSource: {
+      color: colors.textFaint,
+      fontSize: 10.5,
+      marginTop: -1,
       marginBottom: 4,
     },
     radio: {

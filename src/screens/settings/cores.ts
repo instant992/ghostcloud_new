@@ -13,13 +13,15 @@ export const CORES: Array<{
   file: string;
   lib: "singbox" | "uwuray" | "xray-last" | "xray-joly" | null;
   note: string;
+  source: string;
+  group: "official" | "fork";
   mb: number;
 }> = [
-  { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS, Hysteria2", mb: 0 },
-  { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "альтернативное ядро · все протоколы", mb: 36 },
-  { key: "uwuray", label: "UwuRay", file: "libuwuray.so", lib: "uwuray", note: "форк Xray · расширенный BT-снаффер", mb: 34 },
-  { key: "xray-last", label: "Xray Last", file: "libxraylast.so", lib: "xray-last", note: "официальный XTLS/Xray-core · автообновление перед подключением", mb: 35 },
-  { key: "xray-joly", label: "Xray Joly", file: "libxrayjoly.so", lib: "xray-joly", note: "форк Jolymmiles/Xray-core · автообновление перед подключением", mb: 35 },
+  { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS, Hysteria2", source: "XTLS/Xray-core", group: "official", mb: 0 },
+  { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "альтернативное ядро · все протоколы", source: "SagerNet/sing-box", group: "official", mb: 36 },
+  { key: "xray-last", label: "Xray Last", file: "libxraylast.so", lib: "xray-last", note: "официальная ветка XTLS/Xray-core · автообновление перед подключением", source: "XTLS/Xray-core", group: "official", mb: 35 },
+  { key: "uwuray", label: "UwuRay", file: "libuwuray.so", lib: "uwuray", note: "форк Xray · расширенный BT-снаффер", source: "UwUDev/xray-core", group: "fork", mb: 34 },
+  { key: "xray-joly", label: "Joly Xray", file: "libxrayjoly.so", lib: "xray-joly", note: "форк Xray · автообновление перед подключением", source: "Jolymmiles/Xray-core", group: "fork", mb: 35 },
 ];
 
 // Фолбэк, если манифест недоступен
