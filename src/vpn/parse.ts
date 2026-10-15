@@ -748,6 +748,9 @@ export function clashProxyToNode(px: any): VpnNode | null {
   const port = parseInt(String(px.port || 0), 10);
   if (!address || !port) return null;
   const wsOpts = px["ws-opts"] || {};
+  const httpOpts = px["http-opts"] || {};
+  const h2Opts = px["h2-opts"] || {};
+  const first = (v: any) => Array.isArray(v) ? v[0] : v;
   const grpcOpts = px["grpc-opts"] || {};
   const realityOpts = px["reality-opts"] || {};
   const hasReality = Boolean(realityOpts["public-key"]);
@@ -764,11 +767,12 @@ export function clashProxyToNode(px: any): VpnNode | null {
     name: String(px.name || type),
     address,
     port,
-    network,
+    network: network === "ws" && wsOpts["v2ray-http-upgrade"] ? "httpupgrade" : network,
+    alpn: Array.isArray(px.alpn) ? px.alpn.map(String) : undefined,
     sni: px.servername || px.sni,
     security: hasReality ? "reality" : px.tls ? "tls" : undefined,
-    path: xhttpOpts?.path || wsOpts?.path,
-    host: xhttpOpts?.host || (Array.isArray(wsOpts?.headers?.Host) ? wsOpts.headers.Host[0] : wsOpts?.headers?.Host),
+    path: xhttpOpts?.path || (network === "h2" ? h2Opts.path : network === "http" ? first(httpOpts.path) : wsOpts.path),
+    host: xhttpOpts?.host || (network === "h2" ? first(h2Opts.host) : network === "http" ? first(httpOpts.headers?.Host) : first(wsOpts.headers?.Host)),
     mode: xhttpOpts?.mode ? String(xhttpOpts.mode) : undefined,
     fingerprint: px["client-fingerprint"],
     xhttpOpts: xhttpOpts || undefined,
@@ -788,7 +792,7 @@ export function clashProxyToNode(px: any): VpnNode | null {
         fingerprint: px["client-fingerprint"],
       } as VpnNode;
     case "vmess":
-      return { ...base, protocol: "vmess", uuid: px.uuid, alterId: px.alterId || 0, cipher: px.cipher } as any as VpnNode;
+      return { ...base, protocol: "vmess", uuid: px.uuid, alterId: px.alterId || 0, encryption: px.cipher } as any as VpnNode;
     case "trojan":
       // REALITY у trojan: без publicKey ядро падает с empty "password"
       return {

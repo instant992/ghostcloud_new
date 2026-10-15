@@ -4,11 +4,11 @@ import { mihomoRoscom, type RoscomMode } from "./roscomRouting";
 
 /** JSON is a YAML subset; no interpolation of credentials into YAML text. */
 export function buildMihomoProxy(node: VpnNode): Record<string, any> {
-  const network = node.network || "tcp";
-  if (!["tcp", "ws", "grpc", "http", "h2", "xhttp"].includes(network)) {
+  const network = node.network === "tcp" && node.headerType === "http" ? "http" : node.network || "tcp";
+  if (!["tcp", "ws", "httpupgrade", "grpc", "http", "h2", "xhttp"].includes(network)) {
     throw new Error(`Mihomo: транспорт ${network} пока не поддерживается клиентом — выберите Xray`);
   }
-  if (node.headerType && node.headerType !== "none") throw new Error("Mihomo: TCP header не поддерживается клиентом");
+  if (node.headerType && !["none", "http"].includes(node.headerType)) throw new Error("Mihomo: TCP header не поддерживается клиентом");
   if (node.security && !["none", "tls", "reality"].includes(node.security)) throw new Error(`Mihomo: security ${node.security} не поддерживается`);
   if (node.flow && node.flow !== "xtls-rprx-vision") throw new Error(`Mihomo: flow ${node.flow} не поддерживается`);
   if (node.encryption && !["none", "auto", "zero", "aes-128-gcm", "chacha20-poly1305"].includes(node.encryption)) throw new Error("Mihomo: VLESS encryption не поддерживается клиентом");
@@ -26,7 +26,6 @@ export function buildMihomoProxy(node: VpnNode): Record<string, any> {
       proxy.cipher = node.encryption || "auto";
       break;
     case "trojan":
-      if (node.security === "reality") throw new Error("Mihomo: Trojan REALITY не поддерживается");
       proxy.password = node.password;
       break;
     case "ss":
@@ -56,15 +55,16 @@ export function buildMihomoProxy(node: VpnNode): Record<string, any> {
     if (node.alpn?.length) proxy.alpn = node.alpn;
     if (node.fingerprint && node.protocol !== "hysteria2") proxy["client-fingerprint"] = node.fingerprint;
     if (node.security === "reality") {
-      if (node.protocol !== "vless" || !node.publicKey) throw new Error("Mihomo: REALITY требует VLESS и public key");
+      if (!["vless", "vmess", "trojan"].includes(node.protocol) || !node.publicKey) throw new Error("Mihomo: REALITY требует public key");
+      proxy["client-fingerprint"] = node.fingerprint || "chrome";
       proxy["reality-opts"] = { "public-key": node.publicKey, "short-id": node.shortId || "" };
     }
   }
   if (network !== "tcp") {
     if (!["vless", "vmess", "trojan"].includes(node.protocol)) throw new Error("Mihomo: transport не поддерживается для протокола");
-    if (node.protocol === "trojan" && !["ws", "grpc"].includes(network)) throw new Error("Mihomo: Trojan поддерживает TCP/WS/gRPC");
-    proxy.network = network;
-    if (network === "ws") proxy["ws-opts"] = { path: node.path || "/", headers: node.host ? { Host: node.host } : {} };
+    if (node.protocol === "trojan" && !["ws", "httpupgrade", "grpc"].includes(network)) throw new Error("Mihomo: Trojan поддерживает TCP/WS/gRPC");
+    proxy.network = network === "httpupgrade" ? "ws" : network;
+    if (network === "ws" || network === "httpupgrade") proxy["ws-opts"] = { path: node.path || "/", headers: node.host ? { Host: node.host } : {}, ...(network === "httpupgrade" ? { "v2ray-http-upgrade": true } : {}) };
     if (network === "grpc") proxy["grpc-opts"] = { "grpc-service-name": node.serviceName || node.path || "" };
     if (network === "h2") proxy["h2-opts"] = { path: node.path || "/", host: [node.host || node.address] };
     if (network === "http") proxy["http-opts"] = { path: [node.path || "/"], headers: { Host: [node.host || node.address] } };
