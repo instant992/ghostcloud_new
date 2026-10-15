@@ -3,11 +3,12 @@ import React, { useState } from "react";
 import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { Button, ErrorText, Input, PasswordInput } from "../../components/UI";
 import { AuthIcon } from "../../components/AuthIcon";
 import { KeyboardScrollView } from "../../components/KeyboardForm";
 import { useApp } from "../../context";
-import { colors, typo, useTheme } from "../../theme";
+import { colors, typo, useTheme, BRAND_PURPLE } from "../../theme";
 
 export default function LoginScreen() {
   useTheme();
@@ -62,13 +63,15 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
+    <>
+      <StatusBar hidden />
+      <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
       <ImageBackground source={require("../../../assets/auth-background.jpg")} style={styles.background} resizeMode="cover">
         <View pointerEvents="none" style={styles.backgroundShade} />
-        <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.screen, { paddingTop: 28, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.brand}>
-          <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
-          <BrandName style={styles.brandName} />
+          <Image source={{ uri: "auth_icon" }} style={styles.logo} resizeMode="contain" />
+          <BrandName style={styles.brandName} solidColor={BRAND_PURPLE} />
           <Text style={styles.brandSub}>Ваш приватный доступ в интернет</Text>
         </View>
 
@@ -184,6 +187,7 @@ export default function LoginScreen() {
       </View>
       </ImageBackground>
     </KeyboardScrollView>
+    </>
   );
 }
 
@@ -196,12 +200,11 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: "transparent",
     paddingHorizontal: 20,
   },
-  brand: { alignItems: "center", marginTop: 12, marginBottom: 26 },
+  brand: { alignItems: "center", marginTop: 8, marginBottom: 8 },
   logo: {
     width: 72,
     height: 72,
-    borderRadius: 18,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   brandName: {
     color: colors.text,
