@@ -1,9 +1,10 @@
 import { BrandName } from "../../components/BrandName";
 import React, { useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, ErrorText, Input, PasswordInput } from "../../components/UI";
+import { AuthIcon } from "../../components/AuthIcon";
 import { KeyboardScrollView } from "../../components/KeyboardForm";
 import { useApp } from "../../context";
 import { colors, typo, useTheme } from "../../theme";
@@ -62,7 +63,9 @@ export default function LoginScreen() {
 
   return (
     <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
-      <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 20 }]}>
+      <ImageBackground source={require("../../../assets/auth-background.jpg")} style={styles.background} resizeMode="cover">
+        <View pointerEvents="none" style={styles.backgroundShade} />
+        <View style={[styles.screen, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.brand}>
           <Image source={{ uri: "app_icon" }} style={styles.logo} resizeMode="cover" />
           <BrandName style={styles.brandName} />
@@ -75,6 +78,7 @@ export default function LoginScreen() {
               <Text style={styles.formTitle}>Вход</Text>
               <Input
                 label="Логин или email"
+                icon="mail"
                 placeholder="Логин или email"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -84,6 +88,7 @@ export default function LoginScreen() {
               />
               <PasswordInput
                 label="Пароль"
+                icon="lock"
                 placeholder="Ваш пароль"
                 value={password}
                 onChangeText={setPassword}
@@ -99,9 +104,10 @@ export default function LoginScreen() {
                 <Text style={styles.forgotText}>Забыли пароль?</Text>
               </Pressable>
               <ErrorText>{error}</ErrorText>
-              <Button title="Войти" onPress={doLogin} loading={loading} />
+              <Button title="Войти" icon="log-in" onPress={doLogin} loading={loading} />
               <Button
                 title="Вход по 2FA"
+                icon="shield-check"
                 variant="ghost"
                 onPress={() => switchMode(true)}
               />
@@ -111,6 +117,7 @@ export default function LoginScreen() {
               <Text style={styles.formTitle}>Вход по 2FA</Text>
               <Input
                 label="Код из приложения-аутентификатора"
+                icon="shield-check"
                 placeholder="000000 или резервный XXXX-XXXX"
                 value={totp}
                 onChangeText={(t) => setTotp(t.toUpperCase().replace(/[^0-9A-Z-]/g, "").slice(0, 9))}
@@ -129,7 +136,7 @@ export default function LoginScreen() {
                 <Text style={styles.forgotText}>← Вход по паролю</Text>
               </Pressable>
               <ErrorText>{error}</ErrorText>
-              <Button title="Войти по коду" onPress={doLogin2fa} loading={loading} />
+              <Button title="Войти по коду" icon="log-in" onPress={doLogin2fa} loading={loading} />
             </>
           )}
         </View>
@@ -141,11 +148,12 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.secondary}>
-          <Button title="Регистрация" variant="ghost" onPress={() => nav.navigate("Register")} />
+          <Button title="Регистрация" icon="user-plus" variant="ghost" onPress={() => nav.navigate("Register")} />
           <View style={styles.secondaryRow}>
             <View style={styles.secondaryHalf}>
               <Button
                 title="QR-код"
+                icon="qr-code"
                 variant="ghost"
                 size="sm"
                 onPress={() => nav.navigate("QRLogin")}
@@ -162,22 +170,30 @@ export default function LoginScreen() {
                   alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1,
                 })}
               >
-                <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600", textAlign: "center" }}>Telegram</Text>
-                <Text style={{ color: colors.textDim, fontSize: 11, textAlign: "center", marginTop: 2 }}>Только для FoxCloud</Text>
+                <View style={styles.telegramButtonContent}>
+                  <AuthIcon name="telegram" size={17} color={colors.text} />
+                  <View>
+                    <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600", textAlign: "center" }}>Telegram</Text>
+                    <Text style={{ color: colors.textDim, fontSize: 11, textAlign: "center", marginTop: 2 }}>Только для FoxCloud</Text>
+                  </View>
+                </View>
               </Pressable>
             </View>
           </View>
         </View>
       </View>
+      </ImageBackground>
     </KeyboardScrollView>
   );
 }
 
 const makeStyles = () => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
+  background: { flex: 1, backgroundColor: colors.bg },
+  backgroundShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(8, 5, 24, 0.48)" },
   screen: {
     flexGrow: 1,
-    backgroundColor: colors.bg,
+    backgroundColor: "transparent",
     paddingHorizontal: 20,
   },
   brand: { alignItems: "center", marginTop: 12, marginBottom: 26 },
@@ -230,4 +246,5 @@ const makeStyles = () => StyleSheet.create({
   secondary: {},
   secondaryRow: { flexDirection: "row", gap: 10, marginTop: 4 },
   secondaryHalf: { flex: 1 },
+  telegramButtonContent: { flexDirection: "row", alignItems: "center", gap: 7 },
 });

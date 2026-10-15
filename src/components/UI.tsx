@@ -12,8 +12,8 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { colors, useTheme } from "../theme";
+import { AuthIcon, type AuthIconName } from "./AuthIcon";
 import { PressableScale } from "./PressableScale";
 import { LiquidGlassSurface, useGlassBackdrop, GLASS_SCROLL_HANDLERS } from "./liquidGlass";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -207,15 +207,17 @@ type BtnProps = {
   disabled?: boolean;
   variant?: "primary" | "ghost" | "danger";
   size?: "sm" | "md";
+  icon?: AuthIconName;
 };
 
-export function Button({ title, onPress, loading, disabled, variant = "primary", size = "md" }: BtnProps) {
+export function Button({ title, onPress, loading, disabled, variant = "primary", size = "md", icon }: BtnProps) {
   useTheme();
   const styles = makeStyles();
   const material = useTheme().style === "material";
   const isDisabled = disabled || loading;
   const compact = size === "sm";
-  if (material) return <PaperButton mode={variant === "ghost" ? "text" : "contained"} onPress={onPress} loading={loading} disabled={isDisabled} compact={compact} buttonColor={variant === "danger" ? colors.red : undefined} style={{ marginVertical: 4 }} contentStyle={{ minHeight: compact ? 40 : 48 }}>{title}</PaperButton>;
+  const paperIcon = icon === "mail" ? "email-outline" : icon === "lock" ? "lock-outline" : icon === "eye" ? "eye-outline" : icon === "eye-off" ? "eye-off-outline" : icon === "log-in" ? "login" : icon === "shield-check" ? "shield-check-outline" : icon === "user-plus" ? "account-plus-outline" : icon === "qr-code" ? "qrcode-scan" : icon === "send" ? "send" : undefined;
+  if (material) return <PaperButton mode={variant === "ghost" ? "text" : "contained"} onPress={onPress} loading={loading} disabled={isDisabled} compact={compact} icon={paperIcon} buttonColor={variant === "danger" ? colors.red : undefined} style={{ marginVertical: 4 }} contentStyle={{ minHeight: compact ? 40 : 48 }}>{title}</PaperButton>;
   return (
     <PressableScale
       onPress={onPress}
@@ -232,42 +234,48 @@ export function Button({ title, onPress, loading, disabled, variant = "primary",
       {loading ? (
         <ActivityIndicator color="#fff" size="small" />
       ) : (
-        <Text
-          style={[
-            styles.btnText,
-            compact && styles.btnTextSm,
-            variant !== "primary" && { color: variant === "danger" ? colors.red : colors.text },
-          ]}
-        >
-          {title}
-        </Text>
+        <View style={styles.btnContent}>
+          {icon && <AuthIcon name={icon} size={compact ? 17 : 19} color={variant === "primary" ? "#fff" : variant === "danger" ? colors.red : colors.text} />}
+          <Text
+            style={[
+              styles.btnText,
+              compact && styles.btnTextSm,
+              variant !== "primary" && { color: variant === "danger" ? colors.red : colors.text },
+            ]}
+          >
+            {title}
+          </Text>
+        </View>
       )}
     </PressableScale>
   );
 }
 
-export function Input({ label, style, onFocus, onContentSizeChange, ...props }: TextInputProps & { label?: string }) {
+export function Input({ label, icon, style, onFocus, onContentSizeChange, ...props }: TextInputProps & { label?: string; icon?: AuthIconName }) {
   const material = useTheme().style === "material";
   const reveal = React.useContext(KeyboardFormContext);
   useTheme();
   const styles = makeStyles();
-  if (material) return <PaperInput {...props} selectionColor={typeof props.selectionColor === "string" ? props.selectionColor : undefined} cursorColor={typeof props.cursorColor === "string" ? props.cursorColor : undefined} label={label} mode="outlined" style={[{ marginBottom: 12 }, style]} onFocus={event => { onFocus?.(event); reveal?.(); }} onContentSizeChange={event => { onContentSizeChange?.(event); reveal?.(); }} />;
+  if (material) return <PaperInput {...props} selectionColor={typeof props.selectionColor === "string" ? props.selectionColor : undefined} cursorColor={typeof props.cursorColor === "string" ? props.cursorColor : undefined} label={label} mode="outlined" left={icon ? <PaperInput.Icon icon={icon === "mail" ? "email-outline" : icon === "lock" ? "lock-outline" : "shield-check-outline"} /> : undefined} style={[{ marginBottom: 12 }, style]} onFocus={event => { onFocus?.(event); reveal?.(); }} onContentSizeChange={event => { onContentSizeChange?.(event); reveal?.(); }} />;
   return (
     <View>
       {!!label && <Text style={styles.inputLabel}>{label}</Text>}
-      <TextInput
-        placeholderTextColor={colors.textFaint}
-        style={[styles.input, props.multiline && { minHeight: 96, maxHeight: 180, textAlignVertical: "top" }, style]}
-        onFocus={event => { onFocus?.(event); reveal?.(); }}
-        onContentSizeChange={event => { onContentSizeChange?.(event); reveal?.(); }}
-        accessibilityLabel={label || (props.placeholder as string | undefined)}
-        {...props}
-      />
+      <View style={icon ? styles.inputIconWrap : undefined}>
+        {icon && <View style={styles.inputLeftIcon}><AuthIcon name={icon} size={19} color={colors.textDim} /></View>}
+        <TextInput
+          placeholderTextColor={colors.textFaint}
+          style={[styles.input, icon && styles.inputWithIcon, props.multiline && { minHeight: 96, maxHeight: 180, textAlignVertical: "top" }, style]}
+          onFocus={event => { onFocus?.(event); reveal?.(); }}
+          onContentSizeChange={event => { onContentSizeChange?.(event); reveal?.(); }}
+          accessibilityLabel={label || (props.placeholder as string | undefined)}
+          {...props}
+        />
+      </View>
     </View>
   );
 }
 
-export function PasswordInput({ label, style, onFocus, ...props }: TextInputProps & { label?: string }) {
+export function PasswordInput({ label, icon, style, onFocus, ...props }: TextInputProps & { label?: string; icon?: AuthIconName }) {
   const reveal = React.useContext(KeyboardFormContext);
   useTheme();
   const styles = makeStyles();
@@ -276,9 +284,10 @@ export function PasswordInput({ label, style, onFocus, ...props }: TextInputProp
     <View>
       {!!label && <Text style={styles.inputLabel}>{label}</Text>}
       <View style={styles.passwordWrap}>
+        {icon && <View style={styles.inputLeftIcon}><AuthIcon name={icon} size={19} color={colors.textDim} /></View>}
         <TextInput
           placeholderTextColor={colors.textFaint}
-          style={[styles.input, { marginBottom: 0, paddingRight: 48 }, style]}
+          style={[styles.input, { marginBottom: 0, paddingRight: 48 }, icon && styles.inputWithIcon, style]}
           onFocus={event => { onFocus?.(event); reveal?.(); }}
           secureTextEntry={!show}
           autoCapitalize="none"
@@ -293,8 +302,8 @@ export function PasswordInput({ label, style, onFocus, ...props }: TextInputProp
           accessibilityRole="button"
           accessibilityLabel={show ? "Скрыть пароль" : "Показать пароль"}
         >
-          <Ionicons
-            name={show ? "eye-off-outline" : "eye-outline"}
+          <AuthIcon
+            name={show ? "eye-off" : "eye"}
             size={22}
             color={colors.textDim}
           />
@@ -366,6 +375,7 @@ const makeStyles = () => StyleSheet.create({
     borderColor: colors.red + "55",
   },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+  btnContent: { flexDirection: "row", alignItems: "center", gap: 8 },
   btnTextSm: { fontSize: 13 },
   input: {
     backgroundColor: colors.bgSoft,
@@ -378,6 +388,9 @@ const makeStyles = () => StyleSheet.create({
     fontSize: 15,
     marginBottom: 10,
   },
+  inputIconWrap: { position: "relative" },
+  inputLeftIcon: { position: "absolute", zIndex: 1, left: 14, top: 0, bottom: 10, justifyContent: "center" },
+  inputWithIcon: { paddingLeft: 44 },
   inputLabel: {
     color: colors.textDim,
     fontSize: 12,
@@ -386,6 +399,7 @@ const makeStyles = () => StyleSheet.create({
   },
   passwordWrap: {
     marginBottom: 10,
+    position: "relative",
   },
   row: {
     flexDirection: "row",
