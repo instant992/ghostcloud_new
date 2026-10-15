@@ -23,7 +23,7 @@ export const CORES: Array<{
 ];
 
 // Фолбэк, если манифест недоступен
-export const FALLBACK: Record<string, Record<string, { url: string; sha256: string; size: number }>> = {
+export const FALLBACK: Record<string, Record<string, { url: string; sha256: string; size: number; version?: string }>> = {
   "sing-box": {
     "arm64-v8a": {
       url: "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/cores/sing-box-2/arm64-v8a/libsingbox.so",

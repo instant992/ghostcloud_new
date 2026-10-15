@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Application from "expo-application";
 import { useApp } from "../context";
 import { getAutoConnect, getKillSwitch, getPingMethod, setAutoConnect, setKillSwitch, setPingMethod, type PingMethod } from "../settings";
-import { selectCore, getXrayVersion, getCoreStatus, getCpuAbi, downloadCore } from "../vpn/native";
+import { selectCore, getXrayVersion, getCoreStatus, getCpuAbi, downloadXrayJoly } from "../vpn/native";
 import { CORES, FALLBACK, fetchCoreMeta } from "../screens/settings/cores";
 import { colors, useTheme } from "../theme";
 import { TvFocusable } from "./TvFocusable";
@@ -218,7 +218,7 @@ export function TvSettingsTab() {
           const abi = getCpuAbi();
           const meta = (await fetchCoreMeta("xray-joly", abi)) || FALLBACK["xray-joly"]?.[abi];
           if (!meta) throw new Error("Xray Joly недоступен для архитектуры устройства");
-          await downloadCore("libxrayjoly.so", meta.url, meta.sha256, meta.size);
+          await downloadXrayJoly(meta.url, meta.sha256, meta.size, meta.version || "0.0.0");
           setJolyDownloaded(getCoreStatus("libxrayjoly.so").downloaded);
           showToast("Xray Joly загружен");
         } catch (e: any) { showToast(e.message || "Ошибка загрузки Xray Joly"); }

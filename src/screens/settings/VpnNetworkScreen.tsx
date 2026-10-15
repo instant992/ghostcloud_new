@@ -35,6 +35,7 @@ import { DNS_PROVIDERS, getDnsProvider } from "../../vpn/dns";
 import { disconnect } from "../../vpn/manager";
 import {
   downloadCore,
+  downloadXrayJoly,
   selectCore,
   getCpuAbi,
   getCoreStatus,
@@ -170,7 +171,11 @@ export default function VpnNetworkScreen() {
       try {
         const meta = (await fetchCoreMeta(c.key, abi)) || FALLBACK[c.key]?.[abi];
         if (!meta) throw new Error("Не удалось получить данные ядра");
-        await downloadCore(c.file, meta.url, meta.sha256, meta.size);
+        if (c.key === "xray-joly") {
+          await downloadXrayJoly(meta.url, meta.sha256, meta.size, meta.version || "0.0.0");
+        } else {
+          await downloadCore(c.file, meta.url, meta.sha256, meta.size);
+        }
         setDownloaded((d) => ({ ...d, [c.file]: true }));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         const v = await loadLibCore(lib).catch(() => "");
