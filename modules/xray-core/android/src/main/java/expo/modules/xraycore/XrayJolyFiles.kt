@@ -49,7 +49,7 @@ object XrayJolyFiles {
 
   fun download(context: Context, url: String, sha256: String, size: Long, version: String,
     progress: (Long, Long) -> Unit): String = synchronized(lock) {
-    check(Regex("[0-9a-fA-F]{64}").matches(sha256) && size in 1000000..150000000 && Regex("[0-9]+[.][0-9]+[.][0-9]+").matches(version)) { "Некорректные метаданные Xray Joly" }
+    check(Regex("[0-9a-fA-F]{64}").matches(sha256) && size in 1000000..150000000 && Regex("[0-9]+[.][0-9]+[.][0-9]+(?:-[0-9]+)?").matches(version)) { "Некорректные метаданные Xray Joly" }
     val target = URL(url)
     check(target.protocol == "https" && target.host == "raw.githubusercontent.com" && target.userInfo == null &&
       target.path.startsWith("/instant992/ghostcloudcore_new/main/cores/xray-joly-v") && !target.path.contains("..")) { "Недоверенный адрес ядра" }
