@@ -5,15 +5,13 @@ Client `release` owns source under `scripts/`; distribution `tooling/` contains
 an explicitly committed copy so public runners need no private-client token.
 Keep these copies synchronized when changing wrappers or tests.
 
-- Every six hours: select newest numeric published Mihomo **stable** release and
-  newest numeric Xray release **including prereleases**, resolve tag to full SHA.
+- Every six hours: select the newest published Xray Last stable release and
+  the newest Jolymmiles/Xray release, then resolve each tag to a full commit SHA.
 - No change: no build. Push touching tooling: dry-run both currently published pins.
 - Manual `dry_run=true` (default): builds current pins; never publishes.
 - Clean, isolated upstream checkout, exact SHA assertion, isolated wrapper graph,
   `go mod verify`, host local proxy tests, four NDK 27.1 JNI ABIs, ELF ABI/DYN,
   defined JNI symbols and actual PT_LOAD 16KiB alignment assertions.
-- Mihomo borrowed FD patch must match exactly one unmodified upstream block;
-  changed ownership code fails closed for human review. Never edit module cache.
 - x86_64 Android ART smoke includes malformed-start FD checks, real SOCKS bytes,
   restart cycles and root-created real TUN borrowed-FD ownership.
 - All selected cores must finish all tests before publication can request approval.
@@ -58,9 +56,9 @@ An unavailable/forbidden API also blocks, never degrades to ungated publication.
 python3 -m unittest discover -s scripts/core-ci -p 'test_*.py' -v
 # from a separate scratch directory, with dist manifest path:
 python3 /path/to/client/scripts/core-ci/pipeline.py select --pinned --root /path/to/dist
-python3 /path/to/client/scripts/mihomo-build/build_all.py \
-  --metadata mihomo.json --ndk "$ANDROID_HOME/ndk/27.1.12297006" \
-  --work /new/scratch/mihomo --output /new/scratch/artifacts/mihomo
+python3 /path/to/client/scripts/xray-joly-build/build_all.py \
+  --metadata xray-joly.json --ndk "$ANDROID_HOME/ndk/27.1.12297006" \
+  --work /new/scratch/xray-joly --output /new/scratch/artifacts/xray-joly
 # same entry point/parameters for xray-last-build
 
 gh workflow run upstream-jni.yml -R instant992/ghostcloudcore_new \

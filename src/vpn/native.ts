@@ -67,12 +67,12 @@ export type XrayLastStatus = { downloaded: boolean; size: number; path: string; 
 export function getXrayLastStatus(): XrayLastStatus {
   return XrayNative?.getXrayLastStatus?.() || { downloaded: false, size: 0, path: "", version: "", pendingVersion: "", loaded: false };
 }
-export function getMihomoStatus(): XrayLastStatus {
-  return XrayNative?.getMihomoStatus?.() || { ...getCoreStatus("libclash.so"), version: "", pendingVersion: "", loaded: false };
+export function getXrayJolyStatus(): XrayLastStatus {
+  return XrayNative?.getXrayJolyStatus?.() || { ...getCoreStatus("libxrayjoly.so"), version: "", pendingVersion: "", loaded: false };
 }
-export async function downloadMihomo(url: string, sha256: string, size: number, version: string): Promise<string> {
+export async function downloadXrayJoly(url: string, sha256: string, size: number, version: string): Promise<string> {
   if (!XrayNative) throw new Error("Модуль недоступен");
-  return XrayNative.downloadMihomo(url, sha256, size, version);
+  return XrayNative.downloadXrayJoly(url, sha256, size, version);
 }
 export async function downloadXrayLast(url: string, sha256: string, size: number, version: string): Promise<string> {
   if (!XrayNative) throw new Error("Модуль недоступен");
@@ -94,7 +94,7 @@ export async function deleteCore(name: string): Promise<boolean> {
   return XrayNative.deleteCore(name);
 }
 
-export async function loadLibCore(lib: "mihomo" | "singbox" | "uwuray" | "xray-last"): Promise<string> {
+export async function loadLibCore(lib: "singbox" | "uwuray" | "xray-last" | "xray-joly"): Promise<string> {
   if (!XrayNative) throw new Error("модуль недоступен");
   return XrayNative.loadLibCore(lib);
 }
@@ -113,7 +113,7 @@ function failoverArgs(failover?: FailoverInfo): [string | null, number, string |
 }
 
 export async function startLibCoreVpn(
-  lib: "mihomo" | "singbox" | "uwuray" | "xray-last",
+  lib: "singbox" | "uwuray" | "xray-last" | "xray-joly",
   config: string,
   allowedApps: string[] = [],
   disallowedApps: string[] = [],

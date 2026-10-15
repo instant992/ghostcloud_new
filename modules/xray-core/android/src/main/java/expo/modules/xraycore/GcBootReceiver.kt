@@ -80,7 +80,7 @@ class GcBootReceiver : BroadcastReceiver() {
       Intent(context, LibCoreVpnService::class.java).apply {
         action = LibCoreVpnService.ACTION_START
         putExtra("lib", when (core) {
-          "mihomo" -> "mihomo"
+          "xray-joly" -> "xray-joly"
           "uwuray" -> "uwuray"
           "xray-last" -> "xray-last"
           else -> "singbox"

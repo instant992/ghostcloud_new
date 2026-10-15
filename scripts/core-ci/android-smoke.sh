@@ -54,10 +54,5 @@ timeout 15 adb shell 'cat /proc/meminfo; ls -l /data/system/packages.xml; od -An
 timeout 15 adb shell dmesg > "$build/dmesg-before.log" 2>&1 || true
 printf 'GC_SMOKE_BEGIN core=%s timeout_seconds=180 utc=%s\n' "$core" "$(date -u +%FT%TZ)" | tee "$build/status.log"
 adb shell 'CLASSPATH=/data/local/tmp/gc-ci/classes.dex timeout 180 app_process /system/bin expo.modules.xraycore.Smoke /data/local/tmp/gc-ci/core.so /data/local/tmp/gc-ci/home /data/local/tmp/gc-ci/libsmoketun.so' 2>&1 | tee "$build/smoke.log"
-if [[ "$core" == mihomo ]]; then
-  grep -q MIHOMO_JNI_PROXY_SMOKE_PASS "$build/smoke.log"
-  grep -q REAL_TUN_BORROW_RESTART_PASS "$build/smoke.log"
-else
-  grep -q SMOKE_PASS "$build/smoke.log"
-  grep -q TUN_PASS "$build/smoke.log"
-fi
+grep -q SMOKE_PASS "$build/smoke.log"
+grep -q TUN_PASS "$build/smoke.log"

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { MIHOMO_REPO_BASE, fetchCoreMeta } from "./cores";
+import { JOLY_REPO_BASE, fetchCoreMeta } from "./cores";
 import { downloadXrayLast, getCpuAbi, getXrayLastStatus } from "../../vpn/native";
 
 export function compareCoreVersions(a: string, b: string): number {
@@ -46,7 +46,7 @@ export function useXrayLast() {
     try {
       const meta = await fetchCoreMeta("xray-last", getCpuAbi());
       if (!meta) throw new Error("Сборка Xray Last ещё не опубликована для этой архитектуры");
-      if (!meta.url.startsWith(`${MIHOMO_REPO_BASE}cores/xray-last-v`)) throw new Error("Недоверенный адрес сборки");
+      if (!meta.url.startsWith(`${JOLY_REPO_BASE}cores/xray-last-v`)) throw new Error("Недоверенный адрес сборки");
       await downloadXrayLast(meta.url, meta.sha256, meta.size, meta.version);
       setStatus(getXrayLastStatus()); setAvailable(meta.version);
     } finally { setBusy(false); }

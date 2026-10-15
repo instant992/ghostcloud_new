@@ -11,8 +11,8 @@ import subprocess
 import urllib.request
 
 CORES = {
-    'mihomo': ('MetaCubeX/mihomo', 'github.com/metacubex/mihomo', 'mihomo-build', 'libclash.so', 'GcCore'),
     'xray-last': ('XTLS/Xray-core', 'github.com/xtls/xray-core', 'xray-last-build', 'libxraylast.so', 'GcXrayLastCore'),
+    'xray-joly': ('Jolymmiles/Xray-core', 'github.com/xtls/xray-core', 'xray-last-build', 'libxrayjoly.so', 'GcXrayJolyCore'),
 }
 ABIS = {'arm64-v8a': ('arm64', 'aarch64-linux-android21', 2, 183),
         'armeabi-v7a': ('arm', 'armv7a-linux-androideabi21', 1, 40),
@@ -38,13 +38,14 @@ def api(path):
 def resolve(core, tag=None):
     repo = CORES[core][0]
     releases = api('repos/' + repo + '/releases?per_page=100')
-    allowed = [r for r in releases if not r['draft'] and (core != 'mihomo' or not r['prerelease'])
-               and re.fullmatch(r'v\d+\.\d+\.\d+', r['tag_name'])]
+    pattern = r'v\d+\.\d+\.\d+(?:-\d+)?' if core == 'xray-joly' else r'v\d+\.\d+\.\d+'
+    allowed = [r for r in releases if not r['draft'] and not r['prerelease']
+               and re.fullmatch(pattern, r['tag_name'])]
     if tag:
         allowed = [r for r in allowed if r['tag_name'] == tag]
     if not allowed:
         raise RuntimeError('No allowed published release: ' + str(tag))
-    release = max(allowed, key=lambda r: tuple(map(int, r['tag_name'][1:].split('.'))))
+    release = max(allowed, key=lambda r: tuple(int(part) for part in re.findall(r'\d+', r['tag_name'])))
     tag = release['tag_name']
     refs = run('git', 'ls-remote', 'https://github.com/' + repo + '.git', 'refs/tags/' + tag, 'refs/tags/' + tag + '^{}').splitlines()
     mapping = {line.split()[1]: line.split()[0] for line in refs}
@@ -111,9 +112,9 @@ def validate_elf(path, abi, core, nm):
 def build(core, metadata, wrappers, work, output, ndk, go):
     """All mutable source/module edits are isolated in a fresh working directory."""
     info = json.loads(metadata.read_text())
-    if info['upstream'] != CORES[core][0] or not re.fullmatch(r'v\d+\.\d+\.\d+', info['tag']) or not re.fullmatch('[a-f0-9]{40}', info['commit']):
+    if info['upstream'] != CORES[core][0] or not re.fullmatch(r'v\d+\.\d+\.\d+(?:-\d+)?', info['tag']) or not re.fullmatch('[a-f0-9]{40}', info['commit']):
         raise RuntimeError('Invalid pinned source metadata')
-    if info['version'] != info['tag'][1:] or (core == 'mihomo' and info['prerelease']):
+    if info['version'] != info['tag'][1:] or not re.fullmatch(r'\d+\.\d+\.\d+(?:-\d+)?', info['version']):
         raise RuntimeError('Release channel mismatch')
     work.mkdir(parents=True, exist_ok=False)
     source = work / 'upstream'
@@ -125,6 +126,9 @@ def build(core, metadata, wrappers, work, output, ndk, go):
         raise RuntimeError('Tag changed or checkout not clean')
     wrapper = work / 'wrapper'
     shutil.copytree(wrappers / CORES[core][2], wrapper, ignore=shutil.ignore_patterns('__pycache__'))
+    if core == 'xray-joly':
+        for source_file in wrapper.glob('*.go'):
+            source_file.write_text(source_file.read_text().replace('GcXrayLastCore', 'GcXrayJolyCore'))
     # Start from the upstream graph, not stale indirect wrapper pins or local replacements.
     module = CORES[core][1]
     upstream_mod = (source / 'go.mod').read_text()
@@ -143,22 +147,7 @@ def build(core, metadata, wrappers, work, output, ndk, go):
             right = target.as_posix()
         run(go, 'mod', 'edit', '-replace=' + left + '=' + right, cwd=wrapper)
     run(go, 'mod', 'tidy', cwd=wrapper)
-    if core == 'mihomo':
-        tun = json.loads(run(go, 'list', '-m', '-json', 'github.com/metacubex/sing-tun', cwd=wrapper))
-        local = work / 'sing-tun'
-        shutil.copytree(tun['Dir'], local)
-        target = local / 'tun_linux.go'
-        target.chmod(0o644)
-        target.write_text(patch_tun(target.read_text()))
-        run(go, 'mod', 'edit', '-replace=github.com/metacubex/sing-tun=' + local.as_posix(), cwd=wrapper)
-        gvisor = json.loads(run(go, 'list', '-m', '-json', 'github.com/metacubex/gvisor', cwd=wrapper))
-        local_gvisor = work / 'gvisor'
-        shutil.copytree(gvisor['Dir'], local_gvisor)
-        dispatchers = local_gvisor / 'pkg/tcpip/link/fdbased/packet_dispatchers.go'
-        dispatchers.chmod(0o644)
-        dispatchers.write_text(patch_gvisor_dispatchers(dispatchers.read_text()))
-        run(go, 'mod', 'edit', '-replace=github.com/metacubex/gvisor=' + local_gvisor.as_posix(), cwd=wrapper)
-        run(go, 'mod', 'tidy', cwd=wrapper)
+    # Build the shared Xray JNI wrapper against the pinned fork source.
     run(go, 'mod', 'verify', cwd=wrapper)
     host_env = dict(os.environ, CGO_ENABLED='0' if os.name == 'nt' else '1')
     # Xray JNI contains Android/POSIX FD calls; host tests import the same
@@ -170,7 +159,7 @@ def build(core, metadata, wrappers, work, output, ndk, go):
     output.mkdir(parents=True, exist_ok=True)
     files = {}
     # Run-scoped immutable paths: existing published tag directories are NEVER overwritten.
-    directory = f"cores/{core}-{info['tag']}-{info['commit'][:12]}-{os.environ.get('GITHUB_RUN_ID', 'local')}-{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}"
+    directory = f"cores/{core}-{info['tag']}-{info['commit'][:12]}-{os.environ.get('GITHUB_RUN_ID', '0')}-{os.environ.get('GITHUB_RUN_ATTEMPT', '1')}"
     for abi, (arch, triple, _, _) in ABIS.items():
         path = output / directory / abi / CORES[core][3]
         path.parent.mkdir(parents=True, exist_ok=False)
@@ -179,12 +168,7 @@ def build(core, metadata, wrappers, work, output, ndk, go):
         if arch == 'arm':
             env['GOARM'] = '7'
         flags = '-s -w -checklinkname=0 -extldflags=-Wl,-z,max-page-size=16384'
-        if core == 'mihomo':
-            flags += ' -X github.com/metacubex/mihomo/constant.Version=' + info['tag']
-        # The Android smoke and app request the gVisor TUN stack. Without this
-        # tag sing-tun compiles its ErrGVisorNotIncluded stub instead.
-        tags = ['-tags=with_gvisor,cmfa'] if core == 'mihomo' else []
-        print(run(go, 'build', '-p=4', *tags, '-buildmode=c-shared', '-trimpath', '-buildvcs=false', '-ldflags=' + flags, '-o', str(path), '.', cwd=wrapper, env=env), flush=True)
+        print(run(go, 'build', '-p=4', '-buildmode=c-shared', '-trimpath', '-buildvcs=false', '-ldflags=' + flags, '-o', str(path), '.', cwd=wrapper, env=env), flush=True)
         files[abi] = dict(path=path.relative_to(output).as_posix(), **validate_elf(path, abi, core, prebuilt / ('llvm-nm' + suffix)))
         path.with_suffix('.h').unlink(missing_ok=True)
         print(abi, files[abi], flush=True)
@@ -268,8 +252,9 @@ def main():
         baseline = json.loads((args.root / 'manifest.json').read_text())
         cores = {}
         for core in CORES:
-            info = resolve(core, baseline['cores'][core]['tag'] if args.pinned else None)
-            if args.pinned or any(info[k] != baseline['cores'][core].get(k) for k in ['tag', 'commit']):
+            baseline_core = baseline['cores'].get(core, {})
+            info = resolve(core, baseline_core.get('tag') if args.pinned else None)
+            if args.pinned or any(info[k] != baseline_core.get(k) for k in ['tag', 'commit']):
                 cores[core] = info
                 Path(core + '.json').write_text(json.dumps(info, indent=2) + '\n')
         args.selection.write_text(json.dumps({'cores': cores, 'baseline': baseline}, indent=2) + '\n')

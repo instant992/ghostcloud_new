@@ -1,4 +1,4 @@
-"""Portable entry point; pins are explicit and publication is never performed here."""
+"""Portable entry point for the Jolymmiles/Xray-core Android JNI build."""
 import argparse
 from pathlib import Path
 import sys
@@ -13,4 +13,4 @@ p.add_argument('--work', type=Path, required=True, help='Must not already exist'
 p.add_argument('--output', type=Path, required=True)
 p.add_argument('--go', default='go')
 a = p.parse_args()
-build('mihomo', a.metadata.resolve(), Path(__file__).resolve().parents[1], a.work.resolve(), a.output.resolve(), a.ndk.resolve(), a.go)
+build('xray-joly', a.metadata.resolve(), Path(__file__).resolve().parents[1], a.work.resolve(), a.output.resolve(), a.ndk.resolve(), a.go)

@@ -48,8 +48,8 @@ jobs:
           name: selection
           path: |
             selection.json
-            mihomo.json
             xray-last.json
+            xray-joly.json
           if-no-files-found: error
   build:
     needs: check

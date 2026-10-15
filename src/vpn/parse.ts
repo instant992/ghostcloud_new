@@ -665,7 +665,7 @@ function jsonToNode(ob: any): VpnNode | null {
   }
 }
 
-/** Clash «xhttp-opts»/«splithttp-opts» (kebab-case, формат mihomo) → поля
+/** Clash-compatible transport options from subscription formats → normalized fields
  *  Xray SplitHTTPConfig (camelCase). Таблица явная: авто-camelCase ломает
  *  имена с аббревиатурами (sessionIDPlacement, uplinkHTTPMethod, noGRPCHeader).
  *  «reuse-settings» в Clash = «xmux» в Xray. */
@@ -755,7 +755,7 @@ export function clashProxyToNode(px: any): VpnNode | null {
   const realityOpts = px["reality-opts"] || {};
   const hasReality = Boolean(realityOpts["public-key"]);
   const network = String(px.network || (grpcOpts["grpc-service-name"] ? "grpc" : "tcp")).toLowerCase();
-  // xhttp (mihomo: xhttp-opts) / splithttp (splithttp-opts): path/host/mode
+  // xhttp / splithttp transport options: path/host/mode
   // лежат в СВОЁМ блоке — без них Xray стучится на «/» вместо реального
   // пути сервера: TLS поднимается («подключено»), но интернет не работает.
   const xhttpOpts =
@@ -816,7 +816,7 @@ export function clashProxyToNode(px: any): VpnNode | null {
         // Xray v26.9.9 поддерживает hysteria2 нативно (протокол «hysteria»,
         // version 2) — см. buildOutbound в xrayConfig.ts.
         supportedByXray: true,
-        // Salamander-obfs: mihomo отдаёт строкой + obfs-password, sing-box — объектом
+        // Salamander-obfs may arrive as a string plus obfs-password; normalize it.
         obfs: typeof px.obfs === "string" ? px.obfs : px.obfs?.type,
         obfsPassword:
           px["obfs-password"] || (typeof px.obfs === "object" ? px.obfs?.password : undefined),

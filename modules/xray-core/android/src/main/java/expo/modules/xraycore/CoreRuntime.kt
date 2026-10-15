@@ -10,10 +10,10 @@ object CoreRuntime {
   @Synchronized fun requiresRestart(core: String): Boolean = owner != null && owner != core
   @Synchronized fun owns(core: String): Boolean = owner == core
   @Synchronized fun isLoadedFile(name: String): Boolean = when (name) {
+    "libxrayjoly.so" -> owner == "xray-joly"
     "libxraylast.so" -> owner == "xray-last"
     "libsingbox.so" -> owner == "singbox"
     "libuwuray.so" -> owner == "uwuray"
-    "libclash.so" -> owner == "mihomo"
     else -> false
   }
 }

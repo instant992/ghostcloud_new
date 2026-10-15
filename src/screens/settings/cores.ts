@@ -5,21 +5,21 @@ import type { CoreName } from "../../settings";
 export const CORES_REPO_MANIFEST =
   "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/manifest.json";
 
-export const MIHOMO_REPO_BASE = "https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/";
+export const JOLY_REPO_BASE = "https://raw.githubusercontent.com/instant992/ghostcloudcore_new/main/";
 
 export const CORES: Array<{
   key: CoreName;
   label: string;
   file: string;
-  lib: "mihomo" | "singbox" | "uwuray" | "xray-last" | null;
+  lib: "singbox" | "uwuray" | "xray-last" | "xray-joly" | null;
   note: string;
   mb: number;
 }> = [
   { key: "xray", label: "Xray", file: "", lib: null, note: "встроен · VLESS, VMess, Trojan, SS, Hysteria2", mb: 0 },
-  { key: "mihomo", label: "Mihomo", file: "libclash.so", lib: "mihomo", note: "официальный v1.19.32 · VLESS, VMess, Trojan, SS, Hysteria2 · без XHTTP", mb: 40 },
   { key: "sing-box", label: "Sing-box", file: "libsingbox.so", lib: "singbox", note: "альтернативное ядро · все протоколы", mb: 36 },
   { key: "uwuray", label: "UwuRay", file: "libuwuray.so", lib: "uwuray", note: "форк Xray · расширенный BT-снаффер", mb: 34 },
   { key: "xray-last", label: "Xray Last", file: "libxraylast.so", lib: "xray-last", note: "официальный XTLS/Xray-core · автообновление перед подключением", mb: 35 },
+  { key: "xray-joly", label: "Xray Joly", file: "libxrayjoly.so", lib: "xray-joly", note: "форк Jolymmiles/Xray-core · автообновление перед подключением", mb: 35 },
 ];
 
 // Фолбэк, если манифест недоступен
@@ -76,18 +76,20 @@ export async function fetchCoreMeta(core: string, abi: string): Promise<CoreMeta
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const github = core === "mihomo" || core === "xray-last";
-    const base = github ? MIHOMO_REPO_BASE : "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/";
+    const github = core === "xray-joly" || core === "xray-last";
+    const base = github ? JOLY_REPO_BASE : "https://gitlab.com/instant99/ghostcloudcore_new/-/raw/main/";
     const res = await fetch(github ? `${base}manifest.json` : CORES_REPO_MANIFEST, { signal: controller.signal });
     if (!res.ok) return null;
     const manifest = await res.json();
     const entry = manifest?.cores?.[core];
     const file = entry?.files?.[abi];
     if (!file?.path) return null;
+    const versionPattern = /^\d+\.\d+\.\d+(?:-\d+)?$/;
     if (github) {
-      const name = core === "mihomo" ? "libclash.so" : "libxraylast.so";
-      const expectedPath = new RegExp(`^cores/${core}-v${String(entry.version).replace(/\./g, "\\.")}(?:-[0-9a-f]+-[0-9]+-[0-9]+)?/${abi}/${name}$`);
-      if (!/^\d+\.\d+\.\d+$/.test(entry.version || "") || !["arm64-v8a", "armeabi-v7a", "x86", "x86_64"].includes(abi) ||
+      const name = core === "xray-joly" ? "libxrayjoly.so" : "libxraylast.so";
+      const escapedVersion = String(entry.version).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const expectedPath = new RegExp(`^cores/${core}-v${escapedVersion}(?:-[0-9a-f]+-[0-9]+-[0-9]+)?/${abi}/${name}$`);
+      if (!versionPattern.test(entry.version || "") || !["arm64-v8a", "armeabi-v7a", "x86", "x86_64"].includes(abi) ||
           !expectedPath.test(file.path) || !/^[0-9a-f]{64}$/i.test(file.sha256 || "") ||
           !Number.isSafeInteger(file.size) || file.size <= 0 || file.size > 150000000) return null;
     }

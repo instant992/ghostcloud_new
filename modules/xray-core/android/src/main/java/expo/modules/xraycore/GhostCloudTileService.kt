@@ -126,7 +126,7 @@ class GhostCloudTileService : TileService() {
       Intent(this, LibCoreVpnService::class.java).apply {
         action = LibCoreVpnService.ACTION_START
         putExtra("lib", when (core) {
-          "mihomo" -> "mihomo"
+          "xray-joly" -> "xray-joly"
           "uwuray" -> "uwuray"
           "xray-last" -> "xray-last"
           else -> "singbox"

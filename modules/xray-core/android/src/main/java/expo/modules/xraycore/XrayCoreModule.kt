@@ -438,7 +438,7 @@ class XrayCoreModule : Module() {
       }
     }
 
-    // ---- Загрузка ядер из репозитория (mihomo) ----
+    // ---- Загрузка JNI-ядер Xray ----
 
     Function("getCpuAbi") {
       Build.SUPPORTED_ABIS.firstOrNull() ?: ""
@@ -475,7 +475,7 @@ class XrayCoreModule : Module() {
 
     Function("selectCore") { core: String ->
       val runtime = when (core) {
-        "xray", "uwuray", "xray-last", "mihomo" -> core
+        "xray", "uwuray", "xray-last", "xray-joly" -> core
         "sing-box" -> "singbox"
         else -> throw IllegalArgumentException("Неизвестное ядро")
       }
@@ -503,6 +503,19 @@ class XrayCoreModule : Module() {
       }
     }
 
+    Function("getXrayJolyStatus") { XrayJolyFiles.status(context) }
+    AsyncFunction("downloadXrayJoly") { url: String, sha256: String, size: Double, version: String, promise: Promise ->
+      kotlin.concurrent.thread(name = "gc-xray-joly-download") {
+        try {
+          check(size.isFinite() && size == size.toLong().toDouble()) { "Invalid core size" }
+          val path = XrayJolyFiles.download(context, url, sha256, size.toLong(), version) { received, total ->
+            sendEvent("onCoreDownloadProgress", mapOf("name" to XrayJolyFiles.NAME, "received" to received, "total" to total, "progress" to (received * 100 / total).toInt()))
+          }
+          promise.resolve(path)
+        } catch (e: Throwable) { promise.reject("ERR_DOWNLOAD", e.message, e) }
+      }
+    }
+
     Function("getCoreStatus") { name: String ->
       val file = File(context.filesDir, "cores/$name")
       mapOf(
@@ -512,33 +525,10 @@ class XrayCoreModule : Module() {
       )
     }
 
-    Function("getMihomoStatus") { MihomoFiles.status(context) }
-    AsyncFunction("downloadMihomo") { url: String, sha256: String, size: Double, version: String, promise: Promise ->
-      kotlin.concurrent.thread(name = "gc-mihomo-download") {
-        try {
-          check(size.isFinite() && size == size.toLong().toDouble()) { "Invalid core size" }
-          val path = MihomoFiles.download(context, url, sha256, size.toLong(), version) { received, total ->
-            sendEvent("onCoreDownloadProgress", mapOf("name" to "libclash.so", "received" to received, "total" to total, "progress" to (received * 100 / total)))
-          }
-          promise.resolve(path)
-        } catch (e: Throwable) { promise.reject("ERR_DOWNLOAD", e.message, e) }
-      }
-    }
-
     AsyncFunction("downloadCore") { name: String, url: String, expectedSha256: String, expectedSize: Double, promise: Promise ->
       kotlin.concurrent.thread(name = "gc-core-download") {
         try {
-          check(name != XrayLastFiles.NAME) { "Use downloadXrayLast for staged installs" }
-          if (name == MihomoFiles.NAME) {
-            val version = Regex("/mihomo-v([0-9]+[.][0-9]+[.][0-9]+)(?:-[0-9a-f]+-[0-9]+-[0-9]+)?/").find(url)?.groupValues?.get(1)
-              ?: error("Некорректная версия Mihomo")
-            check(expectedSize.isFinite() && expectedSize == expectedSize.toLong().toDouble()) { "Invalid core size" }
-            val path = MihomoFiles.download(context, url, expectedSha256, expectedSize.toLong(), version) { received, total ->
-              sendEvent("onCoreDownloadProgress", mapOf("name" to name, "received" to received, "total" to total, "progress" to (received * 100 / total)))
-            }
-            promise.resolve(path)
-            return@thread
-          }
+          check(name != XrayLastFiles.NAME && name != XrayJolyFiles.NAME) { "Use dedicated staged downloader" }
           val dir = File(context.filesDir, "cores")
           if (!dir.exists()) dir.mkdirs()
           val tmp = File(dir, "$name.tmp")
@@ -607,7 +597,7 @@ class XrayCoreModule : Module() {
           promise.reject("ERR_CORE_LOADED", "Перезапустите приложение перед удалением ядра", null)
         } else {
           val file = File(context.filesDir, "cores/$name")
-          if (name == XrayLastFiles.NAME || name == MihomoFiles.NAME) {
+          if (name == XrayLastFiles.NAME || name == XrayJolyFiles.NAME) {
             File(context.filesDir, "cores/$name.pending").delete()
             File(context.filesDir, "cores/$name.pending.json").delete()
             File(context.filesDir, "cores/$name.json").delete()
@@ -623,10 +613,12 @@ class XrayCoreModule : Module() {
           val fileName = when (lib) {
             "singbox" -> "libsingbox.so"
             "uwuray" -> "libuwuray.so"
-      "xray-last" -> "libxraylast.so"
-            else -> "libclash.so"
+            "xray-last" -> "libxraylast.so"
+            "xray-joly" -> "libxrayjoly.so"
+            else -> throw IllegalArgumentException("Неизвестное ядро: $lib")
           }
           if (lib == "xray-last") XrayLastFiles.activate(context)
+          if (lib == "xray-joly") XrayJolyFiles.activate(context)
           val file = File(context.filesDir, "cores/$fileName")
           if (!file.exists()) {
             promise.reject("ERR_NO_CORE", "Ядро не скачано: $lib", null)
@@ -635,15 +627,16 @@ class XrayCoreModule : Module() {
           val home = File(context.filesDir, when (lib) {
             "singbox" -> "singbox"
             "uwuray" -> "uwuray"
-      "xray-last" -> "xray-last"
-            else -> "mihomo"
+            "xray-last" -> "xray-last"
+            "xray-joly" -> "xray-joly"
+            else -> throw IllegalArgumentException("Неизвестное ядро: $lib")
           })
           if (!home.exists()) home.mkdirs()
           val version = when (lib) {
             "singbox" -> {
               // Второй Go-рантайм в процессе запрещён: если уже загружено
               // другое скачиваемое ядро — сообщаем явно (нужен перезапуск приложения).
-              if (GcUwuCore.loaded || GcCore.loaded) {
+              if (GcUwuCore.loaded || GcXrayJolyCore.loaded) {
                 promise.reject("ERR_CORE_CONFLICT", "Другое ядро уже загружено — перезапустите приложение", null)
                 return@thread
               }
@@ -658,7 +651,7 @@ class XrayCoreModule : Module() {
             "uwuray" -> {
               // Второй Go-рантайм в процессе запрещён: если уже загружено
               // другое скачиваемое ядро — сообщаем явно (нужен перезапуск приложения).
-              if (GcSbCore.loaded || GcCore.loaded) {
+              if (GcSbCore.loaded || GcXrayJolyCore.loaded) {
                 promise.reject("ERR_CORE_CONFLICT", "Другое ядро уже загружено — перезапустите приложение", null)
                 return@thread
               }
@@ -670,6 +663,16 @@ class XrayCoreModule : Module() {
               }
               GcUwuCore.gcVersion()
             }
+            "xray-joly" -> {
+              if (GcSbCore.loaded || GcUwuCore.loaded) {
+                promise.reject("ERR_CORE_CONFLICT", "Другое ядро уже загружено — перезапустите приложение", null)
+                return@thread
+              }
+              GcXrayJolyCore.load(file.absolutePath)
+              val err = GcXrayJolyCore.gcInit(home.absolutePath)
+              check(err.isEmpty()) { err }
+              GcXrayJolyCore.gcVersion()
+            }
             "xray-last" -> {
               GcXrayLastCore.load(file.absolutePath)
               val err = GcXrayLastCore.gcInit(home.absolutePath)
@@ -677,13 +680,8 @@ class XrayCoreModule : Module() {
               GcXrayLastCore.gcVersion()
             }
             else -> {
-              GcCore.load(file.absolutePath)
-              val err = GcCore.gcInit(home.absolutePath)
-              if (err.isNotEmpty()) {
-                promise.reject("ERR_INIT", "mihomo: $err", null)
-                return@thread
-              }
-              GcCore.gcVersion()
+              promise.reject("ERR_CORE", "Неизвестное ядро: $lib", null)
+              return@thread
             }
           }
           promise.resolve(version)
@@ -702,11 +700,16 @@ class XrayCoreModule : Module() {
         promise.reject("ERR_RUNNING", "VPN уже запущен", null)
         return@AsyncFunction
       }
+      if (lib != "singbox" && lib != "uwuray" && lib != "xray-joly" && lib != "xray-last") {
+        promise.reject("ERR_CORE", "Неизвестное ядро: $lib", null)
+        return@AsyncFunction
+      }
       val loaded = when (lib) {
         "singbox" -> GcSbCore.loaded
         "uwuray" -> GcUwuCore.loaded
-      "xray-last" -> GcXrayLastCore.loaded
-        else -> GcCore.loaded
+        "xray-joly" -> GcXrayJolyCore.loaded
+        "xray-last" -> GcXrayLastCore.loaded
+        else -> false
       }
       if (!loaded) {
         promise.reject("ERR_NO_CORE", "Ядро не загружено: $lib", null)

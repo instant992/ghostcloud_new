@@ -1,28 +1,36 @@
 import { Alert } from "react-native";
 import { fetchCoreMeta } from "../screens/settings/cores";
-import { getCpuAbi, getMihomoStatus, getXrayLastStatus, downloadMihomo, downloadXrayLast, isVpnRunning } from "./native";
+import { getCpuAbi, getXrayJolyStatus, getXrayLastStatus, downloadXrayJoly, downloadXrayLast, isVpnRunning } from "./native";
 
 const inFlight = new Map<string, Promise<void>>();
 const checked = new Map<string, number>();
 const notified = new Set<string>();
 const CHECK_INTERVAL = 5 * 60 * 1000;
 
+function versionParts(value: string): number[] | null {
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:-(\d+))?$/.exec(value);
+  return match ? match.slice(1).map(Number) : null;
+}
+
 function newer(a: string, b: string): boolean {
-  if (!/^\d+\.\d+\.\d+$/.test(b)) return true;
-  const aa = a.split(".").map(Number), bb = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) if (aa[i] !== bb[i]) return aa[i] > bb[i];
+  const aa = versionParts(a), bb = versionParts(b);
+  if (!aa || !bb) return true;
+  for (let i = 0; i < 4; i++) {
+    const left = aa[i] ?? -1, right = bb[i] ?? -1;
+    if (left !== right) return left > right;
+  }
   return false;
 }
 
 /** Manual connect only. Native downloads validate SHA/size/ELF, stage mapped libraries,
  * and activate only before first load in a process. Never restart the app automatically. */
 export async function ensureSelectedCoreUpdated(core: string): Promise<void> {
-  if (core !== "mihomo" && core !== "xray-last") return;
+  if (core !== "xray-joly" && core !== "xray-last") return;
   if (await isVpnRunning()) return;
   const existing = inFlight.get(core);
   if (existing) return existing;
   const task = (async () => {
-    const status = core === "mihomo" ? getMihomoStatus : getXrayLastStatus;
+    const status = core === "xray-joly" ? getXrayJolyStatus : getXrayLastStatus;
     const notifyPending = () => {
       const pending = status().pendingVersion;
       const key = `${core}:${pending}`;
@@ -45,7 +53,7 @@ export async function ensureSelectedCoreUpdated(core: string): Promise<void> {
       if (installed.downloaded && installed.version && !newer(meta.version, installed.version) && installed.size === meta.size) return;
       // A VPN may have started while metadata was being fetched.
       if (await isVpnRunning()) return;
-      const download = core === "mihomo" ? downloadMihomo : downloadXrayLast;
+      const download = core === "xray-joly" ? downloadXrayJoly : downloadXrayLast;
       await download(meta.url, meta.sha256, meta.size, meta.version);
       if (!status().downloaded) throw new Error("Ядро не установлено после загрузки");
       notifyPending();

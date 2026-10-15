@@ -108,7 +108,7 @@ export default function VpnNetworkScreen() {
   useEffect(() => {
     setXrayVersion(getXrayVersion());
     setDownloaded({
-      "libclash.so": getCoreStatus("libclash.so").downloaded,
+      "libxrayjoly.so": getCoreStatus("libxrayjoly.so").downloaded,
       "libsingbox.so": getCoreStatus("libsingbox.so").downloaded,
       "libuwuray.so": getCoreStatus("libuwuray.so").downloaded,
     });
@@ -162,7 +162,7 @@ export default function VpnNetworkScreen() {
       xrayLast.install().then(() => showToast("Xray Last загружен. Если ядро уже использовалось — перезапустите приложение", "top")).catch((e) => showToast(e.message));
       return;
     }
-    const lib = c.lib as "mihomo" | "singbox" | "uwuray";
+    const lib = c.lib as "singbox" | "uwuray" | "xray-last" | "xray-joly";
     const abi = getCpuAbi();
     setConfirmCore(null);
     setProgress((p) => ({ ...p, [c.file]: 0 }));
@@ -173,8 +173,7 @@ export default function VpnNetworkScreen() {
         await downloadCore(c.file, meta.url, meta.sha256, meta.size);
         setDownloaded((d) => ({ ...d, [c.file]: true }));
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-        // Downloading Mihomo must not claim the Go runtime before selection.
-        const v = lib === "mihomo" ? "mihomo v1.19.32" : await loadLibCore(lib).catch(() => "");
+        const v = await loadLibCore(lib).catch(() => "");
         if (v) setVersions((vv) => ({ ...vv, [c.key]: v }));
       } catch (e: any) {
         showToast(e?.message || "Не удалось скачать ядро");

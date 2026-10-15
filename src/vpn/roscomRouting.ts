@@ -7,8 +7,8 @@
  *  WHITELIST — для LTE Open: напрямую только белые списки РФ,
  *             всё остальное через VPN.
  *
- *  geo-данные (geoip.dat/geosite.dat для Xray, rule-set .srs для sing-box,
- *  .mrs для mihomo) вшиты в APK и распаковываются нативно (GeoAssets.kt). */
+ *  geo-данные (geoip.dat/geosite.dat для Xray, rule-set .srs для sing-box)
+ *  вшиты в APK и распаковываются нативно (GeoAssets.kt). */
 
 export type RoscomMode = "default" | "whitelist";
 
@@ -120,40 +120,4 @@ export function singboxRoscom(mode: RoscomMode): {
   return { ruleSets, rules };
 }
 
-/** Rule-providers и правила для mihomo (.mrs лежат в rule-set/ домашней папки ядра) */
-export function mihomoRoscom(mode: RoscomMode): {
-  providers: Record<string, any>;
-  rules: string[];
-} {
-  const providers: Record<string, any> = {};
-  const rules: string[] = [];
-  const addDomain = (c: string) => {
-    providers[`geosite-${c}`] = {
-      type: "file",
-      behavior: "domain",
-      format: "mrs",
-      path: `rule-set/geosite-${c}.mrs`,
-    };
-  };
-  const addIp = (c: string) => {
-    providers[`ip-${c}`] = {
-      type: "file",
-      behavior: "ipcidr",
-      format: "mrs",
-      path: `rule-set/ip-${c}.mrs`,
-    };
-  };
-
-  BLOCK_SITES.forEach(addDomain);
-  rules.push(...BLOCK_SITES.map((c) => `RULE-SET,geosite-${c},REJECT`));
-  if (mode === "default") {
-    PROXY_SITES.forEach(addDomain);
-    rules.push(...PROXY_SITES.map((c) => `RULE-SET,geosite-${c},PROXY`));
-  }
-  directSites(mode).forEach(addDomain);
-  rules.push(...directSites(mode).map((c) => `RULE-SET,geosite-${c},DIRECT`));
-  directIp(mode).forEach(addIp);
-  rules.push(...directIp(mode).map((c) => `RULE-SET,ip-${c},DIRECT`));
-
-  return { providers, rules };
-}
+/** Протоколы Xray и sing-box используют единый набор geo-правил. */

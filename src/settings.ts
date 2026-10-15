@@ -22,7 +22,7 @@ export type ThemeName =
   | "awg"
   | "material";
 export type ThemeMode = "dark" | "light" | "auto";
-export type CoreName = "xray" | "sing-box" | "uwuray" | "xray-last" | "mihomo";
+export type CoreName = "xray" | "sing-box" | "uwuray" | "xray-last" | "xray-joly";
 
 export function getSetting(key: string, fallback: string): string {
   try {
@@ -79,7 +79,7 @@ export function getSelectedCore(): CoreName {
   if (v === "sing-box") return "sing-box";
   if (v === "uwuray") return "uwuray";
   if (v === "xray-last") return "xray-last";
-  if (v === "mihomo") return "mihomo";
+  if (v === "xray-joly") return "xray-joly";
   return "xray";
 }
 

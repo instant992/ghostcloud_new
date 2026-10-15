@@ -3,8 +3,8 @@ package expo.modules.xraycore
 import android.content.Context
 import java.io.File
 
-/** Geo-ассеты RoscomVPN (geoip.dat/geosite.dat для Xray и rule-set .srs/.mrs
- *  для sing-box/mihomo) вшиты в APK (assets/geo) и распаковываются в песочницу
+/** Geo-ассеты RoscomVPN (geoip.dat/geosite.dat для Xray и rule-set .srs
+ *  для sing-box) вшиты в APK (assets/geo) и распаковываются в песочницу
  *  приложения при первом запуске VPN. Распаковка идемпотентна: если файл уже
  *  на месте и размер совпадает — повторно не копируем. */
 object GeoAssets {
@@ -25,12 +25,7 @@ object GeoAssets {
     copyAssetDir(context, "geo/singbox-geoip", File(home, "rule-set"))
   }
 
-  /** Распаковка rule-set'ов mihomo в домашний каталог ядра (rule-set, файлы .mrs) */
-  fun mihomoRuleSets(context: Context, home: File) {
-    copyAssetDir(context, "geo/mihomo-geosite", File(home, "rule-set"))
-    copyAssetDir(context, "geo/mihomo-geoip", File(home, "rule-set"))
-  }
-
+  /** Распаковка rule-set'ов sing-box в домашний каталог ядра */
   private fun copyAssetDir(context: Context, assetDir: String, target: File) {
     val names = try {
       context.assets.list(assetDir)?.toList() ?: emptyList()

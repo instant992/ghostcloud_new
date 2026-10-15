@@ -6,7 +6,6 @@ import { parseSubscriptionText, parseClashYamlProxies, clashProxyToNode } from "
 import type { VpnNode } from "./parse";
 import { buildXrayConfig, buildOutbound as buildXrayOutbound } from "./xrayConfig";
 import { buildSingBoxConfig } from "./singboxConfig";
-import { buildMihomoConfig, supportedByMihomo } from "./mihomoConfig";
 import { splitNameFlag } from "../theme";
 import { loadFilter } from "./appFilter";
 import { getDnsProvider } from "./dns";
@@ -68,8 +67,7 @@ function buildConfigFor(
   try {
     const dns = selectedDnsProvider(isSponsor);
     if (core === "sing-box") return buildSingBoxConfig(node, dns, bypassDomains, roscomMode);
-    if (core === "mihomo") return buildMihomoConfig(node, dns, bypassDomains, roscomMode);
-    if (!node.supportedByXray) return null;
+      if (!node.supportedByXray) return null;
     return buildXrayConfig(node, null, dns, bypassDomains, roscomMode);
   } catch {
     return null;
@@ -95,7 +93,7 @@ function buildFailoverInfo(
     .filter((n) => n.id !== current.id)
     .filter((n) => (currentIsLte ? isLteNode(n) : n.source !== "lte"))
     .filter((n) => isNodeUsable(n))
-    .filter((n) => (core === "xray" || core === "uwuray" || core === "xray-last" ? n.supportedByXray : core === "mihomo" ? supportedByMihomo(n) : true));
+    .filter((n) => (core === "xray" || core === "uwuray" || core === "xray-last" || core === "xray-joly" ? n.supportedByXray : true));
   // Сортировка по пингу — локальная (rankByPing отфильтровал бы LTE-ноды).
   const snap = getPingSnapshot();
   const ranked = rest
@@ -153,7 +151,7 @@ export async function pickBestNode(
       !isLteNode(n) &&
       !exclude.has(n.id) &&
       isNodeUsable(n) &&
-      (core === "xray" || core === "uwuray" || core === "xray-last" ? n.supportedByXray : core === "mihomo" ? supportedByMihomo(n) : true)
+      (core === "xray" || core === "uwuray" || core === "xray-last" || core === "xray-joly" ? n.supportedByXray : true)
   );
   if (candidates.length === 0) return [];
 
@@ -574,11 +572,12 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
     markVpnConnected();
     return;
   }
-  if (core === "mihomo") {
-    const config = buildMihomoConfig(node, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
-    await loadLibCore("mihomo");
-    saveTileConfig(config, "mihomo");
-    await startLibCoreVpn("mihomo", config, allowed, blocked, failover);
+  if (core === "xray-joly") {
+    if (!getCoreStatus("libxrayjoly.so").downloaded) throw new Error("Xray Joly не установлен — скачайте ядро в настройках");
+    await loadLibCore("xray-joly");
+    const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
+    saveTileConfig(config, "xray-joly");
+    await startLibCoreVpn("xray-joly", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
     markVpnConnected();
     return;

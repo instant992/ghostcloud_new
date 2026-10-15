@@ -29,7 +29,7 @@ export function TvSettingsTab() {
   const [xrayVersion, setXrayVersion] = useState("");
   const [selectedCore, setCore] = useState<CoreName>(getSelectedCore());
   const xrayLast = useXrayLast();
-  const [mihomoDownloaded, setMihomoDownloaded] = useState(() => getCoreStatus("libclash.so").downloaded);
+  const [jolyDownloaded, setJolyDownloaded] = useState(() => getCoreStatus("libxrayjoly.so").downloaded);
 
   useEffect(() => {
     try {
@@ -186,11 +186,11 @@ export function TvSettingsTab() {
       </TvFocusable>
 
       <Text style={s.rowTitle}>Ядро VPN</Text>
-      {(["xray", "xray-last", "mihomo"] as const).map((key) => (
+      {(["xray", "xray-last", "xray-joly"] as const).map((key) => (
         <TvFocusable key={key} style={s.row} borderRadius={17} onPress={async () => {
           if (coreBusy || key === selectedCore) return;
           if (key === "xray-last" && !xrayLast.status.downloaded) { showToast("Сначала скачайте ядро"); return; }
-          if (key === "mihomo" && !mihomoDownloaded) { showToast("Сначала скачайте ядро"); return; }
+          if (key === "xray-joly" && !jolyDownloaded) { showToast("Сначала скачайте ядро"); return; }
           setCoreBusy(true);
           try {
             if (vpnRunning) { await disconnect(); setVpnRunning(false); }
@@ -199,8 +199,8 @@ export function TvSettingsTab() {
           finally { setCoreBusy(false); }
         }}>
           <View style={s.rowInner}><View style={{ flex: 1 }}>
-            <Text style={s.rowTitle}>{key === "xray" ? "Xray (встроенный)" : key === "mihomo" ? "Mihomo v1.19.32" : "Xray Last"}{selectedCore === key ? " · выбрано" : ""}</Text>
-            <Text style={s.rowSub}>{key === "xray-last" ? xrayLast.note : key === "mihomo" ? CORES.find((c) => c.key === "mihomo")?.note : coreLabel}</Text>
+            <Text style={s.rowTitle}>{key === "xray" ? "Xray (встроенный)" : key === "xray-joly" ? "Xray Joly" : "Xray Last"}{selectedCore === key ? " · выбрано" : ""}</Text>
+            <Text style={s.rowSub}>{key === "xray-last" ? xrayLast.note : key === "xray-joly" ? CORES.find((c) => c.key === "xray-joly")?.note : coreLabel}</Text>
           </View></View>
         </TvFocusable>
       ))}
@@ -211,19 +211,19 @@ export function TvSettingsTab() {
           <View style={s.rowInner}><Text style={s.rowTitle}>{xrayLast.busy ? "Загрузка…" : xrayLast.status.downloaded ? "Обновить Xray Last" : "Скачать Xray Last"}</Text></View>
         </TvFocusable>
       )}
-      {!mihomoDownloaded && <TvFocusable style={s.row} onPress={async () => {
+      {!jolyDownloaded && <TvFocusable style={s.row} onPress={async () => {
         if (coreBusy) return;
         setCoreBusy(true);
         try {
           const abi = getCpuAbi();
-          const meta = (await fetchCoreMeta("mihomo", abi)) || FALLBACK.mihomo?.[abi];
-          if (!meta) throw new Error("Mihomo недоступен для архитектуры устройства");
-          await downloadCore("libclash.so", meta.url, meta.sha256, meta.size);
-          setMihomoDownloaded(getCoreStatus("libclash.so").downloaded);
-          showToast("Mihomo загружен");
-        } catch (e: any) { showToast(e.message || "Ошибка загрузки Mihomo"); }
+          const meta = (await fetchCoreMeta("xray-joly", abi)) || FALLBACK["xray-joly"]?.[abi];
+          if (!meta) throw new Error("Xray Joly недоступен для архитектуры устройства");
+          await downloadCore("libxrayjoly.so", meta.url, meta.sha256, meta.size);
+          setJolyDownloaded(getCoreStatus("libxrayjoly.so").downloaded);
+          showToast("Xray Joly загружен");
+        } catch (e: any) { showToast(e.message || "Ошибка загрузки Xray Joly"); }
         finally { setCoreBusy(false); }
-      }}><View style={s.rowInner}><Text style={s.rowTitle}>{coreBusy ? "Загрузка…" : "Скачать Mihomo v1.19.32"}</Text></View></TvFocusable>}
+      }}><View style={s.rowInner}><Text style={s.rowTitle}>{coreBusy ? "Загрузка…" : "Скачать Xray Joly"}</Text></View></TvFocusable>}
       {/* О программе */}
       <View style={[s.row, s.rowStatic]}>
         <View style={s.rowInner}>

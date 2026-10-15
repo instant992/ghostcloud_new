@@ -15,9 +15,8 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * VPN-сервис для загружаемых библиотечных ядер (mihomo, sing-box).
- * Ядро работает в процессе приложения, TUN-дескриптор передаётся напрямую.
- * Тип ядра передаётся через extra "lib": "mihomo" | "singbox".
+ * VPN-сервис для загружаемых JNI-ядер (sing-box и Xray-форки).
+ * Тип ядра передаётся через extra "lib".
  */
 class LibCoreVpnService : VpnService() {
 
@@ -49,7 +48,7 @@ class LibCoreVpnService : VpnService() {
     NotificationTicker(this, CHANNEL_ID, NOTIFICATION_ID, stopPendingIntent)
   }
 
-  private var currentLib: String = "mihomo"
+  private var currentLib: String = "xray-joly"
   private var monitor: FailoverMonitor? = null
 
   override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -63,7 +62,7 @@ class LibCoreVpnService : VpnService() {
       }
       else -> {
         val config = intent?.getStringExtra("config")
-        val lib = intent?.getStringExtra("lib") ?: "mihomo"
+        val lib = intent?.getStringExtra("lib") ?: "xray-joly"
         // Имя сервера для уведомления: из intent (tile/boot) или из prefs
         // (JS-старт — там extra не проходит из-за лимита параметров AsyncFunction;
         // saveTileConfig пишет tile_vpn_server_name перед каждым стартом).
@@ -148,34 +147,30 @@ class LibCoreVpnService : VpnService() {
       // tunInterface. Без дубля на ошибке старта получался double-close одного fd →
       // fdsan abort (SIGABRT «double-close of file descriptor») — краш процесса,
       // который к тому же терял текст ошибки ядра (pendingPromise.reject не успевал).
-      val coreFd = if (currentLib == "xray-last" || currentLib == "mihomo") pfd.fd else run {
+      val coreFd = if (currentLib == "xray-last" || currentLib == "xray-joly") pfd.fd else run {
         val dup = pfd.dup()
         dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
       }
 
-      // Geo rule-set'ы RoscomVPN: распаковываем в домашний каталог ядра
-      // (тот же, что задан в loadLibCore: filesDir/singbox, filesDir/mihomo или
-      //  filesDir/uwuray; gcInit делает chdir в него, поэтому относительные пути работают)
+      // Xray JNI cores use the Xray asset directory; sing-box has its own rule sets.
       try {
         val home = File(filesDir, when (lib) {
           "singbox" -> "singbox"
           "uwuray" -> "uwuray"
-      "xray-last" -> "xray-last"
-          else -> "mihomo"
+          "xray-last" -> "xray-last"
+          "xray-joly" -> "xray-joly"
+          else -> throw IllegalArgumentException("Неизвестное ядро: $lib")
         })
         if (!home.exists()) home.mkdirs()
         when (lib) {
           "singbox" -> GeoAssets.singboxRuleSets(applicationContext, home)
-          "uwuray", "xray-last" -> {
-            // UwuRay = форк Xray-core: geoip.dat/geosite.dat в каталог ядра +
-            // xray.location.asset через env-секцию конфига (добавляется ниже).
+          "uwuray", "xray-last", "xray-joly" -> {
             val geoDir = GeoAssets.xrayAssetDir(applicationContext)
             val json = org.json.JSONObject(config)
             val env = json.optJSONObject("env") ?: org.json.JSONObject().also { json.put("env", it) }
             env.put("xray.location.asset", geoDir.absolutePath)
             configRef.set(json.toString())
           }
-          else -> GeoAssets.mihomoRuleSets(applicationContext, home)
         }
       } catch (e: Throwable) {
         android.util.Log.e("GhostCloud", "geo rule-sets failed", e)
@@ -187,15 +182,9 @@ class LibCoreVpnService : VpnService() {
       ensureLibLoaded(lib)
 
       val err = when (lib) {
-        "mihomo" -> {
-          // Mihomo's cmfa dialer calls the JNI hook before every outbound
-          // socket. Protecting the socket prevents TCP/UDP proxy connections
-          // from re-entering this VPN's own TUN and timing out.
-          GcCore.gcSetVpnService(this)
-          GcCore.gcStart(configRef.get(), coreFd)
-        }
         "singbox" -> GcSbCore.gcStart(configRef.get(), coreFd)
         "uwuray" -> GcUwuCore.gcStart(configRef.get(), coreFd)
+        "xray-joly" -> GcXrayJolyCore.gcStart(configRef.get(), coreFd)
         "xray-last" -> GcXrayLastCore.gcStart(configRef.get(), coreFd)
         else -> "неизвестное ядро: $lib"
       }
@@ -229,39 +218,38 @@ class LibCoreVpnService : VpnService() {
     val fileName = when (lib) {
       "singbox" -> "libsingbox.so"
       "uwuray" -> "libuwuray.so"
-      "xray-last" -> "libxraylast.so"
-      else -> "libclash.so"
+          "xray-joly" -> "libxrayjoly.so"
+          "xray-last" -> "libxraylast.so"
+          else -> throw IllegalArgumentException("Неизвестное ядро: $lib")
     }
     if (lib == "xray-last") XrayLastFiles.activate(applicationContext)
+    if (lib == "xray-joly") XrayJolyFiles.activate(applicationContext)
     val file = File(filesDir, "cores/$fileName")
     val home = File(filesDir, when (lib) {
-      "singbox" -> "singbox"; "uwuray" -> "uwuray"; "xray-last" -> "xray-last"; else -> "mihomo"
+      "singbox" -> "singbox"; "uwuray" -> "uwuray"; "xray-last" -> "xray-last"; "xray-joly" -> "xray-joly"
+      else -> throw IllegalArgumentException("Неизвестное ядро: $lib")
     })
     if (!home.exists()) home.mkdirs()
     if (!file.exists()) throw IllegalStateException("Ядро не скачано: $lib")
     val already = when (lib) {
       "singbox" -> GcSbCore.loaded
       "uwuray" -> GcUwuCore.loaded
+      "xray-joly" -> GcXrayJolyCore.loaded
       "xray-last" -> GcXrayLastCore.loaded
-      else -> GcCore.loaded
+      else -> false
     }
     if (already) return
     when (lib) {
       "singbox" -> { GcSbCore.load(file.absolutePath); GcSbCore.gcInit(home.absolutePath) }
       "uwuray" -> { GcUwuCore.load(file.absolutePath); GcUwuCore.gcInit(home.absolutePath) }
-      "xray-last" -> { GcXrayLastCore.load(file.absolutePath); check(GcXrayLastCore.gcInit(home.absolutePath).isEmpty()) }
-      else -> { GcCore.load(file.absolutePath); val err = GcCore.gcInit(home.absolutePath); check(err.isEmpty()) { err } }
+          "xray-joly" -> { GcXrayJolyCore.load(file.absolutePath); GcXrayJolyCore.gcInit(home.absolutePath) }
+          "xray-last" -> { GcXrayLastCore.load(file.absolutePath); check(GcXrayLastCore.gcInit(home.absolutePath).isEmpty()) }
     }
   }
 
   private fun stopLibCore(lib: String) {
     when (lib) {
-      "mihomo" -> if (GcCore.loaded) {
-        GcCore.gcStop()
-        GcCore.gcSetVpnService(null)
-      }
-      "singbox" -> if (GcSbCore.loaded) GcSbCore.gcStop()
-      "uwuray" -> if (GcUwuCore.loaded) GcUwuCore.gcStop()
+      "xray-joly" -> if (GcXrayJolyCore.loaded) GcXrayJolyCore.gcStop()
       "xray-last" -> if (GcXrayLastCore.loaded) GcXrayLastCore.gcStop()
     }
   }
@@ -281,12 +269,9 @@ class LibCoreVpnService : VpnService() {
     }
     monitor = null
     try {
-      if (GcCore.loaded) {
-        GcCore.gcStop()
-        GcCore.gcSetVpnService(null)
-      }
       if (GcSbCore.loaded) GcSbCore.gcStop()
       if (GcUwuCore.loaded) GcUwuCore.gcStop()
+      if (GcXrayJolyCore.loaded) GcXrayJolyCore.gcStop()
       if (GcXrayLastCore.loaded) GcXrayLastCore.gcStop()
     } catch (_: Throwable) {
     }
@@ -317,7 +302,7 @@ class LibCoreVpnService : VpnService() {
       stopLibCore(currentLib)
       // UwuRay (форк Xray): как и при первом старте, добавляем xray.location.asset
       var cfg = config
-      if (currentLib == "uwuray" || currentLib == "xray-last") {
+      if (currentLib == "uwuray" || currentLib == "xray-last" || currentLib == "xray-joly") {
         try {
           val geoDir = GeoAssets.xrayAssetDir(applicationContext)
           val json = org.json.JSONObject(config)
@@ -329,14 +314,14 @@ class LibCoreVpnService : VpnService() {
       }
       // Дубликат fd — как при первом старте: ядро закрывает свой fd само
       // (inst.Close), оригинал остаётся у Java (см. комментарий в startCore).
-      val coreFd = if (currentLib == "xray-last" || currentLib == "mihomo") pfd.fd else run {
+      val coreFd = if (currentLib == "xray-last" || currentLib == "xray-joly") pfd.fd else run {
         val dup = pfd.dup()
         dup.detachFd() // снимаем владение: GC-финализатор не закроет fd под Go-ядром
       }
       val err = when (currentLib) {
-        "mihomo" -> GcCore.gcStart(cfg, coreFd)
         "singbox" -> GcSbCore.gcStart(cfg, coreFd)
         "uwuray" -> GcUwuCore.gcStart(cfg, coreFd)
+        "xray-joly" -> GcXrayJolyCore.gcStart(cfg, coreFd)
         "xray-last" -> GcXrayLastCore.gcStart(cfg, coreFd)
         else -> "неизвестное ядро: $currentLib"
       }
