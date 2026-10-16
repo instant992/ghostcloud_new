@@ -1,6 +1,6 @@
 import { BrandName } from "../../components/BrandName";
 import React, { useState } from "react";
-import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -8,7 +8,7 @@ import { Button, ErrorText, Input, PasswordInput } from "../../components/UI";
 import { AuthIcon } from "../../components/AuthIcon";
 import { KeyboardScrollView } from "../../components/KeyboardForm";
 import { useApp } from "../../context";
-import { colors, typo, useTheme, BRAND_PURPLE } from "../../theme";
+import { colors, typo, useTheme } from "../../theme";
 
 export default function LoginScreen() {
   useTheme();
@@ -66,12 +66,13 @@ export default function LoginScreen() {
     <>
       <StatusBar hidden />
       <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
-      <ImageBackground source={require("../../../assets/auth-background.jpg")} style={styles.background} resizeMode="cover">
+      <View style={styles.background}>
+        <Image source={require("../../../assets/auth-background.jpg")} style={styles.backgroundImage} resizeMode="cover" />
         <View pointerEvents="none" style={styles.backgroundShade} />
         <View style={[styles.screen, { paddingTop: 58, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.brand}>
           <Image source={{ uri: "auth_icon" }} style={styles.logo} resizeMode="contain" />
-          <BrandName style={styles.brandName} solidColor={BRAND_PURPLE} />
+          <BrandName style={styles.brandName} solidColor="#FFFFFF" />
           <Text style={styles.brandSub}>Ваш приватный доступ в интернет</Text>
         </View>
 
@@ -185,7 +186,7 @@ export default function LoginScreen() {
           </View>
         </View>
       </View>
-      </ImageBackground>
+      </View>
     </KeyboardScrollView>
     </>
   );
@@ -194,17 +195,18 @@ export default function LoginScreen() {
 const makeStyles = () => StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   background: { flex: 1, backgroundColor: colors.bg },
+  backgroundImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   backgroundShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(8, 5, 24, 0.48)" },
   screen: {
     flexGrow: 1,
     backgroundColor: "transparent",
     paddingHorizontal: 20,
   },
-  brand: { alignItems: "center", marginTop: 8, marginBottom: 8 },
+  brand: { alignItems: "center", marginTop: 270, marginBottom: 8 },
   logo: {
-    width: 72,
-    height: 72,
-    marginBottom: 8,
+    width: 64,
+    height: 76,
+    marginBottom: 0,
   },
   brandName: {
     color: colors.text,
