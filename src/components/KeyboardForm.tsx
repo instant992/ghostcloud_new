@@ -40,14 +40,25 @@ export const KeyboardFormContext = React.createContext<(() => void) | null>(null
 
 /** Keep the focused field visible after keyboard opening, focus changes and
  * multiline growth. Native scrolling alone is unreliable with edge-to-edge. */
-export function KeyboardScrollView({ style, onScroll, onLayout, onContentSizeChange, children, ...props }: ScrollViewProps) {
+export function KeyboardScrollView({
+  style,
+  onScroll,
+  onLayout,
+  onContentSizeChange,
+  children,
+  scrollOnlyWithKeyboard = false,
+  ...props
+}: ScrollViewProps & { scrollOnlyWithKeyboard?: boolean }) {
   const ref = React.useRef<ScrollView>(null);
   const offset = React.useRef(0);
   const innerRef = React.useRef<View>(null);
   const frame = React.useRef<number | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = React.useState(() => Keyboard.isVisible());
   const [viewportHeight, setViewportHeight] = React.useState(0);
   const [contentHeight, setContentHeight] = React.useState(0);
-  const autoScrollEnabled = props.scrollEnabled ?? contentHeight > viewportHeight + 1;
+  const autoScrollEnabled = scrollOnlyWithKeyboard
+    ? keyboardVisible
+    : props.scrollEnabled ?? contentHeight > viewportHeight + 1;
   const reveal = React.useCallback(() => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
@@ -69,8 +80,17 @@ export function KeyboardScrollView({ style, onScroll, onLayout, onContentSizeCha
     });
   }, []);
   React.useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", reveal);
-    return () => { show.remove(); if (frame.current !== null) cancelAnimationFrame(frame.current); };
+    const show = Keyboard.addListener("keyboardDidShow", () => { setKeyboardVisible(true); reveal(); });
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardVisible(false);
+      offset.current = 0;
+      ref.current?.scrollTo({ y: 0, animated: false });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    };
   }, [reveal]);
   return <KeyboardViewport style={[styles.flex, style]}>
     <KeyboardFormContext.Provider value={reveal}>

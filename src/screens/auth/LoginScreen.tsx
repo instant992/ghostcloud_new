@@ -68,6 +68,7 @@ export default function LoginScreen() {
       <KeyboardScrollView
         style={styles.flex}
         contentContainerStyle={{ flexGrow: 1 }}
+        scrollOnlyWithKeyboard
         bounces={false}
         alwaysBounceVertical={false}
         overScrollMode="never"
