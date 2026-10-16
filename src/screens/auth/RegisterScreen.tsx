@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { Button, ErrorText, Input, Row, Screen, Subtitle, Title, Card } from "../../components/UI";
@@ -28,6 +29,7 @@ export default function RegisterScreen() {
   useTheme();
   const styles = makeStyles();
   const nav = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -160,7 +162,7 @@ export default function RegisterScreen() {
   };
 
   return (
-    <Screen>
+    <Screen style={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }}>
       <Title>Регистрация</Title>
       <Subtitle>Создайте аккаунт GhostCloud за минуту</Subtitle>
       <StepIndicator steps={STEPS[step].labels} current={STEPS[step].index} />

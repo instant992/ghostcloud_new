@@ -76,7 +76,7 @@ export default function LoginScreen() {
       <View style={styles.background}>
         <Image source={{ uri: "auth_background" }} style={styles.backgroundImage} resizeMode="cover" />
         <View pointerEvents="none" style={styles.backgroundShade} />
-        <View style={[styles.screen, { paddingTop: 58, paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.screen, { paddingTop: 58, paddingBottom: insets.bottom + 44 }]}>
         <View style={styles.brand}>
           <Image source={{ uri: "auth_icon" }} style={styles.logo} resizeMode="contain" />
           <BrandName style={styles.brandName} solidColor="#FFFFFF" />
@@ -209,7 +209,7 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: "transparent",
     paddingHorizontal: 20,
   },
-  brand: { alignItems: "center", marginTop: 270, marginBottom: 8 },
+  brand: { alignItems: "center", marginTop: 230, marginBottom: 8 },
   logo: {
     width: 64,
     height: 76,
