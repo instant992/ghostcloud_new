@@ -68,7 +68,7 @@ export default function LoginScreen() {
       <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
       <ImageBackground source={require("../../../assets/auth-background.jpg")} style={styles.background} resizeMode="cover">
         <View pointerEvents="none" style={styles.backgroundShade} />
-        <View style={[styles.screen, { paddingTop: 28, paddingBottom: insets.bottom + 20 }]}>
+        <View style={[styles.screen, { paddingTop: 58, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.brand}>
           <Image source={{ uri: "auth_icon" }} style={styles.logo} resizeMode="contain" />
           <BrandName style={styles.brandName} solidColor={BRAND_PURPLE} />
@@ -216,7 +216,7 @@ const makeStyles = () => StyleSheet.create({
     ...typo.sub,
     marginTop: 4,
   },
-  form: {},
+  form: { marginTop: 4 },
   formTitle: {
     color: colors.text,
     ...typo.heading,
