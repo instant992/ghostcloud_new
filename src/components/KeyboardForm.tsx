@@ -45,6 +45,9 @@ export function KeyboardScrollView({ style, onScroll, onLayout, onContentSizeCha
   const offset = React.useRef(0);
   const innerRef = React.useRef<View>(null);
   const frame = React.useRef<number | null>(null);
+  const [viewportHeight, setViewportHeight] = React.useState(0);
+  const [contentHeight, setContentHeight] = React.useState(0);
+  const autoScrollEnabled = props.scrollEnabled ?? contentHeight > viewportHeight + 1;
   const reveal = React.useCallback(() => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
@@ -72,11 +75,12 @@ export function KeyboardScrollView({ style, onScroll, onLayout, onContentSizeCha
   return <KeyboardViewport style={[styles.flex, style]}>
     <KeyboardFormContext.Provider value={reveal}>
       <ScrollView {...props} ref={ref} innerViewRef={innerRef as React.RefObject<View>} style={styles.flex}
+        scrollEnabled={autoScrollEnabled}
         keyboardShouldPersistTaps={props.keyboardShouldPersistTaps ?? "handled"}
         scrollEventThrottle={16}
         onScroll={event => { offset.current = event.nativeEvent.contentOffset.y; onScroll?.(event); }}
-        onLayout={event => { onLayout?.(event); reveal(); }}
-        onContentSizeChange={(width, height) => { onContentSizeChange?.(width, height); reveal(); }}>
+        onLayout={event => { setViewportHeight(event.nativeEvent.layout.height); onLayout?.(event); reveal(); }}
+        onContentSizeChange={(width, height) => { setContentHeight(height); onContentSizeChange?.(width, height); reveal(); }}>
         {children}
       </ScrollView>
     </KeyboardFormContext.Provider>

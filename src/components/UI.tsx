@@ -284,7 +284,7 @@ export function PasswordInput({ label, icon, style, onFocus, ...props }: TextInp
     <View>
       {!!label && <Text style={styles.inputLabel}>{label}</Text>}
       <View style={styles.passwordWrap}>
-        {icon && <View style={styles.inputLeftIcon}><AuthIcon name={icon} size={19} color={colors.textDim} /></View>}
+        {icon && <View style={styles.passwordLeftIcon}><AuthIcon name={icon} size={19} color={colors.textDim} /></View>}
         <TextInput
           placeholderTextColor={colors.textFaint}
           style={[styles.input, { marginBottom: 0, paddingRight: 48 }, icon && styles.inputWithIcon, style]}
@@ -390,6 +390,7 @@ const makeStyles = () => StyleSheet.create({
   },
   inputIconWrap: { position: "relative" },
   inputLeftIcon: { position: "absolute", zIndex: 1, left: 14, top: 0, bottom: 10, justifyContent: "center" },
+  passwordLeftIcon: { position: "absolute", zIndex: 1, left: 14, top: 0, bottom: 0, justifyContent: "center" },
   inputWithIcon: { paddingLeft: 44 },
   inputLabel: {
     color: colors.textDim,

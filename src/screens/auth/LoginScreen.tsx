@@ -65,7 +65,13 @@ export default function LoginScreen() {
   return (
     <>
       <StatusBar hidden />
-      <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
+      <KeyboardScrollView
+        style={styles.flex}
+        contentContainerStyle={{ flexGrow: 1 }}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+      >
       <View style={styles.background}>
         <Image source={{ uri: "auth_background" }} style={styles.backgroundImage} resizeMode="cover" />
         <View pointerEvents="none" style={styles.backgroundShade} />
@@ -83,7 +89,7 @@ export default function LoginScreen() {
               <Input
                 label="Логин или email"
                 icon="mail"
-                placeholder="Логин или email"
+                placeholder="ghostcl_132"
                 autoCapitalize="none"
                 autoCorrect={false}
                 value={loginStr}
@@ -93,7 +99,7 @@ export default function LoginScreen() {
               <PasswordInput
                 label="Пароль"
                 icon="lock"
-                placeholder="Ваш пароль"
+                placeholder="********"
                 value={password}
                 onChangeText={setPassword}
                 returnKeyType="go"
