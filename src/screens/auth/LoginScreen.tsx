@@ -67,7 +67,7 @@ export default function LoginScreen() {
       <StatusBar hidden />
       <KeyboardScrollView style={styles.flex} contentContainerStyle={{ flexGrow: 1 }}>
       <View style={styles.background}>
-        <Image source={require("../../../assets/auth-background.jpg")} style={styles.backgroundImage} resizeMode="cover" />
+        <Image source={{ uri: "auth_background" }} style={styles.backgroundImage} resizeMode="cover" />
         <View pointerEvents="none" style={styles.backgroundShade} />
         <View style={[styles.screen, { paddingTop: 58, paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.brand}>
