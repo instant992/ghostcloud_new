@@ -211,7 +211,18 @@ function BackOverlay({ children, toParent }: { children: React.ReactNode; toPare
   // а стеклу есть что преломлять. В остальных темах — обычный colors.bg.
   const screenBg = useScreenBgColor();
   const glassBg = theme.style === "glass";
-  const backToHome = !toParent && !themeHasQuickNav(getThemeName());
+  const handleBack = React.useCallback(() => {
+    // Не определяем маршрут по сохранённой теме: при смене темы во время
+    // работы приложения это значение может не совпасть с реальным стеком.
+    // Сам стек надёжно сообщает, есть ли экран, который можно закрыть.
+    if (nav.canGoBack()) {
+      nav.goBack();
+      return;
+    }
+    // Запасной путь нужен только если экран был открыт без родительского
+    // маршрута (например, после восстановления состояния навигации).
+    nav.popToTop();
+  }, [nav]);
   return (
     <View style={{ flex: 1, backgroundColor: screenBg }}>
       {glassBg ? <GlassScreenBackdrop /> : null}
@@ -232,7 +243,7 @@ function BackOverlay({ children, toParent }: { children: React.ReactNode; toPare
         }}
       >
         <Pressable
-          onPress={() => (backToHome ? nav.popToTop() : nav.goBack())}
+          onPress={handleBack}
           hitSlop={16}
           style={{ width: 52, height: 48, alignItems: "center", justifyContent: "center" }}
         >
