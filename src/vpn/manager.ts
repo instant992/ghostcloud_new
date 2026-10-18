@@ -35,6 +35,38 @@ import type { FailoverInfo } from "./native";
 const V2RAY_UA = "v2rayNG/1.10.24";
 /** Максимум запасных серверов для авто-файловера */
 const FAILOVER_MAX = 5;
+/** Автовыбор не должен блокировать подключение дольше этого времени.
+ *  pingBatch внутри одного вызова проверяет до 5 узлов параллельно, поэтому
+ *  последовательное ожидание нескольких чанков превращалось в 30–60 секунд. */
+const AUTO_SELECT_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise<T>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallback);
+      }
+    }, timeoutMs);
+    promise.then(
+      (value) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        }
+      },
+      () => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          resolve(fallback);
+        }
+      }
+    );
+  });
+}
 
 let failoverPool: VpnNode[] = [];
 /** Узел, на котором реально поднят туннель (для статистики «по серверам»).
@@ -179,7 +211,39 @@ export async function pickBestNode(
       tested.push(n);
     }
     if (outbounds.length) {
-      const results = await pingNodesBatch(outbounds.map((xrayJson) => ({ xrayJson })));
+      // pingNodesBatch режет вход на последовательные порции по 5. Для
+      // автовыбора это было критично: 15 узлов × 8 секунд давали почти минуту
+      // до старта туннеля. Запускаем независимые порции одновременно и всё
+      // равно ограничиваем общий срок ожидания; лучший из успевших ответов
+      // выбирается сразу, а не после таймаута каждого мёртвого узла.
+      const chunks: Array<{ offset: number; items: Array<{ xrayJson: string }> }> = [];
+      for (let i = 0; i < outbounds.length; i += 5) {
+        chunks.push({
+          offset: i,
+          items: outbounds.slice(i, i + 5).map((xrayJson) => ({ xrayJson })),
+        });
+      }
+      const emptyResult: { success: boolean; delay: number; error?: string } = {
+        success: false,
+        delay: -1,
+        error: "проверка не завершилась",
+      };
+      const resultChunks = await withTimeout(
+        Promise.all(
+          chunks.map(async ({ offset, items }) => ({
+            offset,
+            results: await withTimeout(pingNodesBatch(items), 9_000, []),
+          }))
+        ),
+        AUTO_SELECT_TIMEOUT_MS,
+        [] as Array<{ offset: number; results: Array<{ success: boolean; delay: number; error?: string }> }>
+      );
+      const results = Array.from({ length: outbounds.length }, () => ({ ...emptyResult }));
+      for (const chunk of resultChunks) {
+        chunk.results.forEach((result, index) => {
+          if (chunk.offset + index < results.length) results[chunk.offset + index] = result;
+        });
+      }
       // Диагностика: почему узлы не прошли тест (видно в logcat ReactNativeJS)
       try {
         console.log(
