@@ -673,7 +673,7 @@ const makeStyles = () => StyleSheet.create({
   miniRub: { color: colors.accent, fontSize: 13, fontWeight: "900" },
   miniValue: { color: colors.text, fontSize: 12.5, fontWeight: "800", lineHeight: 14 },
   miniLabel: { color: colors.textDim, fontSize: 9, marginTop: 1 },
-  powerArea: { flexGrow: 1, flexShrink: 1, minHeight: 220, maxHeight: 232, paddingVertical: 4, alignItems: "center", justifyContent: "center" },
+  powerArea: { flexGrow: 1, flexShrink: 1, minHeight: 220, maxHeight: 232, marginTop: 14, paddingVertical: 4, alignItems: "center", justifyContent: "center" },
   timer: { marginTop: 4, fontSize: 14, color: colors.textDim, letterSpacing: 2 },
   error: { marginTop: 8, fontSize: 12, color: colors.red, textAlign: "center", paddingHorizontal: 30 },
   serverIcon: {
