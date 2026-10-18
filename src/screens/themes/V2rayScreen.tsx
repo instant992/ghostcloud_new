@@ -423,7 +423,7 @@ export default function V2rayScreen() {
                           accessibilityRole="button"
                           accessibilityLabel={expanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}
                         >
-                          <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={15} color={colors.textDim} />
+                          <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={21} color={colors.textDim} />
                           <Text style={styles.groupToggleText}>{expanded ? "Свернуть варианты" : `Ещё вариантов: ${group.nodes.length - 1}`}</Text>
                         </Pressable>}
                         {group.duplicate && expanded && group.nodes.slice(1).map((variant) => (

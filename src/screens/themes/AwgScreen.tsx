@@ -358,7 +358,7 @@ export default function AwgScreen() {
             >
               {selectedInfo?.name || "Выберите сервер"}
             </Text>
-            <Ionicons name="chevron-down" size={18} color={colors.textFaint} />
+            <Ionicons name="chevron-down" size={26} color={colors.textFaint} />
           </View>
           {/* Снизу: пинг слева от протокола */}
           <View style={styles.serverSubRow}>

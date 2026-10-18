@@ -594,8 +594,8 @@ function ServerPicker({
                   {selected && (
                     <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />
                   )}
-                  {group.duplicate && <PressableScale onPress={() => setExpanded((v) => ({ ...v, [group.key]: !isExpanded }))} hitSlop={8} accessibilityLabel={isExpanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}>
-                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textDim} />
+                  {group.duplicate && <PressableScale onPress={() => setExpanded((v) => ({ ...v, [group.key]: !isExpanded }))} hitSlop={10} accessibilityLabel={isExpanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}>
+                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={colors.textDim} />
                   </PressableScale>}
                 </PressableScale>
                 {group.duplicate && isExpanded && group.nodes.slice(1).map((node) => {

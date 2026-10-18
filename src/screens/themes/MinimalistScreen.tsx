@@ -213,7 +213,7 @@ export default function MinimalistScreen() {
           <Text style={styles.serverTypeText} numberOfLines={1}>
             {serverTab === "lte" ? `LTE OPEN (${lteNodes.length})` : `Обычные серверы (${mainNodes.length})`}
           </Text>
-          <Ionicons name={serverMenuOpen ? "chevron-up" : "chevron-down"} size={15} color={colors.textDim} />
+          <Ionicons name={serverMenuOpen ? "chevron-up" : "chevron-down"} size={26} color={colors.textDim} />
         </Pressable>
         {serverMenuOpen && (
           <View style={styles.serverTypeMenu}>

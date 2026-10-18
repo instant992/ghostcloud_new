@@ -318,7 +318,7 @@ export default function GlassScreen() {
                 <Ionicons name="refresh" size={15} color={colors.textDim} />
               )}
             </Pressable>
-            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
+            <Ionicons name="chevron-forward" size={26} color={colors.textFaint} />
           </Pressable>
           <View style={styles.glassDivider} />
           <Pressable
@@ -334,7 +334,7 @@ export default function GlassScreen() {
               <Text style={styles.serverName}>Фильтр соединения</Text>
               <Text style={styles.serverSub}>Какие приложения идут через VPN</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textFaint} />
+            <Ionicons name="chevron-forward" size={26} color={colors.textFaint} />
           </Pressable>
         </GlassCard>
 

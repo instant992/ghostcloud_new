@@ -164,7 +164,7 @@ export function ServerSheet({
                         {ping.delay} мс
                       </Text>
                     ) : null)}
-                  {group.duplicate && <Pressable onPress={() => setExpanded((v) => ({ ...v, [group.key]: !isExpanded }))} hitSlop={8} accessibilityRole="button" accessibilityLabel={isExpanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}><Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textDim} /></Pressable>}
+                  {group.duplicate && <Pressable onPress={() => setExpanded((v) => ({ ...v, [group.key]: !isExpanded }))} hitSlop={8} accessibilityRole="button" accessibilityLabel={isExpanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}><Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={colors.textDim} /></Pressable>}
                   {selected && <View style={[styles.dot, { backgroundColor: colors.accent }]} />}
                 </Pressable>
                 {group.duplicate && isExpanded && group.nodes.slice(1).map((node) => {

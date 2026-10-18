@@ -58,7 +58,10 @@ export async function ensureFreshPings(
   const snap = getSnapshot();
   const hasAll = regular.every((n) => snap[n.id]?.status === "done");
   if (hasAll) return;
-  if (!isRunning()) void pingAll(regular);
+  if (!isRunning()) {
+    await pingAll(regular);
+    return;
+  }
   await new Promise<void>((resolve) => {
     const deadline = Date.now() + timeoutMs;
     const timer = setInterval(() => {
