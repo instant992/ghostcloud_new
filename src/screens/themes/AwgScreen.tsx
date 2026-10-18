@@ -204,6 +204,21 @@ export default function AwgScreen() {
     if (id === AUTO_SERVER_ID) {
       selectNode(id);
       setSheetOpen(false);
+      if (vpnRunning) {
+        try {
+          setBusy(true);
+          await disconnect();
+          const best = await resolveConnectNode(nodes, id);
+          if (!best) throw new Error("Нет доступных серверов");
+          await connect(best, { isSponsor: me?.is_sponsor === true });
+          setVpnRunning(true);
+        } catch (e: any) {
+          showToast(e?.message || "Ошибка умного режима");
+          setVpnRunning(false);
+        } finally {
+          setBusy(false);
+        }
+      }
       return;
     }
     const node = allVisible.find((n) => n.id === id);

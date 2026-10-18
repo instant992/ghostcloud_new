@@ -173,6 +173,31 @@ export default function V2rayScreen() {
     Haptics.selectionAsync().catch(() => {});
   };
 
+  const chooseNode = async (id: string) => {
+    if (busy) return;
+    const target = id === AUTO_SERVER_ID
+      ? await resolveConnectNode(nodes, id)
+      : nodes.find((n) => n.id === id) || null;
+    if (!target) {
+      showToast("Нет доступных серверов");
+      return;
+    }
+    selectNode(id);
+    Haptics.selectionAsync().catch(() => {});
+    if (!vpnRunning) return;
+    setBusy(true);
+    try {
+      await disconnect();
+      await connect(target, { isSponsor: me?.is_sponsor === true });
+      setVpnRunning(true);
+    } catch (e: any) {
+      showToast(e?.message || "Ошибка переподключения");
+      setVpnRunning(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const toggleSmartLocation = async (v: boolean) => {
     if (!v) {
       setSmartLocation(false);
@@ -361,10 +386,7 @@ export default function V2rayScreen() {
                   ListHeaderComponent={t.key === "main" ? (
                     <Pressable
                       style={[styles.row, selectedNodeId === AUTO_SERVER_ID && { backgroundColor: colors.accentSoft }]}
-                      onPress={() => {
-                        selectNode(AUTO_SERVER_ID);
-                        Haptics.selectionAsync().catch(() => {});
-                      }}
+                      onPress={() => { void chooseNode(AUTO_SERVER_ID); }}
                       accessibilityRole="button"
                       accessibilityLabel="Умный режим: выбирать лучший доступный сервер"
                       accessibilityState={{ selected: selectedNodeId === AUTO_SERVER_ID }}
@@ -391,10 +413,7 @@ export default function V2rayScreen() {
                           selected={group.nodes.some((n) => n.id === selectedNodeId)}
                           ping={pings[node.id]}
                           isPinned={pinned.includes(node.id)}
-                          onSelect={() => {
-                            selectNode(node.id);
-                            Haptics.selectionAsync().catch(() => {});
-                          }}
+                          onSelect={() => { void chooseNode(node.id); }}
                           onPing={() => pingStore.pingOne(node)}
                           onTogglePin={() => togglePin(node.id)}
                         />
@@ -414,7 +433,7 @@ export default function V2rayScreen() {
                             selected={variant.id === selectedNodeId}
                             ping={pings[variant.id]}
                             isPinned={pinned.includes(variant.id)}
-                            onSelect={() => { selectNode(variant.id); Haptics.selectionAsync().catch(() => {}); }}
+                            onSelect={() => { void chooseNode(variant.id); }}
                             onPing={() => pingStore.pingOne(variant)}
                             onTogglePin={() => togglePin(variant.id)}
                           />

@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
-import { connect, disconnect } from "../../vpn/manager";
+import { connect, disconnect, resolveConnectNode } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import type { VpnNode } from "../../vpn/parse";
@@ -381,10 +381,25 @@ export default function GlassScreen() {
         onClose={() => setPickerOpen(false)}
         nodes={allVisible}
         selectedId={selectedNodeId}
-        onSelect={(id) => {
+        onSelect={async (id) => {
           if (id === AUTO_SERVER_ID) {
             selectNode(id);
             setPickerOpen(false);
+            if (vpnRunning) {
+              setBusy(true);
+              try {
+                await disconnect();
+                const best = await resolveConnectNode(nodes, id);
+                if (!best) throw new Error("Нет доступных серверов");
+                await connect(best, { isSponsor: me?.is_sponsor === true });
+                setVpnRunning(true);
+              } catch (e: any) {
+                showToast(e?.message || "Ошибка умного режима");
+                setVpnRunning(false);
+              } finally {
+                setBusy(false);
+              }
+            }
             return;
           }
           const node = allVisible.find((n) => n.id === id);
