@@ -178,7 +178,11 @@ export default function HomeScreen() {
   };
 
   const connected = vpnRunning;
-  const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
+  const selectedInfo = selectedNode
+    ? splitNameFlag(selectedNode.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
   const daysLeft = useMemo(() => {
     if (!me?.expire_at) return 0;
     const d = new Date(String(me.expire_at)).getTime();
@@ -255,8 +259,8 @@ export default function HomeScreen() {
           onPress={() => setPickerOpen(true)}
           accessibilityRole="button"
           accessibilityLabel={
-            selectedNode && selectedInfo
-              ? `Выбранный сервер: ${selectedInfo.name}. ${transportLabel(selectedNode)}. Нажмите, чтобы изменить`
+            selectedInfo
+              ? `Выбранный сервер: ${selectedInfo.name}.${selectedNode ? ` ${transportLabel(selectedNode)}` : " Выбор лучшего доступного сервера"} Нажмите, чтобы изменить`
               : "Сервер не выбран. Нажмите, чтобы выбрать локацию"
           }
         >
@@ -264,13 +268,13 @@ export default function HomeScreen() {
             <Ionicons name="flash" size={20} color={colors.accent} />
           </View>
           <View style={{ flex: 1 }}>
-            {selectedNode && selectedInfo ? (
+            {selectedInfo ? (
               <>
                 <Text style={styles.serverName} numberOfLines={1}>
                   {selectedInfo.name}
                 </Text>
                 <Text style={styles.serverSub} numberOfLines={1}>
-                  {transportLabel(selectedNode)}
+                  {selectedNode ? transportLabel(selectedNode) : "Лучший доступный сервер"}
                 </Text>
               </>
             ) : (

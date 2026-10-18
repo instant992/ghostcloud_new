@@ -172,7 +172,11 @@ export default function GlassScreen() {
     }
   };
 
-  const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
+  const selectedInfo = selectedNode
+    ? splitNameFlag(selectedNode.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
   const pingDone = selPing && selPing.status === "done" ? selPing : null;
   const pingOk = Boolean(pingDone && pingDone.delay > 0);
@@ -295,7 +299,7 @@ export default function GlassScreen() {
                 {selectedInfo?.name || "Сервер не выбран"}
               </Text>
               <Text style={styles.serverSub} numberOfLines={1}>
-                {selectedNode ? transportLabel(selectedNode) : "Выберите локацию"}
+                {selectedNode ? transportLabel(selectedNode) : selectedNodeId === AUTO_SERVER_ID ? "Лучший доступный сервер" : "Выберите локацию"}
               </Text>
             </View>
             <Pressable

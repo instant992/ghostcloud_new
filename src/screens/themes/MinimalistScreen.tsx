@@ -164,7 +164,11 @@ export default function MinimalistScreen() {
     }
   };
 
-  const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
+  const selectedInfo = selectedNode
+    ? splitNameFlag(selectedNode.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
 
   return (
@@ -352,7 +356,7 @@ export default function MinimalistScreen() {
               {selectedInfo?.name || "Сервер не выбран"}
             </Text>
             <Text style={styles.selectedSub} numberOfLines={1}>
-              {selectedNode ? transportLabel(selectedNode) : "Нажмите, чтобы выбрать"}
+              {selectedNode ? transportLabel(selectedNode) : selectedNodeId === AUTO_SERVER_ID ? "Лучший доступный сервер" : "Нажмите, чтобы выбрать"}
             </Text>
           </View>
           {selPing?.status === "pending" ? (

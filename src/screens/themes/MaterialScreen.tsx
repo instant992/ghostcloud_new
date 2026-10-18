@@ -34,7 +34,11 @@ export default function MaterialScreen() {
   const nav = useNavigation<any>();
   const { loading, nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes, subscriptionUpdatedAt } = useApp();
   const selected = useMemo(() => selectedNodeId === AUTO_SERVER_ID ? null : resolveSavedNode(selectedNodeId, nodes), [selectedNodeId, nodes]);
-  const info = selected ? splitNameFlag(selected.name) : null;
+  const info = selected
+    ? splitNameFlag(selected.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
   const ping = selected ? pings[selected.id] : undefined;
   const seconds = useVpnTimerSeconds(vpnRunning);

@@ -220,7 +220,11 @@ function TvDashboardTab() {
     }
   };
 
-  const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
+  const selectedInfo = selectedNode
+    ? splitNameFlag(selectedNode.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
 
   return (
     // Минималистичный «hero»-экран: одна крупная кнопка питания по центру,
@@ -303,7 +307,7 @@ function TvDashboardTab() {
                 <Text style={[s.chipPing, { color: colors.textFaint }]}>…</Text>
               )}
             </View>
-            {selectedNode && selectedInfo ? (
+            {selectedInfo ? (
               <>
                 {!!selectedInfo.flag && <Text style={s.chipFlag}>{selectedInfo.flag}</Text>}
                 <View style={{ flex: 1, minWidth: 0 }}>
@@ -312,7 +316,7 @@ function TvDashboardTab() {
                   </Text>
                 </View>
                 <Text style={s.chipSub} numberOfLines={1}>
-                  {transportLabel(selectedNode)}
+                  {selectedNode ? transportLabel(selectedNode) : "Лучший доступный сервер"}
                 </Text>
               </>
             ) : (

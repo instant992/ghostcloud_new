@@ -225,7 +225,11 @@ export default function AwgScreen() {
     }
   };
 
-  const selectedInfo = selectedNode ? splitNameFlag(selectedNode.name) : null;
+  const selectedInfo = selectedNode
+    ? splitNameFlag(selectedNode.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
   const selPing = selectedNode ? pings[selectedNode.id] : undefined;
   const glow = vpnRunning ? colors.accent : isLightPalette() ? colors.accent : "#F5F0E6";
 

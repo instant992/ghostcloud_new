@@ -100,6 +100,11 @@ export default function V2rayScreen() {
     () => selectedNodeId === AUTO_SERVER_ID ? null : nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || lteNodes[0] || null,
     [nodes, selectedNodeId, mainNodes, lteNodes]
   );
+  const selectedInfo = selectedNode
+    ? splitNameFlag(selectedNode.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
 
   // Пинг — только по кнопке «Пинг» в меню выбора серверов, без автопроверки
 

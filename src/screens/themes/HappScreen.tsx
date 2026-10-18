@@ -112,6 +112,11 @@ export default function HappScreen() {
     () => selectedNodeId === AUTO_SERVER_ID ? null : nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
     [nodes, selectedNodeId, mainNodes]
   );
+  const selectedInfo = selectedNode
+    ? splitNameFlag(selectedNode.name)
+    : selectedNodeId === AUTO_SERVER_ID
+      ? { name: "Умный режим", flag: "✨" }
+      : null;
 
   useEffect(() => {
     const load = () => stats.sumDays(1).then(setTodayStat).catch(() => {});
