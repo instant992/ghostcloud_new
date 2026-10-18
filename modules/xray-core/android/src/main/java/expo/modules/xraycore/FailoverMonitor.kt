@@ -127,6 +127,12 @@ class FailoverMonitor(
 
   private fun check() {
     try {
+      // Отсутствие внешней сети — не отказ сервера. Не перебираем кандидатов
+      // при обрыве Wi‑Fi/LTE.
+      if (!hasValidatedExternalNetwork()) {
+        failures = 0
+        return
+      }
       val ok = tcpPing(host, port)
       if (ok) {
         if (failures > 0) Log.i(TAG, "$host:$port reachable again")
@@ -144,6 +150,10 @@ class FailoverMonitor(
   }
 
   private fun switchToNext() {
+    if (!hasValidatedExternalNetwork()) {
+      failures = 0
+      return
+    }
     val total = candidates.size
     if (total == 0) return
     for (step in 1..total) {
@@ -190,6 +200,23 @@ class FailoverMonitor(
       }
       true
     } catch (e: Throwable) {
+      false
+    }
+  }
+
+  /** Проверяет физическую сеть под VPN. activeNetwork нельзя использовать:
+   * при поднятом TUN он указывает на сам VPN. */
+  private fun hasValidatedExternalNetwork(): Boolean {
+    return try {
+      val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE)
+        as? android.net.ConnectivityManager ?: return false
+      cm.allNetworks.any { network ->
+        val caps = cm.getNetworkCapabilities(network) ?: return@any false
+        !caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) &&
+          caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+          caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+      }
+    } catch (_: Throwable) {
       false
     }
   }

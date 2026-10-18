@@ -10,12 +10,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { useApp } from "../../context";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
-import { connect, disconnect, isVpnRunning, resolveSavedNode } from "../../vpn/manager";
+import { connect, disconnect, isVpnRunning, resolveSavedNode, resolveConnectNode } from "../../vpn/manager";
 import { formatElapsed, useVpnTimerSeconds } from "../../vpn/timer";
 import * as pingStore from "../../vpn/pingStore";
 import * as stats from "../../stats";
 import { formatBytes, splitNameFlag, pingColor, pingFailLabel } from "../../theme";
 import { transportLabel } from "../../utils/transportLabel";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import { ServerSheet } from "./ServerSheet";
 
 type Operation = "connect" | "disconnect" | "switch" | null;
@@ -32,7 +33,7 @@ export default function MaterialScreen() {
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const { loading, nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes, subscriptionUpdatedAt } = useApp();
-  const selected = useMemo(() => resolveSavedNode(selectedNodeId, nodes), [selectedNodeId, nodes]);
+  const selected = useMemo(() => selectedNodeId === AUTO_SERVER_ID ? null : resolveSavedNode(selectedNodeId, nodes), [selectedNodeId, nodes]);
   const info = selected ? splitNameFlag(selected.name) : null;
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
   const ping = selected ? pings[selected.id] : undefined;
@@ -96,20 +97,47 @@ export default function MaterialScreen() {
   const toggle = async () => {
     if (operationLock.current || loading) return;
     if (!vpnRunning && !canConnect) { setError("Подписка неактивна. Продлите её в разделе «Тарифы»."); return; }
-    if (!vpnRunning && !selected) { setPickerOpen(true); return; }
+    if (!vpnRunning && !selected && selectedNodeId !== AUTO_SERVER_ID) { setPickerOpen(true); return; }
     operationLock.current = true;
     setOperation(vpnRunning ? "disconnect" : "connect");
     setError(null);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     try {
       if (vpnRunning) { await disconnect(); if (mounted.current) setVpnRunning(false); }
-      else if (selected) { await connect(selected, { isSponsor: me?.is_sponsor === true }); if (mounted.current) setVpnRunning(true); }
+      else if (!vpnRunning) {
+        const target = await resolveConnectNode(nodes, selectedNodeId);
+        if (!target) throw new Error("Нет доступных серверов");
+        await connect(target, { isSponsor: me?.is_sponsor === true });
+        if (mounted.current) setVpnRunning(true);
+      }
     } catch (cause) { await reportConnectionError(cause, "Не удалось изменить состояние VPN. Попробуйте ещё раз."); }
     finally { operationLock.current = false; if (mounted.current) setOperation(null); }
   };
   const chooseNode = async (id: string) => {
     if (operationLock.current || loading) return;
-    const node = nodes.find(item => item.id === id);
+    const node = id === AUTO_SERVER_ID ? null : nodes.find(item => item.id === id);
+    if (id === AUTO_SERVER_ID) {
+      selectNode(id);
+      setPickerOpen(false);
+      if (vpnRunning) {
+        operationLock.current = true;
+        setOperation("switch");
+        try {
+          await disconnect();
+          if (mounted.current) setVpnRunning(false);
+          const best = await resolveConnectNode(nodes, id);
+          if (!best) throw new Error("Нет доступных серверов");
+          await connect(best, { isSponsor: me?.is_sponsor === true });
+          if (mounted.current) setVpnRunning(true);
+        } catch (cause) {
+          await reportConnectionError(cause, "Не удалось подключиться в умном режиме.");
+        } finally {
+          operationLock.current = false;
+          if (mounted.current) setOperation(null);
+        }
+      }
+      return;
+    }
     if (!node) { setError("Этот сервер больше недоступен. Обновите список."); return; }
     setPickerOpen(false);
     if (selected?.id === id) return;
@@ -239,7 +267,8 @@ export default function MaterialScreen() {
         </TouchableRipple>
       </View>
       </ScrollView>
-      <ServerSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} nodes={nodes} selectedId={selected?.id || null} onSelect={id => { void chooseNode(id); }} />
+      <ServerSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} nodes={nodes} selectedId={selectedNodeId}
+ onSelect={id => { void chooseNode(id); }} />
       <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />
     </View>
   );

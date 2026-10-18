@@ -16,6 +16,8 @@ import {
   isNodeUsable,
   ensureFreshPings,
   isLteNode,
+  isSmartModeNode,
+  AUTO_SERVER_ID,
 } from "./autoSelect";
 import { getSnapshot as getPingSnapshot } from "./pingStore";
 import { pingNodesBatch, loadLibCore, getCoreStatus, truncateTextFile, accessLogPath, errorLogPath } from "./native";
@@ -69,6 +71,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Pr
 }
 
 let failoverPool: VpnNode[] = [];
+let smartModeForNextConnect = false;
 /** Узел, на котором реально поднят туннель (для статистики «по серверам»).
  *  Выбранный узел может быть null (подключение на первый доступный),
  *  поэтому учитываем фактический. */
@@ -81,6 +84,13 @@ export function getLastConnectedNodeId(): string | null {
 /** Задаёт пул серверов-кандидатов для авто-файловера (вызывается из контекста при загрузке узлов). */
 export function setFailoverPool(nodes: VpnNode[]): void {
   failoverPool = nodes;
+}
+
+export async function resolveConnectNode(nodes: VpnNode[], selectedId: string | null): Promise<VpnNode | null> {
+  smartModeForNextConnect = selectedId === AUTO_SERVER_ID;
+  if (selectedId !== AUTO_SERVER_ID) return nodes.find((n) => n.id === selectedId) || null;
+  const ranked = await pickBestNode(nodes, { max: 1 });
+  return ranked[0] || null;
 }
 
 /** Выбранный DNS-провайдер (преимущество спонсоров; для остальных — «Автоматически») */
@@ -114,7 +124,8 @@ function buildFailoverInfo(
   current: VpnNode,
   bypassDomains: string[],
   isSponsor: boolean,
-  roscomMode?: RoscomMode | null
+  roscomMode?: RoscomMode | null,
+  smartMode = false
 ): FailoverInfo | undefined {
   // Файловер НЕ должен менять класс сервера: у LTE OPEN-ноды запасные — только
   // другие LTE-ноды, у обычной — только обычные. Иначе при обрыве LTE-сервера
@@ -123,7 +134,7 @@ function buildFailoverInfo(
   const currentIsLte = isLteNode(current);
   const rest = failoverPool
     .filter((n) => n.id !== current.id)
-    .filter((n) => (currentIsLte ? isLteNode(n) : n.source !== "lte"))
+    .filter((n) => currentIsLte ? isLteNode(n) : (smartMode ? isSmartModeNode(n) : n.source !== "lte"))
     .filter((n) => isNodeUsable(n))
     .filter((n) => (core === "xray" || core === "uwuray" || core === "xray-last" || core === "xray-joly" ? n.supportedByXray : true));
   // Сортировка по пингу — локальная (rankByPing отфильтровал бы LTE-ноды).
@@ -180,7 +191,7 @@ export async function pickBestNode(
   // Кандидаты: обычные (не LTE), способные собрать рабочий конфиг
   const candidates = nodes.filter(
     (n) =>
-      !isLteNode(n) &&
+      isSmartModeNode(n) &&
       !exclude.has(n.id) &&
       isNodeUsable(n) &&
       (core === "xray" || core === "uwuray" || core === "xray-last" || core === "xray-joly" ? n.supportedByXray : true)
@@ -277,7 +288,10 @@ export async function pickBestNode(
   await ensureFreshPings(candidates);
   const ranked = rankByPing(candidates);
   if (ranked.length) return ranked.slice(0, max);
-  return candidates.slice(0, max);
+  // Автовыбор не имеет права молча подключаться к первому серверу после
+  // завершившегося теста: при отсутствии интернета все узлы иначе выглядели
+  // бы одинаково «лучшими».
+  return [];
 }
 
 async function fetchText(url: string, userAgent: string): Promise<string | null> {
@@ -607,7 +621,9 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
       if (active) roscomMode = "default";
     }
   } catch {}
-  const failover = buildFailoverInfo(core, node, bypass.domains, isSponsor, roscomMode);
+  const smartMode = smartModeForNextConnect;
+  smartModeForNextConnect = false;
+  const failover = buildFailoverInfo(core, node, bypass.domains, isSponsor, roscomMode, smartMode);
 
   // Сохраняем конфигурацию для плитки быстрых настроек (включение без приложения)
   // + имя сервера для уведомления (без ведущего флага — в шторке флаги-эмодзи

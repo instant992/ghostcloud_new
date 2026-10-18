@@ -33,6 +33,8 @@ import * as stats from "../stats";
 import { colors, splitNameFlag, formatBytes, useTheme, pingColor, pingFailLabel, isLightPalette, countryFromName, countryFromFlag, BRAND_PURPLE } from "../theme";
 import { WorldMap, type MapMarker } from "../components/worldMap/WorldMap";
 import { buildMapMarkers } from "../components/worldMap/markers";
+import { AUTO_SERVER_ID } from "../vpn/autoSelect";
+import { resolveConnectNode } from "../vpn/manager";
 
 export default function HomeScreen() {
   useTheme();
@@ -96,7 +98,7 @@ export default function HomeScreen() {
   );
 
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
+    () => selectedNodeId === AUTO_SERVER_ID ? null : nodes.find((n) => n.id === selectedNodeId) || nodes[0] || null,
     [nodes, selectedNodeId]
   );
 
@@ -159,7 +161,9 @@ export default function HomeScreen() {
         setVpnRunning(false);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } else {
-        const target = selectedNode;
+        const target = selectedNodeId === AUTO_SERVER_ID
+          ? await resolveConnectNode(nodes, selectedNodeId)
+          : selectedNode;
         if (!target) throw new Error("Нет доступных серверов");
         await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
@@ -386,7 +390,7 @@ export default function HomeScreen() {
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
         nodes={nodes}
-        selectedId={selectedNodeId || nodes[0]?.id || null}
+        selectedId={selectedNodeId}
         subscriptionActive={subscriptionActive}
         onSelect={(id) => {
           selectNode(id);
@@ -398,6 +402,18 @@ export default function HomeScreen() {
               setError(null);
               try {
                 await disconnect();
+                if (id === AUTO_SERVER_ID) {
+                  selectNode(id);
+                  const best = await resolveConnectNode(nodes, id);
+                  if (!best) {
+                    setVpnRunning(false);
+                    setError("Нет доступных серверов");
+                    return;
+                  }
+                  await connect(best, { isSponsor: me?.is_sponsor === true });
+                  setVpnRunning(true);
+                  return;
+                }
                 const node = nodes.find((n) => n.id === id) || null;
                 if (!node) {
                   setVpnRunning(false);
@@ -503,6 +519,23 @@ function ServerPicker({
           bounces={false}
           overScrollMode="never"
             data={filtered}
+            ListHeaderComponent={tab === "regular" ? (
+              <PressableScale
+                style={[styles.sheetItem, selectedId === AUTO_SERVER_ID && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
+                onPress={() => onSelect(AUTO_SERVER_ID)}
+                accessibilityRole="button"
+                accessibilityLabel="Умный режим: выбирать лучший доступный сервер"
+              >
+                <Ionicons name="sparkles" size={24} color={colors.accent} />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.sheetItemName}>Умный режим</Text>
+                  <Text style={styles.sheetItemSub}>Лучший доступный сервер</Text>
+                </View>
+                {selectedId === AUTO_SERVER_ID && (
+                  <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />
+                )}
+              </PressableScale>
+            ) : null}
             extraData={pings}
             keyExtractor={(n: any) => n.id}
             style={{ maxHeight: 420 }}

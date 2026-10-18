@@ -26,6 +26,7 @@ import { transportLabel } from "../../utils/transportLabel";
 import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import * as stats from "../../stats";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 
@@ -68,7 +69,7 @@ export default function MinimalistScreen() {
   const allVisible = useMemo(() => [...mainNodes, ...lteNodes], [mainNodes, lteNodes]);
 
   const selectedNode = useMemo(
-    () => allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    () => selectedNodeId === AUTO_SERVER_ID ? null : allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
     [allVisible, selectedNodeId, mainNodes]
   );
   /** Список серверов выбранного типа (обычные / LTE OPEN) */
@@ -115,7 +116,7 @@ export default function MinimalistScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        const target = selectedNode;
+        const target = selectedNodeId === AUTO_SERVER_ID ? await (await import("../../vpn/manager")).resolveConnectNode(nodes, selectedNodeId) : selectedNode;
         if (!target) {
           showToast("Нет доступных серверов");
           return;

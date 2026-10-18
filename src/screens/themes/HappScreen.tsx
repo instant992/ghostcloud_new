@@ -24,9 +24,10 @@ import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { avatarOwner } from "../../avatarCache";
 import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
-import { connect, disconnect } from "../../vpn/manager";
+import { connect, disconnect, resolveConnectNode } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, pingFailLabel, BRAND_PURPLE } from "../../theme";
@@ -108,7 +109,7 @@ export default function HappScreen() {
   );
 
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    () => selectedNodeId === AUTO_SERVER_ID ? null : nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
     [nodes, selectedNodeId, mainNodes]
   );
 
@@ -158,7 +159,9 @@ export default function HappScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        const target = selectedNode;
+        const target = selectedNodeId === AUTO_SERVER_ID
+          ? await resolveConnectNode(nodes, selectedNodeId)
+          : selectedNode;
         if (!target) {
           showToast("Нет доступных серверов");
           return;
@@ -176,6 +179,25 @@ export default function HappScreen() {
   };
 
   const chooseNode = async (node: VpnNode) => {
+    if (node.id === AUTO_SERVER_ID) {
+      selectNode(node.id);
+      if (vpnRunning) {
+        try {
+          setBusy(true);
+          await disconnect();
+          const best = await resolveConnectNode(nodes, node.id);
+          if (!best) throw new Error("Нет доступных серверов");
+          await connect(best, { isSponsor: me?.is_sponsor === true });
+          setVpnRunning(true);
+        } catch (e: any) {
+          showToast(e?.message || "Ошибка умного режима");
+          setVpnRunning(false);
+        } finally {
+          setBusy(false);
+        }
+      }
+      return;
+    }
     selectNode(node.id);
     Haptics.selectionAsync().catch(() => {});
     if (vpnRunning) {

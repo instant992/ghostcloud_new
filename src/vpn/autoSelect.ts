@@ -1,13 +1,16 @@
 import { getSnapshot, isRunning, pingAll } from "./pingStore";
 import type { VpnNode } from "./parse";
 
-/** ID режима «Автовыбор» — оставлен только для миграции сохранённого выбора:
- *  сам режим убран из приложения (storage.ts сбрасывает это значение). */
+/** Виртуальный ID режима, который сохраняется вместо случайно выбранной ноды. */
 export const AUTO_SERVER_ID = "__auto__";
 
-/** LTE-узлы в автовыбор не участвуют */
-const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-");
+/** LTE и российские серверы не участвуют в «Умном режиме». Проверяем имя тоже:
+ * подписка может пометить LTE только в названии, без source="lte". */
+const isLte = (n: VpnNode) => n.source === "lte" || n.id.startsWith("lte-") || /\blte\b/i.test(n.name);
 export const isLteNode = isLte;
+export const isSmartModeExcluded = (n: VpnNode): boolean =>
+  isLte(n) || /россия|russia/i.test(n.name);
+export const isSmartModeNode = (n: VpnNode): boolean => !isSmartModeExcluded(n);
 
 /** Проверка, что узел вообще способен собрать рабочий конфиг:
  *  у REALITY обязан быть publicKey (иначе ядро падает с «empty "password"»),
@@ -34,7 +37,7 @@ export function isNodeUsable(n: VpnNode): boolean {
 export function rankByPing(nodes: VpnNode[]): VpnNode[] {
   const snap = getSnapshot();
   return nodes
-    .filter((n) => !isLte(n) && isNodeUsable(n))
+    .filter((n) => isSmartModeNode(n) && isNodeUsable(n))
     .map((n) => ({ n, p: snap[n.id] }))
     .filter(
       (x): x is { n: VpnNode; p: { status: "done"; delay: number } } =>
@@ -50,7 +53,7 @@ export async function ensureFreshPings(
   nodes: VpnNode[],
   timeoutMs = 15000
 ): Promise<void> {
-  const regular = nodes.filter((n) => !isLte(n) && n.supportedByXray && isNodeUsable(n));
+  const regular = nodes.filter((n) => isSmartModeNode(n) && n.supportedByXray && isNodeUsable(n));
   if (regular.length === 0) return;
   const snap = getSnapshot();
   const hasAll = regular.every((n) => snap[n.id]?.status === "done");

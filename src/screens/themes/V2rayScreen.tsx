@@ -18,7 +18,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
-import { connect, disconnect } from "../../vpn/manager";
+import { connect, disconnect, resolveConnectNode } from "../../vpn/manager";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import * as pingStore from "../../vpn/pingStore";
 import { pickBestNode } from "../../vpn/manager";
 import type { VpnNode } from "../../vpn/parse";
@@ -96,7 +97,7 @@ export default function V2rayScreen() {
   const pinnedNodes = useMemo(() => nodes.filter((n) => pinned.includes(n.id)), [nodes, pinned]);
 
   const selectedNode = useMemo(
-    () => nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || lteNodes[0] || null,
+    () => selectedNodeId === AUTO_SERVER_ID ? null : nodes.find((n) => n.id === selectedNodeId) || mainNodes[0] || lteNodes[0] || null,
     [nodes, selectedNodeId, mainNodes, lteNodes]
   );
 
@@ -128,7 +129,9 @@ export default function V2rayScreen() {
         // после перезапуска selectedNode может остаться на мёртвой ноде, либо
         // подписка могла обновиться. Перед каждым новым подключением заново
         // проверяем все Xray-кандидаты реальным запросом через proxy.
-        let target = selectedNode;
+        let target = selectedNodeId === AUTO_SERVER_ID
+          ? await resolveConnectNode(nodes, selectedNodeId)
+          : selectedNode;
         if (smartLocation) {
           const ranked = await pickBestNode(nodes, { max: 1 });
           target = ranked[0] || null;
@@ -346,13 +349,33 @@ export default function V2rayScreen() {
                   bounces={false}
                   overScrollMode="never"
                   data={pageNodes}
+                  ListHeaderComponent={t.key === "main" ? (
+                    <Pressable
+                      style={[styles.row, selectedNodeId === AUTO_SERVER_ID && { backgroundColor: colors.accentSoft }]}
+                      onPress={() => {
+                        selectNode(AUTO_SERVER_ID);
+                        Haptics.selectionAsync().catch(() => {});
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Умный режим: выбирать лучший доступный сервер"
+                      accessibilityState={{ selected: selectedNodeId === AUTO_SERVER_ID }}
+                    >
+                      <View style={styles.selBar} />
+                      <View style={styles.rowFlag}><Ionicons name="sparkles" size={20} color={colors.accent} /></View>
+                      <View style={{ flex: 1, marginLeft: 11 }}>
+                        <Text style={styles.rowName}>Умный режим</Text>
+                        <Text style={styles.rowProto}>Лучший доступный сервер</Text>
+                      </View>
+                      {selectedNodeId === AUTO_SERVER_ID && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
+                    </Pressable>
+                  ) : null}
                   extraData={pings}
                   keyExtractor={(n) => n.id}
                   contentContainerStyle={{ paddingBottom: 96 }}
                   renderItem={({ item }) => (
                     <ServerRow
                       node={item}
-                      selected={item.id === selectedNode?.id}
+                      selected={item.id === selectedNodeId}
                       ping={pings[item.id]}
                       isPinned={pinned.includes(item.id)}
                       onSelect={() => {

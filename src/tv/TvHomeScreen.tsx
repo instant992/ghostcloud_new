@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } fro
 import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "../context";
-import { connect, disconnect } from "../vpn/manager";
+import { connect, disconnect, resolveConnectNode } from "../vpn/manager";
+import { AUTO_SERVER_ID } from "../vpn/autoSelect";
 import { getTrafficSnapshot } from "../vpn/native";
 import * as pingStore from "../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
@@ -150,7 +151,7 @@ function TvDashboardTab() {
   const visibleNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
 
   const selectedNode = useMemo(
-    () => visibleNodes.find((n) => n.id === selectedNodeId) || visibleNodes[0] || null,
+    () => selectedNodeId === AUTO_SERVER_ID ? null : visibleNodes.find((n) => n.id === selectedNodeId) || visibleNodes[0] || null,
     [visibleNodes, selectedNodeId]
   );
 
@@ -205,7 +206,9 @@ function TvDashboardTab() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        const target = selectedNode;
+        const target = selectedNodeId === AUTO_SERVER_ID
+          ? await resolveConnectNode(nodes, selectedNodeId)
+          : selectedNode;
         if (!target) throw new Error("Нет доступных серверов");
         await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);

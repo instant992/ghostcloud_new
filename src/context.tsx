@@ -686,6 +686,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               const pool = freshNodes || cachedNodes?.nodes || [];
               if (subActive && pool.length > 0) {
                 let node = resolveSavedNode(savedId, pool) || pool.find((n) => n.id === savedId) || null;
+                if (savedId === "__auto__") {
+                  node = await mgr.resolveConnectNode(pool, savedId);
+                }
                 if (!node) {
                   try {
                     const best = await mgr.pickBestNode(pool, { max: 1 });
@@ -695,7 +698,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   }
                 }
                 if (node) {
-                  if (savedId && node.id !== savedId) setSelectedNodeId(node.id);
+                  // В «Умном режиме» сохраняем виртуальный выбор, а не сервер,
+                  // найденный в текущем запуске. Иначе после автоподключения
+                  // режим незаметно превращается в ручной выбор.
+                  if (savedId !== "__auto__" && savedId && node.id !== savedId) setSelectedNodeId(node.id);
                   await mgr.connect(node, { isSponsor: meInfo?.is_sponsor === true, autoUpdateCore: false });
                 }
               }

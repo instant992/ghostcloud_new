@@ -7,7 +7,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
-import { connect, disconnect } from "../../vpn/manager";
+import { connect, disconnect, resolveConnectNode } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import type { VpnNode } from "../../vpn/parse";
 import { colors, splitNameFlag, useTheme, isLightPalette, sheetSurfaceBg } from "../../theme";
@@ -21,6 +21,7 @@ import { computeBypassForNetwork, loadFilterSettings } from "../../vpn/connectio
 import { getNetworkType } from "../../vpn/native";
 import { showToast } from "../../components/Toast";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 
 function pluralDays(n: number): string {
   const m10 = n % 10;
@@ -160,7 +161,7 @@ export default function AwgScreen() {
 
   const allVisible = useMemo(() => nodes, [nodes]);
   const selectedNode = useMemo(
-    () => allVisible.find((n) => n.id === selectedNodeId) || allVisible[0] || null,
+    () => selectedNodeId === AUTO_SERVER_ID ? null : nodes.find((n) => n.id === selectedNodeId) || allVisible[0] || null,
     [allVisible, selectedNodeId]
   );
 
@@ -179,7 +180,9 @@ export default function AwgScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        const target = selectedNode;
+        const target = selectedNodeId === AUTO_SERVER_ID
+          ? await resolveConnectNode(nodes, selectedNodeId)
+          : selectedNode;
         if (!target) {
           showToast("Нет доступных серверов");
           return;
@@ -197,6 +200,11 @@ export default function AwgScreen() {
   };
 
   const chooseNode = async (id: string) => {
+    if (id === AUTO_SERVER_ID) {
+      selectNode(id);
+      setSheetOpen(false);
+      return;
+    }
     const node = allVisible.find((n) => n.id === id);
     if (!node) return;
     selectNode(id);

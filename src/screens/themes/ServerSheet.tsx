@@ -5,6 +5,7 @@ import * as pingStore from "../../vpn/pingStore";
 import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColorFor, pingFailLabel } from "../../theme";
 import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 
 /** Шторка выбора сервера для тем minimalist / liquid glass.
  *  Кнопка «Пинг» всегда прижата вправо к кнопке закрытия (как в основной теме).
@@ -161,6 +162,22 @@ export function ServerSheet({
                 </Pressable>
               );
             }}
+            ListHeaderComponent={tab === "regular" ? (
+              <Pressable
+                style={[styles.item, selectedId === AUTO_SERVER_ID && styles.itemOn]}
+                onPress={() => onSelect(AUTO_SERVER_ID)}
+                accessibilityRole="button"
+                accessibilityLabel="Умный режим: выбирать лучший доступный сервер"
+                accessibilityState={{ selected: selectedId === AUTO_SERVER_ID }}
+              >
+                <Ionicons name="sparkles" size={22} color={colors.accent} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.itemName, selectedId === AUTO_SERVER_ID && { color: colors.accent }]}>Умный режим</Text>
+                  <Text style={styles.itemSub}>Лучший доступный сервер</Text>
+                </View>
+                {selectedId === AUTO_SERVER_ID && <View style={[styles.dot, { backgroundColor: colors.accent }]} />}
+              </Pressable>
+            ) : null}
             ListEmptyComponent={
               <Text style={{ color: colors.textFaint, textAlign: "center", paddingVertical: 24 }}>
                 Список пуст — обновите подписку

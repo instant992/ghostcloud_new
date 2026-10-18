@@ -11,11 +11,12 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as pingStore from "../vpn/pingStore";
-import { connect, disconnect } from "../vpn/manager";
+import { connect, disconnect, resolveConnectNode } from "../vpn/manager";
 import { useApp } from "../context";
 import { colors, pingColor, pingFailLabel, splitNameFlag } from "../theme";
 import { transportLabel } from "../utils/transportLabel";
 import type { VpnNode } from "../vpn/parse";
+import { AUTO_SERVER_ID } from "../vpn/autoSelect";
 import { TvFocusable } from "./TvFocusable";
 
 const ROW_H = 74;
@@ -108,6 +109,25 @@ export function TvServerSheet({ visible, onClose }: { visible: boolean; onClose:
     }
   };
 
+  const chooseSmartMode = async () => {
+    if (busyId) return;
+    selectNode(AUTO_SERVER_ID);
+    onClose();
+    if (!vpnRunning) return;
+    setBusyId(AUTO_SERVER_ID);
+    try {
+      await disconnect();
+      const target = await resolveConnectNode(nodes, AUTO_SERVER_ID);
+      if (!target) throw new Error("Нет доступных серверов");
+      await connect(target, { isSponsor: me?.is_sponsor === true });
+      setVpnRunning(true);
+    } catch {
+      setVpnRunning(false);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (!rendered && !visible) return null;
 
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [SHEET_H + 40, 0] });
@@ -154,6 +174,27 @@ export function TvServerSheet({ visible, onClose }: { visible: boolean; onClose:
         <FlatList
           ref={listRef}
           data={shown}
+          ListHeaderComponent={
+            <TvFocusable
+              onPress={chooseSmartMode}
+              style={s.cell}
+              borderRadius={18}
+              scale={1.035}
+              accessibilityLabel="Умный режим"
+            >
+              <View style={[s.cellInner, selectedNodeId === AUTO_SERVER_ID && s.cellSelected]}>
+                {busyId === AUTO_SERVER_ID ? (
+                  <ActivityIndicator size="small" color={colors.accent} />
+                ) : (
+                  <Ionicons name="sparkles" size={26} color={colors.accent} />
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={s.cellName}>Умный режим</Text>
+                  <Text style={s.cellSub}>Лучший доступный сервер</Text>
+                </View>
+              </View>
+            </TvFocusable>
+          }
           // Пинги живут во внешнем сторе — без extraData ячейки не перерисуются
           extraData={pings}
           keyExtractor={(n) => n.id}

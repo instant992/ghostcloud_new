@@ -30,6 +30,7 @@ import { BalanceSheet } from "../../components/BalanceSheet";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
 import { GlassCard, GlassScreenBackdrop, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
+import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import * as stats from "../../stats";
 
 const PURPLE = "#7C3AED";
@@ -85,7 +86,7 @@ export default function GlassScreen() {
   const allVisible = useMemo(() => [...mainNodes, ...lteNodes], [mainNodes, lteNodes]);
 
   const selectedNode = useMemo(
-    () => allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
+    () => selectedNodeId === AUTO_SERVER_ID ? null : allVisible.find((n) => n.id === selectedNodeId) || mainNodes[0] || null,
     [allVisible, selectedNodeId, mainNodes]
   );
 
@@ -122,7 +123,7 @@ export default function GlassScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        const target = selectedNode;
+        const target = selectedNodeId === AUTO_SERVER_ID ? await (await import("../../vpn/manager")).resolveConnectNode(nodes, selectedNodeId) : selectedNode;
         if (!target) {
           showToast("Нет доступных серверов");
           return;
@@ -374,9 +375,13 @@ export default function GlassScreen() {
         visible={pickerOpen}
         onClose={() => setPickerOpen(false)}
         nodes={allVisible}
-        selectedId={selectedNode?.id || null}
+        selectedId={selectedNodeId}
         onSelect={(id) => {
-          setPickerOpen(false);
+          if (id === AUTO_SERVER_ID) {
+            selectNode(id);
+            setPickerOpen(false);
+            return;
+          }
           const node = allVisible.find((n) => n.id === id);
           if (node) chooseNode(node);
         }}
