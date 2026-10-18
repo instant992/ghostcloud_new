@@ -22,7 +22,7 @@ export function groupServerNodes(nodes: VpnNode[]): ServerGroup[] {
     const info = splitNameFlag(node.name);
     const key = isLteNode(node)
       ? `lte:${node.id}`
-      : `${info.flag}|${info.name.trim().toLocaleLowerCase()}`;
+      : `country:${info.flag || "unknown"}`;
     const existing = groups.get(key);
     if (existing) {
       existing.nodes.push(node);
