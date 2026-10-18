@@ -124,11 +124,24 @@ export default function V2rayScreen() {
         await disconnect();
         setVpnRunning(false);
       } else {
-        if (!selectedNode) {
+        // «Умная локация» — это режим автовыбора, а не только разовая кнопка:
+        // после перезапуска selectedNode может остаться на мёртвой ноде, либо
+        // подписка могла обновиться. Перед каждым новым подключением заново
+        // проверяем все Xray-кандидаты реальным запросом через proxy.
+        let target = selectedNode;
+        if (smartLocation) {
+          const ranked = await pickBestNode(nodes, { max: 1 });
+          target = ranked[0] || null;
+          if (target) {
+            selectNode(target.id);
+            setSmartName(splitNameFlag(target.name).name);
+          }
+        }
+        if (!target) {
           showToast("Нет доступных серверов");
           return;
         }
-        await connect(selectedNode, { isSponsor: me?.is_sponsor === true });
+        await connect(target, { isSponsor: me?.is_sponsor === true });
         setVpnRunning(true);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});

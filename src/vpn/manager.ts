@@ -159,7 +159,10 @@ export async function pickBestNode(
   // полный тест протоколом) или "tcp" (быстрое рукопожатие)
   const method = getPingMethod();
 
-  // Для ядра xray и метода url — настоящий URL-тест через прокси
+  // pingBatch belongs to the bundled libXray API and requires the built-in
+  // xray runtime. Downloaded xray variants do not expose this isolated-process
+  // API, so keep their existing TCP fallback instead of calling pingBatch while
+  // another Go runtime is loaded.
   if (core === "xray" && method === "url") {
     // pingBatch не работает, пока в процессе поднят Xray-инстанс (VPN-сервис
     // останавливается асинхронно через intent) — ждём остановки

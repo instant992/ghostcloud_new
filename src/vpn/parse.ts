@@ -454,9 +454,11 @@ export function parseSubscriptionText(text: string): { nodes: VpnNode[]; unsuppo
       }
       if (Array.isArray(json.outbounds)) {
         for (const ob of json.outbounds) {
-          if (ob?.server && typeof ob.server === "string") {
-            push(jsonToNode(ob));
-          }
+          // Поддерживаем оба JSON-формата: sing-box (server/server_port) и
+          // Xray (settings.vnext/settings.servers). В Xray-экспорте сервер
+          // находится не в самом outbound, поэтому прежняя проверка ob.server
+          // silently выбрасывала весь конфиг и автовыбор оставался без нод.
+          push(jsonToNode(ob, json.remarks));
         }
       }
       if (json.proxies && Array.isArray(json.proxies)) {
@@ -630,7 +632,100 @@ export function parseClashYamlProxies(text: string): any[] {
 }
 
 // sing-box outbound → VpnNode (базовая поддержка vless/vmess/trojan/shadowsocks)
-function jsonToNode(ob: any): VpnNode | null {
+function jsonToNode(ob: any, configName?: string): VpnNode | null {
+  // Xray JSON outbound. Keep this path separate from sing-box: the two
+  // formats use different field names and Xray's old REALITY export calls the
+  // client public key "password".
+  if (ob?.settings && (ob.protocol === "vless" || ob.protocol === "vmess")) {
+    const vnext = Array.isArray(ob.settings.vnext) ? ob.settings.vnext[0] : null;
+    const user = Array.isArray(vnext?.users) ? vnext.users[0] : null;
+    const stream = ob.streamSettings || {};
+    const reality = stream.realitySettings || {};
+    const tls = stream.tlsSettings || {};
+    const address = String(vnext?.address || "");
+    const port = parseInt(String(vnext?.port || 0), 10);
+    const uuid = String(user?.id || "");
+    if (!address || !port || !uuid) return null;
+    const network = String(stream.network || "tcp");
+    const security = String(stream.security || "none");
+    const grpc = stream.grpcSettings || {};
+    const ws = stream.wsSettings || {};
+    const http = stream.httpSettings || {};
+    return {
+      id: `${ob.protocol}-${address}-${port}-${uuid.slice(0, 8)}`,
+      name: String(configName || ob.tag || ob.protocol),
+      protocol: ob.protocol,
+      address,
+      port,
+      uuid,
+      flow: user.flow || undefined,
+      network,
+      security,
+      sni: reality.serverName || tls.serverName || undefined,
+      fingerprint: reality.fingerprint || tls.fingerprint || undefined,
+      publicKey: reality.publicKey || reality.password || undefined,
+      shortId: reality.shortId || undefined,
+      spiderX: reality.spiderX || undefined,
+      serviceName: grpc.serviceName || undefined,
+      host: Array.isArray(ws.headers?.Host) ? ws.headers.Host[0] : ws.headers?.Host || (Array.isArray(http.host) ? http.host[0] : undefined),
+      path: Array.isArray(ws.path) ? ws.path[0] : ws.path || (Array.isArray(http.path) ? http.path[0] : http.path) || undefined,
+      headerType: stream.tcpSettings?.header?.type,
+      alpn: Array.isArray(tls.alpn) ? tls.alpn : undefined,
+      supportedByXray: true,
+      raw: "",
+    } as VpnNode;
+  }
+
+  if (ob?.settings && ob.protocol === "trojan") {
+    const server = Array.isArray(ob.settings.servers) ? ob.settings.servers[0] : null;
+    const stream = ob.streamSettings || {};
+    const reality = stream.realitySettings || {};
+    const tls = stream.tlsSettings || {};
+    const address = String(server?.address || "");
+    const port = parseInt(String(server?.port || 0), 10);
+    const password = String(server?.password || "");
+    if (!address || !port || !password) return null;
+    return {
+      id: `trojan-${address}-${port}-${password.slice(0, 8)}`,
+      name: String(configName || ob.tag || "trojan"),
+      protocol: "trojan",
+      address,
+      port,
+      password,
+      network: String(stream.network || "tcp"),
+      security: String(stream.security || "tls"),
+      sni: reality.serverName || tls.serverName || undefined,
+      fingerprint: reality.fingerprint || tls.fingerprint || undefined,
+      publicKey: reality.publicKey || reality.password || undefined,
+      shortId: reality.shortId || undefined,
+      serviceName: stream.grpcSettings?.serviceName || undefined,
+      path: stream.wsSettings?.path,
+      host: stream.wsSettings?.headers?.Host,
+      supportedByXray: true,
+      raw: "",
+    };
+  }
+
+  if (ob?.settings && ob.protocol === "shadowsocks") {
+    const server = Array.isArray(ob.settings.servers) ? ob.settings.servers[0] : null;
+    const address = String(server?.address || "");
+    const port = parseInt(String(server?.port || 0), 10);
+    const method = String(server?.method || "");
+    const password = String(server?.password || "");
+    if (!address || !port || !method || !password) return null;
+    return {
+      id: `ss-${address}-${port}-${password.slice(0, 8)}`,
+      name: String(configName || ob.tag || "shadowsocks"),
+      protocol: "ss",
+      address,
+      port,
+      method,
+      password,
+      supportedByXray: true,
+      raw: "",
+    };
+  }
+
   const type = String(ob.type || "").toLowerCase();
   const address = String(ob.server || "");
   const port = parseInt(String(ob.server_port || 0), 10);
