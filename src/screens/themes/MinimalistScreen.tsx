@@ -27,6 +27,7 @@ import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { isBestServerAggregate } from "../../vpn/serverGrouping";
 import * as stats from "../../stats";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 
@@ -61,7 +62,7 @@ export default function MinimalistScreen() {
   const [serverTab, setServerTab] = useState<"regular" | "lte">("regular");
   const [serverMenuOpen, setServerMenuOpen] = useState(false);
 
-  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
+  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte" && !isBestServerAggregate(n)), [nodes]);
   const lteNodes = useMemo(
     () => nodes.filter((n) => n.source === "lte"),
     [nodes]

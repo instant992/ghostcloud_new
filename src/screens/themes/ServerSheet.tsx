@@ -6,6 +6,7 @@ import { colors, splitNameFlag, sheetSurfaceBg, useTheme, pingColor as pingColor
 import type { VpnNode } from "../../vpn/parse";
 import { transportLabel } from "../../utils/transportLabel";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { groupServerNodes, type ServerGroup } from "../../vpn/serverGrouping";
 
 /** Шторка выбора сервера для тем minimalist / liquid glass.
  *  Кнопка «Пинг» всегда прижата вправо к кнопке закрытия (как в основной теме).
@@ -27,10 +28,12 @@ export function ServerSheet({
   const styles = makeStyles();
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
   const [tab, setTab] = useState<"regular" | "lte">("regular");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const regularNodes = nodes.filter((n) => n.source !== "lte");
   const lteNodes = nodes.filter((n) => n.source === "lte");
   const shown = tab === "lte" ? lteNodes : regularNodes;
+  const groups = groupServerNodes(shown);
 
   const pingBtn = (
     <Pressable
@@ -101,17 +104,19 @@ export function ServerSheet({
           <FlatList
             bounces={false}
             overScrollMode="never"
-            data={shown}
+            data={groups}
             // extraData обязателен: значения пингов приходят из внешнего
             // стора — без него VirtualizedList не перерисовывает уже
             // отрисованные строки, и готовые результаты не появляются в UI.
-            extraData={pings}
-            keyExtractor={(n) => n.id}
+            extraData={[pings, expanded]}
+            keyExtractor={(g) => g.key}
             style={{ maxHeight: 400 }}
             contentContainerStyle={{ paddingBottom: 16 }}
-            renderItem={({ item }) => {
+            renderItem={({ item: group }: { item: ServerGroup }) => {
+              const item = group.node;
               const info = splitNameFlag(item.name);
-              const selected = item.id === selectedId;
+              const selected = group.nodes.some((n) => n.id === selectedId);
+              const isExpanded = expanded[group.key] === true;
               const ping = pings[item.id];
               const pingLabel =
                 ping?.status === "done"
@@ -122,6 +127,7 @@ export function ServerSheet({
                       : ""
                   : "";
               return (
+                <React.Fragment key={group.key}>
                 <Pressable
                   style={[styles.item, selected && styles.itemOn]}
                   onPress={() => onSelect(item.id)}
@@ -158,8 +164,19 @@ export function ServerSheet({
                         {ping.delay} мс
                       </Text>
                     ) : null)}
+                  {group.duplicate && <Pressable onPress={() => setExpanded((v) => ({ ...v, [group.key]: !isExpanded }))} hitSlop={8} accessibilityRole="button" accessibilityLabel={isExpanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}><Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textDim} /></Pressable>}
                   {selected && <View style={[styles.dot, { backgroundColor: colors.accent }]} />}
                 </Pressable>
+                {group.duplicate && isExpanded && group.nodes.slice(1).map((node) => {
+                  const nodeInfo = splitNameFlag(node.name);
+                  const nodeSelected = node.id === selectedId;
+                  return <Pressable key={node.id} style={[styles.item, nodeSelected && styles.itemOn, { marginLeft: 20 }]} onPress={() => onSelect(node.id)} accessibilityRole="button" accessibilityState={{ selected: nodeSelected }}>
+                    <Text style={{ fontSize: 22 }}>{nodeInfo.flag}</Text>
+                    <View style={{ flex: 1, marginLeft: 10 }}><Text style={styles.itemName}>{nodeInfo.name}</Text><Text style={styles.itemSub}>{transportLabel(node)}</Text></View>
+                    {nodeSelected && <View style={[styles.dot, { backgroundColor: colors.accent }]} />}
+                  </Pressable>;
+                })}
+                </React.Fragment>
               );
             }}
             ListHeaderComponent={tab === "regular" ? (

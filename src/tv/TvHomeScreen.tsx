@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "../context";
 import { connect, disconnect, resolveConnectNode } from "../vpn/manager";
 import { AUTO_SERVER_ID } from "../vpn/autoSelect";
+import { isBestServerAggregate } from "../vpn/serverGrouping";
 import { getTrafficSnapshot } from "../vpn/native";
 import * as pingStore from "../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../vpn/timer";
@@ -148,7 +149,7 @@ function TvDashboardTab() {
   }, [vpnRunning]);
 
   // Только обычные серверы: LTE OPEN на ТВ скрыт.
-  const visibleNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
+  const visibleNodes = useMemo(() => nodes.filter((n) => n.source !== "lte" && !isBestServerAggregate(n)), [nodes]);
 
   const selectedNode = useMemo(
     () => selectedNodeId === AUTO_SERVER_ID ? null : visibleNodes.find((n) => n.id === selectedNodeId) || visibleNodes[0] || null,

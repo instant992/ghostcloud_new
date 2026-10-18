@@ -35,6 +35,8 @@ import { WorldMap, type MapMarker } from "../components/worldMap/WorldMap";
 import { buildMapMarkers } from "../components/worldMap/markers";
 import { AUTO_SERVER_ID } from "../vpn/autoSelect";
 import { resolveConnectNode } from "../vpn/manager";
+import { isBestServerAggregate } from "../vpn/serverGrouping";
+import { groupServerNodes, type ServerGroup } from "../vpn/serverGrouping";
 
 export default function HomeScreen() {
   useTheme();
@@ -463,9 +465,12 @@ function ServerPicker({
   const pings = useSyncExternalStore(pingStore.subscribe, pingStore.getSnapshot);
   const pinging = pingStore.isRunning();
   const [tab, setTab] = useState<"regular" | "lte">("regular");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const filtered = nodes.filter((n: any) =>
-    tab === "lte" ? n.source === "lte" : n.source !== "lte"
+    (tab === "lte" ? n.source === "lte" : n.source !== "lte") &&
+    (tab === "lte" || !isBestServerAggregate(n))
   );
+  const groups = groupServerNodes(filtered);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -522,7 +527,7 @@ function ServerPicker({
           <FlatList
           bounces={false}
           overScrollMode="never"
-            data={filtered}
+            data={groups}
             ListHeaderComponent={tab === "regular" ? (
               <PressableScale
                 style={[styles.sheetItem, selectedId === AUTO_SERVER_ID && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
@@ -540,14 +545,17 @@ function ServerPicker({
                 )}
               </PressableScale>
             ) : null}
-            extraData={pings}
-            keyExtractor={(n: any) => n.id}
+            extraData={[pings, expanded]}
+            keyExtractor={(g: ServerGroup) => g.key}
             style={{ maxHeight: 420 }}
-            renderItem={({ item }: any) => {
+            renderItem={({ item: group }: { item: ServerGroup }) => {
+              const item = group.node;
               const info = splitNameFlag(item.name);
-              const selected = item.id === selectedId;
+              const selected = group.nodes.some((n) => n.id === selectedId);
+              const isExpanded = expanded[group.key] === true;
               const ping = pings[item.id];
               return (
+                <React.Fragment key={group.key}>
                 <PressableScale
                   style={[styles.sheetItem, selected && { borderColor: colors.accent, backgroundColor: colors.accentSoft }]}
                   onPress={() => onSelect(item.id)}
@@ -587,7 +595,20 @@ function ServerPicker({
                   {selected && (
                     <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />
                   )}
+                  {group.duplicate && <PressableScale onPress={() => setExpanded((v) => ({ ...v, [group.key]: !isExpanded }))} hitSlop={8} accessibilityLabel={isExpanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}>
+                    <Ionicons name={isExpanded ? "chevron-up" : "chevron-down"} size={16} color={colors.textDim} />
+                  </PressableScale>}
                 </PressableScale>
+                {group.duplicate && isExpanded && group.nodes.slice(1).map((node) => {
+                  const nodeInfo = splitNameFlag(node.name);
+                  const nodeSelected = node.id === selectedId;
+                  return <PressableScale key={node.id} style={[styles.sheetItem, nodeSelected && { borderColor: colors.accent, backgroundColor: colors.accentSoft }, { marginLeft: 20 }]} onPress={() => onSelect(node.id)}>
+                    <Text style={{ fontSize: 24 }}>{nodeInfo.flag}</Text>
+                    <View style={{ flex: 1, marginLeft: 12 }}><Text style={styles.sheetItemName}>{nodeInfo.name}</Text><Text style={styles.sheetItemSub}>{transportLabel(node)}</Text></View>
+                    {nodeSelected && <View style={[styles.checkDot, { backgroundColor: colors.accent }]} />}
+                  </PressableScale>;
+                })}
+                </React.Fragment>
               );
             }}
             ListEmptyComponent={

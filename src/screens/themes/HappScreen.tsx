@@ -28,6 +28,7 @@ import { connect, disconnect, resolveConnectNode } from "../../vpn/manager";
 import * as pingStore from "../../vpn/pingStore";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { isBestServerAggregate } from "../../vpn/serverGrouping";
 import type { VpnNode } from "../../vpn/parse";
 import { getSetting, setSetting, getJsonList, setJsonList } from "../../settings";
 import { colors, splitNameFlag, formatBytes, useTheme, isLightPalette, powerButtonColors, pingColor, pingFailLabel, BRAND_PURPLE } from "../../theme";
@@ -102,7 +103,7 @@ export default function HappScreen() {
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
 
-  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
+  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte" && !isBestServerAggregate(n)), [nodes]);
   const lteNodes = useMemo(
     () => nodes.filter((n) => n.source === "lte"),
     [nodes]

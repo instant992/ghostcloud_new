@@ -17,6 +17,7 @@ import { colors, pingColor, pingFailLabel, splitNameFlag } from "../theme";
 import { transportLabel } from "../utils/transportLabel";
 import type { VpnNode } from "../vpn/parse";
 import { AUTO_SERVER_ID } from "../vpn/autoSelect";
+import { isBestServerAggregate } from "../vpn/serverGrouping";
 import { TvFocusable } from "./TvFocusable";
 
 const ROW_H = 74;
@@ -36,7 +37,7 @@ export function TvServerSheet({ visible, onClose }: { visible: boolean; onClose:
   const listRef = useRef<FlatList<VpnNode>>(null);
 
   // Только обычные серверы: LTE OPEN на ТВ скрыт.
-  const shown = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
+  const shown = useMemo(() => nodes.filter((n) => n.source !== "lte" && !isBestServerAggregate(n)), [nodes]);
 
   // Холодный старт: узлы могли ещё не загрузиться — подтягиваем при открытии.
   useEffect(() => {

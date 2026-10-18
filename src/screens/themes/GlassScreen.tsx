@@ -31,6 +31,7 @@ import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
 import { GlassCard, GlassScreenBackdrop, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { isBestServerAggregate } from "../../vpn/serverGrouping";
 import * as stats from "../../stats";
 
 const PURPLE = "#7C3AED";
@@ -78,7 +79,7 @@ export default function GlassScreen() {
   const [balanceOpen, setBalanceOpen] = useState(false);
   const [todayStat, setTodayStat] = useState<stats.DayStat>({ rx: 0, tx: 0 });
 
-  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
+  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte" && !isBestServerAggregate(n)), [nodes]);
   const lteNodes = useMemo(
     () => nodes.filter((n) => n.source === "lte"),
     [nodes]

@@ -20,6 +20,8 @@ import { useApp } from "../../context";
 import { SubscriptionUpdatedLabel } from "../../components/SubscriptionUpdatedLabel";
 import { connect, disconnect, resolveConnectNode } from "../../vpn/manager";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { isBestServerAggregate } from "../../vpn/serverGrouping";
+import { groupServerNodes, type ServerGroup } from "../../vpn/serverGrouping";
 import * as pingStore from "../../vpn/pingStore";
 import { pickBestNode } from "../../vpn/manager";
 import type { VpnNode } from "../../vpn/parse";
@@ -75,6 +77,7 @@ export default function V2rayScreen() {
   const [smartBusy, setSmartBusy] = useState(false);
   const [smartName, setSmartName] = useState<string | null>(null);
   const [tab, setTab] = useState<"pinned" | "main" | "lte">("main");
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   /** Ширина области списка серверов — для постраничного свайпа влево-вправо */
   const [pagerW, setPagerW] = useState(0);
   const pagerRef = useRef<ScrollView>(null);
@@ -89,7 +92,7 @@ export default function V2rayScreen() {
   // ремаунте экрана, считает дни/недели, обнуляется при отключении VPN.
   const seconds = useVpnTimerSeconds(vpnRunning);
 
-  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte"), [nodes]);
+  const mainNodes = useMemo(() => nodes.filter((n) => n.source !== "lte" && !isBestServerAggregate(n)), [nodes]);
   const lteNodes = useMemo(
     () => nodes.filter((n) => n.source === "lte"),
     [nodes]
@@ -348,12 +351,13 @@ export default function V2rayScreen() {
         >
           {tabs.map((t) => {
             const pageNodes = nodesForTab(t.key);
+            const pageGroups = groupServerNodes(pageNodes);
             return (
               <View key={t.key} style={{ width: pagerW || undefined, flex: pagerW ? undefined : 1 }}>
                 <FlatList
                   bounces={false}
                   overScrollMode="never"
-                  data={pageNodes}
+                  data={pageGroups}
                   ListHeaderComponent={t.key === "main" ? (
                     <Pressable
                       style={[styles.row, selectedNodeId === AUTO_SERVER_ID && { backgroundColor: colors.accentSoft }]}
@@ -374,23 +378,50 @@ export default function V2rayScreen() {
                       {selectedNodeId === AUTO_SERVER_ID && <Ionicons name="checkmark-circle" size={20} color={colors.accent} />}
                     </Pressable>
                   ) : null}
-                  extraData={pings}
-                  keyExtractor={(n) => n.id}
+                  extraData={[pings, expandedGroups]}
+                  keyExtractor={(g: ServerGroup) => g.key}
                   contentContainerStyle={{ paddingBottom: 96 }}
-                  renderItem={({ item }) => (
-                    <ServerRow
-                      node={item}
-                      selected={item.id === selectedNodeId}
-                      ping={pings[item.id]}
-                      isPinned={pinned.includes(item.id)}
-                      onSelect={() => {
-                        selectNode(item.id);
-                        Haptics.selectionAsync().catch(() => {});
-                      }}
-                      onPing={() => pingStore.pingOne(item)}
-                      onTogglePin={() => togglePin(item.id)}
-                    />
-                  )}
+                  renderItem={({ item: group }: { item: ServerGroup }) => {
+                    const expanded = expandedGroups[group.key] === true;
+                    const node = group.node;
+                    return (
+                      <React.Fragment>
+                        <ServerRow
+                          node={node}
+                          selected={group.nodes.some((n) => n.id === selectedNodeId)}
+                          ping={pings[node.id]}
+                          isPinned={pinned.includes(node.id)}
+                          onSelect={() => {
+                            selectNode(node.id);
+                            Haptics.selectionAsync().catch(() => {});
+                          }}
+                          onPing={() => pingStore.pingOne(node)}
+                          onTogglePin={() => togglePin(node.id)}
+                        />
+                        {group.duplicate && <Pressable
+                          onPress={() => setExpandedGroups((v) => ({ ...v, [group.key]: !expanded }))}
+                          style={styles.groupToggle}
+                          accessibilityRole="button"
+                          accessibilityLabel={expanded ? "Свернуть дубли серверов" : "Показать дубли серверов"}
+                        >
+                          <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={15} color={colors.textDim} />
+                          <Text style={styles.groupToggleText}>{expanded ? "Свернуть варианты" : `Ещё вариантов: ${group.nodes.length - 1}`}</Text>
+                        </Pressable>}
+                        {group.duplicate && expanded && group.nodes.slice(1).map((variant) => (
+                          <ServerRow
+                            key={variant.id}
+                            node={variant}
+                            selected={variant.id === selectedNodeId}
+                            ping={pings[variant.id]}
+                            isPinned={pinned.includes(variant.id)}
+                            onSelect={() => { selectNode(variant.id); Haptics.selectionAsync().catch(() => {}); }}
+                            onPing={() => pingStore.pingOne(variant)}
+                            onTogglePin={() => togglePin(variant.id)}
+                          />
+                        ))}
+                      </React.Fragment>
+                    );
+                  }}
                   ListEmptyComponent={
                     <View style={{ alignItems: "center", paddingVertical: 48 }}>
                       <Text style={{ color: colors.textDim }}>{emptyTextFor(t.key)}</Text>
@@ -781,6 +812,8 @@ const makeStyles = () => StyleSheet.create({
   rowProto: { color: colors.accent, fontSize: 12, fontWeight: "500", marginTop: 5 },
   rowPing: { fontSize: 12, fontWeight: "500", marginTop: 3 },
   rowIconBtn: { padding: 8, alignItems: "center", justifyContent: "center" },
+  groupToggle: { flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4, paddingLeft: 46 },
+  groupToggleText: { color: colors.textDim, fontSize: 11, fontWeight: "600" },
   fab: {
     position: "absolute",
     right: 16,

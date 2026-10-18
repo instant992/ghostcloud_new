@@ -22,6 +22,7 @@ import { getNetworkType } from "../../vpn/native";
 import { showToast } from "../../components/Toast";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
+import { isBestServerAggregate } from "../../vpn/serverGrouping";
 
 function pluralDays(n: number): string {
   const m10 = n % 10;
@@ -159,7 +160,7 @@ export default function AwgScreen() {
   }, [me]);
   const balanceRub = (me?.balance || 0) / 100;
 
-  const allVisible = useMemo(() => nodes, [nodes]);
+  const allVisible = useMemo(() => nodes.filter((n) => n.source === "lte" || !isBestServerAggregate(n)), [nodes]);
   const selectedNode = useMemo(
     () => selectedNodeId === AUTO_SERVER_ID ? null : nodes.find((n) => n.id === selectedNodeId) || allVisible[0] || null,
     [allVisible, selectedNodeId]
