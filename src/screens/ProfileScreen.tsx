@@ -5,7 +5,6 @@ import {
   Image,
   Modal,
   Pressable,
-  ScrollView,
   Share,
   StyleSheet,
   Text,
@@ -19,7 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as WebBrowser from "expo-web-browser";
 import * as Clipboard from "expo-clipboard";
 import { Button, Card, Row, useInTabArea } from "../components/UI";
-import { GlassCard, GlassButton, GlassScreenBackdrop, GLASS_SCROLL_HANDLERS } from "../components/liquidGlass";
+import { GlassCard, GlassButton, GlassScreenBackdrop } from "../components/liquidGlass";
 import { QuickNavBar, themeHasQuickNav } from "../components/QuickNavBar";
 import { getThemeName } from "../settings";
 import { PressableScale } from "../components/PressableScale";
@@ -98,6 +97,7 @@ function ShellBlock({
 export default function ProfileScreen() {
   const { style: themeStyle } = useTheme();
   const isGlass = themeStyle === "glass";
+  const compactProfile = themeStyle === "default";
   const styles = makeStyles();
   const insets = useSafeAreaInsets();
   const inTabs = useInTabArea();
@@ -552,23 +552,17 @@ export default function ProfileScreen() {
         </Pressable>
       </View>
 
-      <ScrollView
-          bounces={false}
-          overScrollMode="never"
-        style={{ flex: 1 }}
-        contentContainerStyle={{
-          padding: 16,
+      <View
+        style={{
+          flex: 1,
+          padding: compactProfile ? 10 : 16,
           paddingTop: insets.top + 66,
           paddingBottom: inTabs ? insets.bottom + 116 : themeHasQuickNav(getThemeName()) ? insets.bottom + 96 : insets.bottom + 24,
         }}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
-                onScrollEndDrag={GLASS_SCROLL_HANDLERS.onScrollEndDrag}
       >
         {/* ─── Карточка аккаунта ─── */}
         {/* padding: 16 — текст (имя/тариф/баланс) не прижат к краям блока */}
-        <ThemeCard glass={isGlass} style={{ padding: 16 }}>
+        <ThemeCard glass={isGlass} style={{ padding: compactProfile ? 10 : 16 }}>
           <View style={styles.accRow}>
             <PressableScale onPress={isFoxcloud ? undefined : openEditor} accessibilityLabel="Изменить профиль">
               {avatarUri ? (
@@ -771,7 +765,7 @@ export default function ProfileScreen() {
             <Text style={styles.settingsBtnText}>Перейти в настройки</Text>
           </PressableScale>
         )}
-      </ScrollView>
+      </View>
 
       {/* Быстрое нижнее меню — видно когда экран открыт стеком поверх темы
           (в таб-зоне основной темы компонент сам себя скрывает) */}
@@ -1097,7 +1091,8 @@ function MenuItem({
   trailing?: React.ReactNode;
   onPress: () => void;
 }) {
-  useTheme();
+  const theme = useTheme();
+  const compact = theme.style === "default";
   return (
     <PressableScale
       onPress={onPress}
@@ -1107,7 +1102,7 @@ function MenuItem({
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 16,
-        paddingVertical: 13,
+        paddingVertical: compact ? 8 : 13,
       }}
     >
       <View
