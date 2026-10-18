@@ -11,8 +11,8 @@ import { accessLogPath, errorLogPath } from "./native";
  *  Это ЧИСТО КЛИЕНТСКАЯ маскировка: содержимое TCP-потока не меняется,
  *  сервер собирает его обратно — правки серверных конфигов не нужны.
  *  Применяется только к TLS/REALITY-транспортам (без TLS маскировать нечего). */
-function antiDpiFinalMask(): Record<string, any> | null {
-  if (!getAntiDpi()) return null;
+function antiDpiFinalMask(enabled = true): Record<string, any> | null {
+  if (!enabled || !getAntiDpi()) return null;
   return {
     tcp: [
       {
@@ -31,7 +31,7 @@ function antiDpiFinalMask(): Record<string, any> | null {
   };
 }
 
-export function buildStreamSettings(node: VpnNode): Record<string, any> {
+export function buildStreamSettings(node: VpnNode, antiDpiEnabled = true): Record<string, any> {
   const network = node.network || "tcp";
   const stream: Record<string, any> = {
     network,
@@ -57,7 +57,7 @@ export function buildStreamSettings(node: VpnNode): Record<string, any> {
     }
     // Маскировка трафика (анти-DPI) — только поверх TLS/REALITY и TCP-транспортов
     // (для kcp/UDP фрагментация TCP-рукопожатия неприменима)
-    const fm = network === "kcp" ? null : antiDpiFinalMask();
+    const fm = network === "kcp" ? null : antiDpiFinalMask(antiDpiEnabled);
     if (fm) stream.finalmask = fm;
   }
 
@@ -140,8 +140,8 @@ export function buildStreamSettings(node: VpnNode): Record<string, any> {
   return stream;
 }
 
-export function buildOutbound(node: VpnNode): Record<string, any> | null {
-  const streamSettings = buildStreamSettings(node);
+export function buildOutbound(node: VpnNode, antiDpiEnabled = true): Record<string, any> | null {
+  const streamSettings = buildStreamSettings(node, antiDpiEnabled);
 
   switch (node.protocol) {
     case "vless":
@@ -275,9 +275,10 @@ export function buildXrayConfig(
   tunFd: number | null,
   dns?: DnsProvider,
   bypassDomains: string[] = [],
-  roscomMode?: RoscomMode | null
+  roscomMode?: RoscomMode | null,
+  antiDpiEnabled = true
 ): string {
-  const outbound = buildOutbound(node);
+  const outbound = buildOutbound(node, antiDpiEnabled);
   if (!outbound) throw new Error("Протокол не поддерживается ядром Xray");
 
   const provider = dns || getDnsProvider(null);

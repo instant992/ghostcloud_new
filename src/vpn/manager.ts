@@ -642,7 +642,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   if (core === "xray-joly") {
     if (!getCoreStatus("libxrayjoly.so").downloaded) throw new Error("Joly Xray не установлен — скачайте ядро в настройках");
     await loadLibCore("xray-joly");
-    const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
+    const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode, false);
     saveTileConfig(config, "xray-joly");
     await startLibCoreVpn("xray-joly", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;
@@ -652,7 +652,7 @@ export async function connect(node: VpnNode, opts: ConnectOptions = {}): Promise
   if (core === "xray-last") {
     if (!getCoreStatus("libxraylast.so").downloaded) throw new Error("Xray Last не установлен — скачайте ядро в настройках");
     await loadLibCore("xray-last");
-    const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode);
+    const config = buildXrayConfig(node, null, selectedDnsProvider(isSponsor), bypass.domains, roscomMode, false);
     saveTileConfig(config, "xray-last");
     await startLibCoreVpn("xray-last", config, allowed, blocked, failover);
     lastConnectedNodeId = node.id;

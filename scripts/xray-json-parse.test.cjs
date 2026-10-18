@@ -24,13 +24,14 @@ const configSource = ts.transpileModule(
   { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }
 ).outputText;
 const configModule = { exports: {} };
+let antiDpiEnabled = false;
 vm.runInNewContext(configSource, {
   module: configModule,
   exports: configModule.exports,
   console,
   require: (id) => {
     if (id === './dns') return { getDnsProvider: () => ({ xray: ['8.8.8.8'] }) };
-    if (id === '../settings') return { getAntiDpi: () => false };
+    if (id === '../settings') return { getAntiDpi: () => antiDpiEnabled };
     if (id === './roscomRouting') return { xrayRoscomRules: () => [] };
     if (id === './native') return { accessLogPath: () => '', errorLogPath: () => '' };
     throw new Error(`unexpected import: ${id}`);
@@ -78,6 +79,9 @@ assert.equal(uriOutbound.streamSettings.realitySettings.serverName, 'finl.ghostc
 assert.equal(uriOutbound.streamSettings.realitySettings.publicKey, 'public-key');
 assert.equal(uriOutbound.streamSettings.realitySettings.shortId, '1a1df1c87d34dbf8');
 assert.equal(uriOutbound.streamSettings.finalmask, undefined);
+antiDpiEnabled = true;
+const uriOutboundWithMask = buildOutbound(uriNode, true);
+assert.ok(uriOutboundWithMask.streamSettings.finalmask?.tcp?.length);
 
 const xraySs = {
   outbounds: [{
