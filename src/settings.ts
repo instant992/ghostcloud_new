@@ -138,7 +138,7 @@ export function setAutoConnectBoot(v: boolean) {
 export type PingMethod = "tcp" | "url";
 
 export function getPingMethod(): PingMethod {
-  return getSetting("ping_method", "url") === "tcp" ? "tcp" : "url";
+  return getSetting("ping_method", "tcp") === "url" ? "url" : "tcp";
 }
 
 export function setPingMethod(v: PingMethod) {
