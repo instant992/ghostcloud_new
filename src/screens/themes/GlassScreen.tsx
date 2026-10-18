@@ -275,7 +275,8 @@ export default function GlassScreen() {
         {/* LTE OPEN: отдельный блок убран — серверы LTE обновляются общей
             кнопкой обновления (syncAll → reloadNodes тянет обычные + LTE) */}
 
-        {/* Карточка сервера + фильтр соединения */}
+        {/* Выбранный сервер — стеклянная карточка */}
+        <SubscriptionUpdatedLabel style={{ marginBottom: 4, textAlign: "left" }} />
         <GlassCard radius={32} style={{ marginTop: 8 }}>
           <Pressable
             style={styles.serverRow}
@@ -366,7 +367,6 @@ export default function GlassScreen() {
             </View>
           </GlassCard>
         </View>
-        <SubscriptionUpdatedLabel style={{ marginTop: 12 }} />
       </ScrollView>
 
       <ConnectionFilterModal visible={appsOpen} onClose={() => setAppsOpen(false)} />

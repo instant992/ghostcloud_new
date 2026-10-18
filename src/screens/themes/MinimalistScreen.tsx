@@ -343,8 +343,7 @@ export default function MinimalistScreen() {
           </View>
         </View>
 
-        <SubscriptionUpdatedLabel style={{ marginTop: 10, marginBottom: 2 }} />
-
+        <SubscriptionUpdatedLabel style={{ marginBottom: 4, textAlign: "left" }} />
         {/* Выбранный сервер — сплошная заливка (без стрелки выбора — сервер меняется из списка ниже) */}
         <View
           style={[styles.selectedCard, selectedNode?.source === "lte" && { backgroundColor: colors.accentDeep }]}

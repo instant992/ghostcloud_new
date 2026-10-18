@@ -255,6 +255,7 @@ export default function HomeScreen() {
         {!!error && <Text style={styles.error}>{error}</Text>}
       </View>
 
+      <SubscriptionUpdatedLabel style={{ marginHorizontal: 20, marginBottom: 4, textAlign: "left" }} />
       <View style={styles.serverCard}>
         <PressableScale
           style={styles.serverRow}
@@ -360,8 +361,6 @@ export default function HomeScreen() {
           </View>
         </PressableScale>
       </View>
-
-      <SubscriptionUpdatedLabel style={{ marginHorizontal: 20 }} />
       </ScrollView>
 
       {appsOpen && <ConnectionFilterModal
