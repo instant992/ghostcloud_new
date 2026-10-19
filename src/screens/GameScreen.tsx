@@ -12,7 +12,7 @@ import { gameRunStart, gameRunSubmit } from "../api";
  * Мост с сервером (лидерборд + награда +1 день за 500 монет):
  *  - игра шлёт {type:"run_start"} → RN берёт round_token и топ, передаёт обратно;
  *  - игра шлёт {type:"gameover", coins, distance, durMs, powers} → RN отправляет
- *    результат на сервер и возвращает {rewarded, leaderboard}.
+ *    результат на сервер и возвращает {rewarded, leaderboard}; награда доступна раз в 3 дня.
  */
 export default function GameScreen() {
   useTheme();

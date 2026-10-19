@@ -1232,7 +1232,7 @@ function hideAll(){["menu","pause","result","hud","powers","loading","combo","to
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
 // ── серверный лидерборд и награда (через мост RN) ──
-let serverTop=[],serverRewardCoins=REWARD_COINS,serverRewarded=false;
+let serverTop=[],serverRewardCoins=REWARD_COINS,serverRewarded=false,serverRewardReason="";
 window.__onRN=function(msg){
   if(!msg||!msg.kind)return;
   if(msg.kind==="run_ready"){
@@ -1243,6 +1243,10 @@ window.__onRN=function(msg){
     if(msg.rewarded){serverRewarded=true;
       if(state===S.RESULT){fillResult();}
       toast("🎉 Сервер выдал +1 день подписки!");
+    }else if(msg.reward_reason==="cooldown"){
+      serverRewardReason="cooldown";
+      if(state===S.RESULT){fillResult();}
+      toast("Награда доступна раз в 3 дня.");
     }
   }
 };
@@ -1272,6 +1276,7 @@ function fillResult(){const r=resultInfo;$("rCoins").textContent=r.coins;$("rDis
   $("rBest").textContent=Math.max(best.coins,r.coins)+" 🪙 / "+Math.max(best.dist,r.dist)+" м";const rw=$("rReward");
   const target=Math.max(serverRewardCoins,REWARD_COINS);
   if(serverRewarded&&r.coins>=target){rw.className="reward win";rw.textContent="🎉 Награда получена: +1 день подписки!";sfx.reward();}
+  else if(serverRewardReason==="cooldown"){rw.className="reward";rw.textContent="Награда доступна раз в 3 дня.";}
   else if(r.reward){rw.className="reward win";rw.textContent="🎉 Награда: +1 день подписки! ("+target+"+ монет)";sfx.reward();}
   else{rw.className="reward";rw.textContent="Ещё "+(target-r.coins)+" монет до награды «+1 день»";}}
 let toastT=null;
