@@ -1,5 +1,5 @@
-import React, { useRef } from "react";
-import { View, StyleSheet, Platform } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { BackHandler, View, StyleSheet, Platform } from "react-native";
 import { WebView } from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,6 +19,7 @@ export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const webRef = useRef<WebView>(null);
   const roundToken = useRef<string | null>(null);
+  const gameState = useRef<string>("menu");
 
   const theme = isLightPalette() ? "light" : "dark";
   const src = Platform.select({
@@ -32,6 +33,15 @@ export default function GameScreen() {
     webRef.current?.injectJavaScript(js);
   };
 
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (gameState.current !== "play") return false;
+      webRef.current?.injectJavaScript("window.__pauseFromRN && window.__pauseFromRN(); true;");
+      return true;
+    });
+    return () => subscription.remove();
+  }, []);
+
   const onMessage = async (ev: any) => {
     let msg: any;
     try {
@@ -40,6 +50,10 @@ export default function GameScreen() {
       return;
     }
     try {
+      if (msg.type === "game_state") {
+        gameState.current = String(msg.state || "menu");
+        return;
+      }
       if (msg.type === "run_start") {
         const r = await gameRunStart("1.0.0");
         if (r?.success && r.round_token) {

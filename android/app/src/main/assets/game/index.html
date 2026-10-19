@@ -1178,7 +1178,7 @@ function startRun(){clearObjs();G=newGame();state=S.PLAY;lastT=performance.now()
   inspector.visible=true;inspector.position.set(0,0,7);playAnim("Run");
   hoverboard.visible=false;magnetRing.visible=false;
   foxGroup.rotation.set(0,0,0);foxGroup.scale.set(1,1,1);foxGroup.visible=true;
-  hideAll();show("hud");show("powers");rn({type:"run_start"});}
+  hideAll();show("hud");show("powers");rn({type:"run_start"});rnState();}
 let resultInfo=null;
 function finishRun(quit){const g=G,durMs=Date.now()-g.startedAt;
   wallet+=g.coins;runs+=1;LS.set("wallet",wallet);LS.set("runs",runs);
@@ -1186,7 +1186,7 @@ function finishRun(quit){const g=G,durMs=Date.now()-g.startedAt;
   bestRuns.push({coins:g.coins,dist:Math.floor(g.dist)});
   bestRuns.sort((a,b)=>(b.coins-a.coins)||(b.dist-a.dist));bestRuns=bestRuns.slice(0,5);LS.set("top",bestRuns);
   resultInfo={coins:g.coins,dist:Math.floor(g.dist),durMs,reward:g.coins>=REWARD_COINS,quit:!!quit,powers:g.powerupsUsed.slice()};
-  state=S.RESULT;playAnim("Survey");
+  state=S.RESULT;rnState();playAnim("Survey");
   hoverboard.visible=false;magnetRing.visible=false;
   rn({type:"gameover",coins:g.coins,distance:Math.floor(g.dist),durMs,reward:resultInfo.reward,quit:!!quit,
     powers:resultInfo.powers,best:best,wallet:wallet});
@@ -1217,13 +1217,18 @@ function die(){
   burst(pl.x,pl.y+0.6,0,0xFF4D7D,24);
   setTimeout(()=>{if(state===S.DYING)finishRun(false);},1100);}
 function quitRun(){finishRun(true);}
-function togglePause(){if(state===S.PLAY){state=S.PAUSE;bgmPause();hideAll();show("pause");show("hud");}
-  else if(state===S.PAUSE){state=S.PLAY;lastT=performance.now();bgmPlay();hideAll();show("hud");show("powers");}}
+function togglePause(){if(state===S.PLAY){state=S.PAUSE;bgmPause();hideAll();show("pause");show("hud");rnState();}
+  else if(state===S.PAUSE){state=S.PLAY;lastT=performance.now();bgmPlay();hideAll();show("hud");show("powers");rnState();}}
 function toMenu(){state=S.MENU;clearObjs();G=null;inspector.visible=false;playAnim("Survey");
   bgmPause();
   hoverboard.visible=false;magnetRing.visible=false;
   foxGroup.rotation.set(0,0,0);foxGroup.scale.set(1,1,1);foxGroup.visible=true;
-  hideAll();show("menu");fillMenu();}
+  hideAll();show("menu");fillMenu();rnState();}
+// Сообщаем RN о смене состояния, чтобы системный «Назад» ставил игру на паузу,
+// а не закрывал экран и не терял текущий забег.
+function rnState(){rn({type:"game_state",state:state===S.PLAY?"play":state===S.PAUSE?"pause":state===S.RESULT?"result":state===S.MENU?"menu":"dying"});}
+// Вызывается из RN по системному «Назад»: пауза вместо выхода с экрана.
+window.__pauseFromRN=function(){if(state===S.PLAY)togglePause();else rnState();};
 
 const $=id=>document.getElementById(id);
 function show(id){$(id).classList.remove("hidden");}
