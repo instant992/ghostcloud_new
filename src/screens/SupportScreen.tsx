@@ -121,7 +121,8 @@ export function MessageBubble({ msg, adminAvatarUrl, onImageTap }: { msg: Msg; a
         flexDirection: "row",
         alignItems: "flex-start",
         marginBottom: 6,
-        ...(isUser ? { marginLeft: 48, justifyContent: "flex-end" } : { marginRight: 48 }),
+        width: "100%",
+        ...(isUser ? { paddingLeft: 48, justifyContent: "flex-end" } : { paddingRight: 48 }),
       }}
     >
       {!isUser && (
@@ -144,7 +145,7 @@ export function MessageBubble({ msg, adminAvatarUrl, onImageTap }: { msg: Msg; a
           )}
         </View>
       )}
-      <View style={{ maxWidth: "100%" }}>
+      <View style={{ flexShrink: 1, minWidth: 0, maxWidth: "100%" }}>
         {!isUser && (
           <Text style={{ color: colors.accent, fontSize: 11, fontWeight: "600", marginLeft: 4, marginBottom: 2 }}>
             Женя
@@ -247,8 +248,8 @@ function HistoryTile({ ticket, onPress }: { ticket: TicketInfo; onPress: () => v
       >
         <Text style={{ color: colors.accent, fontSize: 12, fontWeight: "700" }}>#{ticket.id}</Text>
       </View>
-      <View style={{ flex: 1, marginLeft: 12 }}>
-        <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }}>Обращение #{ticket.id}</Text>
+      <View style={{ flex: 1, minWidth: 0, marginLeft: 12 }}>
+        <Text style={{ color: colors.text, fontWeight: "600", fontSize: 14 }} numberOfLines={1}>Обращение #{ticket.id}</Text>
         {!!ticket.first_message && (
           <Text style={{ color: colors.textDim, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
             {ticket.first_message}

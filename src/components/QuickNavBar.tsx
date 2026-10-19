@@ -171,7 +171,7 @@ export function QuickNavBar() {
                   <Text style={styles.glassPillText} numberOfLines={1}>{it.label}</Text>
                 </View>
               ) : (
-                <View style={styles.pill}>
+                <View style={[styles.pill, { backgroundColor: colors.cardLight, borderColor: colors.border }]}>
                   <View style={[styles.pillCircle, { backgroundColor: colors.accent }]}>
                     <Ionicons name={it.iconActive as any} size={21} color="#fff" />
                   </View>
