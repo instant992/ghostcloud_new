@@ -669,7 +669,7 @@ export default function ProfileScreen() {
             iconColor={colors.accent}
             title="Новости канала"
             sub="Обновления, акции и новости GhostCloud"
-            onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/news`).catch(() => {})}
+            onPress={() => nav.navigate("Новости канала")}
           />
           {!isFoxcloud && (
             <>

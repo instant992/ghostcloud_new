@@ -25,6 +25,7 @@ import DevicesScreen from "./src/screens/DevicesScreen";
 import ReferralScreen from "./src/screens/ReferralScreen";
 import TopUpScreen from "./src/screens/TopUpScreen";
 import SupportScreen from "./src/screens/SupportScreen";
+import NewsScreen from "./src/screens/NewsScreen";
 import BugsScreen, { BugDetailScreen } from "./src/screens/BugsScreen";
 import SupportTicketScreen from "./src/screens/SupportTicketScreen";
 import SponsorLeaderboardScreen from "./src/screens/SponsorLeaderboardScreen";
@@ -279,6 +280,11 @@ const SubscriptionWithBack = () => (
     <SubscriptionScreen />
   </BackOverlay>
 );
+const NewsWithBack = () => (
+  <BackOverlay>
+    <NewsScreen />
+  </BackOverlay>
+);
 const BugsWithBack = () => <BackOverlay toParent><BugsScreen /></BackOverlay>;
 const BugDetailWithBack = () => <BackOverlay toParent><BugDetailScreen /></BackOverlay>;
 const AppearanceWithBack = () => (
@@ -307,6 +313,7 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
       <Stack.Screen name="ThemeHome" component={Home} />
       <Stack.Screen name="Настройки" component={SettingsWithBack} />
       <Stack.Screen name="Профиль" component={ProfileScreen} />
+      <Stack.Screen name="Новости канала" component={NewsWithBack} />
       <Stack.Screen name="Тарифы" component={PlansWithBack} />
       <Stack.Screen name="Статистика" component={StatsWithBack} />
       <Stack.Screen name="Подписка" component={SubscriptionWithBack} />
@@ -644,6 +651,7 @@ function DockedThemedFlow({
         )}
       </Stack.Screen>
       <Stack.Screen name="Настройки" component={SettingsWithBack} />
+      <Stack.Screen name="Новости канала" component={NewsWithBack} />
       <Stack.Screen name="Тарифы" component={PlansWithBack} />
       <Stack.Screen name="Статистика" component={StatsWithBack} />
       <Stack.Screen
@@ -806,6 +814,7 @@ function Root() {
             component={SupportScreen}
             options={{ headerShown: true, title: "Поддержка", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
           />
+          <Stack.Screen name="Новости канала" component={NewsWithBack} />
           <Stack.Screen
             name="SupportTicket"
             component={SupportTicketScreen}
