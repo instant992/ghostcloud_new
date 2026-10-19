@@ -301,6 +301,7 @@ const GlassPlaygroundWithBack = () => (
  *  открываются стеком поверх него — как во Flutter-версии. */
 function ThemedFlow({ Home }: { Home: React.ComponentType }) {
   useTheme();
+  const { isFoxcloud } = useApp();
   return (
     <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Screen name="ThemeHome" component={Home} />
@@ -340,11 +341,13 @@ function ThemedFlow({ Home }: { Home: React.ComponentType }) {
         component={AboutScreen}
         options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
       />
-      <Stack.Screen
-        name="Game"
-        component={GameScreen}
-        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
-      />
+      {!isFoxcloud && (
+        <Stack.Screen
+          name="Game"
+          component={GameScreen}
+          options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+        />
+      )}
       <Stack.Screen
         name="Requests"
         component={RequestsScreen}
@@ -580,6 +583,7 @@ function DockedThemedFlow({
   material?: boolean;
 }) {
   useTheme();
+  const { isFoxcloud } = useApp();
   // До чтения accessibility-настройки оставляем безопасный мгновенный переход.
   const [reduceMotion, setReduceMotion] = React.useState(true);
   React.useEffect(() => {
@@ -673,11 +677,13 @@ function DockedThemedFlow({
         component={AboutScreen}
         options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
       />
-      <Stack.Screen
-        name="Game"
-        component={GameScreen}
-        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
-      />
+      {!isFoxcloud && (
+        <Stack.Screen
+          name="Game"
+          component={GameScreen}
+          options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: screenBg }, headerTintColor: colors.text }}
+        />
+      )}
       <Stack.Screen
         name="Requests"
         component={RequestsScreen}
@@ -745,7 +751,7 @@ function TvThemeLock() {
 
 function Root() {
   const { style } = useTheme();
-  const { loading, session } = useApp();
+  const { loading, session, isFoxcloud } = useApp();
   if (loading) {
     return (
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg }}>
@@ -806,16 +812,18 @@ function Root() {
             options={{ headerShown: true, title: "Обращение", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
           />
           <Stack.Screen name="SponsorLeaderboard" component={SponsorLeaderboardScreen} options={{ headerShown: false }} />
-      <Stack.Screen
-        name="About"
-        component={AboutScreen}
-        options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
-      />
-      <Stack.Screen
-        name="Game"
-        component={GameScreen}
-        options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
-      />
+          <Stack.Screen
+            name="About"
+            component={AboutScreen}
+            options={{ headerShown: true, title: "О программе", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+          />
+          {!isFoxcloud && (
+            <Stack.Screen
+              name="Game"
+              component={GameScreen}
+              options={{ headerShown: true, title: "GhostCloud Run", headerStyle: { backgroundColor: colors.bg }, headerTintColor: colors.text }}
+            />
+          )}
       <Stack.Screen
         name="Requests"
         component={RequestsScreen}

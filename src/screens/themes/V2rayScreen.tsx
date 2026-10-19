@@ -65,6 +65,7 @@ export default function V2rayScreen() {
     vpnRunning,
     setVpnRunning,
     me,
+    isFoxcloud,
     subscriptionActive,
     reloadNodes,
     refreshMe,
@@ -510,16 +511,20 @@ export default function V2rayScreen() {
                 setAppsOpen(true);
               }}
             />
-            <View style={styles.drawerDivider} />
-            <DrawerItem
-              icon="game-controller-outline"
-              label="GhostCloud Run"
-              chevron
-              onPress={() => {
-                setDrawerOpen(false);
-                nav.navigate("Game");
-              }}
-            />
+            {!isFoxcloud && (
+              <>
+                <View style={styles.drawerDivider} />
+                <DrawerItem
+                  icon="game-controller-outline"
+                  label="GhostCloud Run"
+                  chevron
+                  onPress={() => {
+                    setDrawerOpen(false);
+                    nav.navigate("Game");
+                  }}
+                />
+              </>
+            )}
             <View style={styles.drawerDivider} />
             <DrawerItem
               icon="settings-outline"

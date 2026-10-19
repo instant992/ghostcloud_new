@@ -115,14 +115,14 @@ export default function SettingsScreen() {
       sub: "Просмотр последних записей запросов",
       onPress: () => nav.navigate("Requests"),
     },
-    {
+    ...(isFoxcloud ? [] : [{
       key: "game",
-      icon: "game-controller-outline",
+      icon: "game-controller-outline" as const,
       title: "GhostCloud Run",
       sub: "Мини-игра: собери 500 монет — получи +1 день подписки",
       onPress: () => nav.navigate("Game"),
       trailing: <Text style={styles.betaBadge}>BETA</Text>,
-    },
+    } satisfies Row]),
     {
       key: "support",
       icon: "chatbubbles-outline",
