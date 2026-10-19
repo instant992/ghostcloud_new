@@ -122,6 +122,16 @@ export async function getMe() {
   return request("GET", "/api/auth/mobile/me");
 }
 
+/** Отправить факт использования приложения для админской статистики версий. */
+export async function sendAppHeartbeat(payload: {
+  app_version: string;
+  device_os: string;
+  device_model: string;
+  vpn_active: boolean;
+}) {
+  return request("POST", "/api/auth/mobile/heartbeat", payload);
+}
+
 // ── Push / Security alerts ──
 
 export async function registerFcmToken(fcmToken: string) {

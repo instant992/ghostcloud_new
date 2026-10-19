@@ -18,6 +18,8 @@ import { clearVpnConnected } from "./vpn/timer";
 import type { SecurityAlert } from "./components/SecurityAlertModal";
 import { useTheme, useThemeSwitcher } from "./theme";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Application from "expo-application";
+import * as Device from "expo-device";
 
 const NODES_CACHE_FILE = "nodes_cache.json";
 
@@ -257,6 +259,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const dismissedAlertsRef = useRef<number[]>([]);
   const mounted = useRef(true);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const heartbeatInFlightRef = useRef(false);
   const selectedNodeIdRef = useRef<string | null>(null);
   /** Счётчик автоповторов загрузки серверов после входа */
   const nodesRetryRef = useRef(0);
@@ -314,6 +318,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // APK lifecycle is auth/theme independent. EAS OTA remains separate.
   useEffect(() => startUpdateChecks(), []);
+
+  // Report installed app version/device to the admin statistics page. Send on
+  // startup, foreground resume, and periodically while the app remains open.
+  useEffect(() => {
+    if (loading || !session) return;
+    let active = true;
+    const sendHeartbeat = async () => {
+      if (!active || heartbeatInFlightRef.current) return;
+      heartbeatInFlightRef.current = true;
+      try {
+        await api.sendAppHeartbeat({
+          app_version: Application.nativeApplicationVersion || "unknown",
+          device_os: `${Device.osName || "Unknown"} ${Device.osVersion || ""}`.trim(),
+          device_model: Device.modelName || Device.modelId || "Unknown device",
+          vpn_active: isVpnRunning(),
+        });
+      } catch {
+        // Best effort: telemetry must not affect login, VPN, or app startup.
+      } finally {
+        heartbeatInFlightRef.current = false;
+      }
+    };
+    const start = () => {
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+      void sendHeartbeat();
+      heartbeatTimerRef.current = setInterval(() => void sendHeartbeat(), 4 * 60 * 1000);
+    };
+    start();
+    const subscription = NativeAppState.addEventListener("change", (state) => {
+      if (state === "active") start();
+      else if (heartbeatTimerRef.current) {
+        clearInterval(heartbeatTimerRef.current);
+        heartbeatTimerRef.current = null;
+      }
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+      if (heartbeatTimerRef.current) clearInterval(heartbeatTimerRef.current);
+      heartbeatTimerRef.current = null;
+    };
+  }, [loading, session?.subUrl, session?.tgId, vpnRunning]);
 
   // Фильтр соединения: при смене сети (Wi-Fi ↔ LTE) перезапускаем туннель,
   // если активны профили с сетевым режимом — как в эталонном приложении.
