@@ -2,7 +2,7 @@ import React from "react";
 import { AccessibilityInfo, ActivityIndicator, Easing, PermissionsAndroid, Platform, Pressable, StatusBar, StyleSheet, Text, View } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
-import { NavigationContainer, DefaultTheme, useNavigation } from "@react-navigation/native";
+import { NavigationContainer, DefaultTheme, useNavigation, useRoute } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -201,6 +201,7 @@ function AuthStack() {
  *  главную, иначе иерархия настроек ломается. */
 function BackOverlay({ children, toParent }: { children: React.ReactNode; toParent?: boolean }) {
   const nav = useNavigation<any>();
+  const route = useRoute<any>();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
   // Фон push-экрана. В теме Liquid Glass экран НЕЛЬЗЯ оставлять прозрачным:
@@ -215,6 +216,10 @@ function BackOverlay({ children, toParent }: { children: React.ReactNode; toPare
     // Не определяем маршрут по сохранённой теме: при смене темы во время
     // работы приложения это значение может не совпасть с реальным стеком.
     // Сам стек надёжно сообщает, есть ли экран, который можно закрыть.
+    if (!toParent && (route.name === "Настройки" || route.name === "Профиль")) {
+      nav.popToTop();
+      return;
+    }
     if (nav.canGoBack()) {
       nav.goBack();
       return;
