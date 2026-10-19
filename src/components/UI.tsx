@@ -142,7 +142,7 @@ export function ThemedCard({
   const backdrop = useGlassBackdrop();
   const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
 
-  if (theme.style === "material") return <Surface elevation={0} style={[style, { borderRadius: radius ?? Number(flat?.borderRadius ?? 24), backgroundColor: colors.card }]}>{onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>{children}</Pressable> : children}</Surface>;
+  if (theme.style === "material") return <Surface elevation={0} style={[style, { borderRadius: radius ?? Number(flat?.borderRadius ?? 24), backgroundColor: colors.card }]}>{onPress ? <Pressable style={{ flex: 1 }} onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}>{children}</Pressable> : children}</Surface>;
 
   if (theme.style === "glass" && backdrop) {
     const {
