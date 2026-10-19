@@ -530,32 +530,7 @@ export default function V2rayScreen() {
               }}
             />
 
-            {/* LTE OPEN: отдельная строка обновления убрана — серверы LTE
-                обновляются общим «Обновить подписку» (reloadNodes тянет обычные + LTE) */}
-
-            <View style={styles.drawerRow}>
-              {smartBusy ? (
-                <ActivityIndicator size="small" color={colors.accent} style={{ width: 22 }} />
-              ) : (
-                <Ionicons name="sparkles-outline" size={21} color={colors.text} />
-              )}
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.drawerRowTitle}>Умная локация</Text>
-                <Text style={styles.drawerRowSub}>
-                  {smartBusy
-                    ? "Поиск лучшего сервера..."
-                    : smartLocation && smartName
-                      ? `Подключено: ${smartName}`
-                      : "Авто-выбор лучшего сервера"}
-                </Text>
-              </View>
-              <Switch
-                value={smartLocation}
-                onValueChange={toggleSmartLocation}
-                trackColor={{ false: colors.border, true: colors.accent }}
-                thumbColor="#fff"
-              />
-            </View>
+            {/* Умная локация доступна на главном экране, поэтому не дублируется в меню. */}
 
             <View style={{ flex: 1 }} />
 

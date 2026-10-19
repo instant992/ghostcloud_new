@@ -17,8 +17,70 @@ function errorLabel(error: unknown) { return error instanceof Error ? error.mess
 function BugMeta({ item }: { item: BugReport }) {
   return <View style={styles.meta}><Text style={[styles.badge, { color: colors.accent, backgroundColor: colors.accentSoft }]}>{statusNames[item.moderation_status === "approved" ? item.status : item.moderation_status] || item.status}</Text><Text style={[styles.dim, { color: colors.textDim }]}>#{item.id} · {item.author_name} · {dateLabel(item.created_at)}</Text></View>;
 }
+function VoteButton({
+  value,
+  count,
+  active,
+  disabled,
+  onPress,
+}: {
+  value: 1 | -1;
+  count: number;
+  active: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const like = value === 1;
+  const tone = like ? colors.accent : colors.red;
+  const icon = like
+    ? active ? "heart" : "heart-outline"
+    : active ? "heart-dislike" : "heart-dislike-outline";
+  return (
+    <Pressable
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={like ? "Нравится" : "Не нравится"}
+      accessibilityState={{ selected: active, disabled }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.vote,
+        {
+          borderColor: active ? tone : colors.border,
+          backgroundColor: active
+            ? like ? colors.accentSoft : "rgba(239,68,68,0.10)"
+            : colors.bgSoft,
+          opacity: disabled ? 0.45 : pressed ? 0.7 : 1,
+        },
+      ]}
+    >
+      <Ionicons name={icon as any} size={17} color={active ? tone : colors.textDim} />
+      <Text style={[styles.voteCount, { color: active ? tone : colors.textDim }]}>{count}</Text>
+    </Pressable>
+  );
+}
 function Votes({ item, disabled, onVote }: { item: BugReport; disabled: boolean; onVote: (value: number) => void }) {
-  return <View style={styles.row}>{([1, -1] as const).map(value => <Pressable key={value} disabled={disabled} accessibilityRole="button" accessibilityLabel={value === 1 ? "Нравится" : "Не нравится"} accessibilityState={{ selected: item.my_vote === value, disabled }} onPress={() => onVote(item.my_vote === value ? 0 : value)} style={[styles.vote, { backgroundColor: item.my_vote === value ? colors.accentSoft : "transparent" }]}><Ionicons name={value === 1 ? "thumbs-up-outline" : "thumbs-down-outline"} size={19} color={item.my_vote === value ? colors.accent : colors.textDim}/><Text style={{ color: colors.text }}>{value === 1 ? item.likes : item.dislikes}</Text></Pressable>)}<Ionicons name="chatbubble-outline" size={17} color={colors.textDim}/><Text style={{ color: colors.textDim }}>{item.comment_count}</Text></View>;
+  return (
+    <View style={styles.votesRow}>
+      <VoteButton
+        value={1}
+        count={item.likes}
+        active={item.my_vote === 1}
+        disabled={disabled}
+        onPress={() => onVote(item.my_vote === 1 ? 0 : 1)}
+      />
+      <VoteButton
+        value={-1}
+        count={item.dislikes}
+        active={item.my_vote === -1}
+        disabled={disabled}
+        onPress={() => onVote(item.my_vote === -1 ? 0 : -1)}
+      />
+      <View style={styles.commentChip}>
+        <Ionicons name="chatbubble-outline" size={15} color={colors.textDim} />
+        <Text style={[styles.voteCount, { color: colors.textDim }]}>{item.comment_count}</Text>
+      </View>
+    </View>
+  );
 }
 
 export default function BugsScreen() {
@@ -162,6 +224,7 @@ export function BugDetailScreen() {
 }
 const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
+  votesRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 },
   meta: { gap: 8, marginBottom: 10 },
   badge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, fontSize: 12, fontWeight: "600" },
   dim: { fontSize: 12, lineHeight: 18 },
@@ -169,6 +232,8 @@ const styles = StyleSheet.create({
   body: { fontSize: 15, lineHeight: 23, marginVertical: 8 },
   intro: { fontSize: 14, lineHeight: 21, marginBottom: 18 },
   tab: { paddingHorizontal: 16, minHeight: 44, justifyContent: "center", borderRadius: 16 },
-  vote: { minWidth: 64, minHeight: 48, paddingHorizontal: 10, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", borderRadius: 14 },
+  vote: { minWidth: 62, minHeight: 40, paddingHorizontal: 12, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center", borderRadius: 20, borderWidth: 1 },
+  voteCount: { fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums"] },
+  commentChip: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, minHeight: 40, borderRadius: 20, backgroundColor: colors.bgSoft },
   message: { paddingVertical: 16, gap: 12 },
 });
