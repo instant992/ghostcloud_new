@@ -664,6 +664,13 @@ export default function ProfileScreen() {
 
         {/* ─── Меню ─── */}
         <ShellBlock glass={isGlass} plainStyle={styles.menuCard}>
+          <MenuItem
+            icon="newspaper-outline"
+            iconColor={colors.accent}
+            title="Новости канала"
+            sub="Обновления, акции и новости GhostCloud"
+            onPress={() => WebBrowser.openBrowserAsync(`${BASE_URL}/news`).catch(() => {})}
+          />
           {!isFoxcloud && (
             <>
               <MenuItem
