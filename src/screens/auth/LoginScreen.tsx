@@ -1,6 +1,6 @@
 import { BrandName } from "../../components/BrandName";
 import React, { useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
@@ -12,7 +12,9 @@ import { colors, typo, useTheme } from "../../theme";
 
 export default function LoginScreen() {
   useTheme();
-  const styles = makeStyles();
+  const { height } = useWindowDimensions();
+  const styles = makeStyles(height);
+  const authTopPadding = Math.min(58, Math.max(20, Math.round(height * 0.06)));
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const { signIn, signIn2fa } = useApp();
@@ -68,7 +70,6 @@ export default function LoginScreen() {
       <KeyboardScrollView
         style={styles.flex}
         contentContainerStyle={{ flexGrow: 1 }}
-        scrollOnlyWithKeyboard
         bounces={false}
         alwaysBounceVertical={false}
         overScrollMode="never"
@@ -76,7 +77,7 @@ export default function LoginScreen() {
       <View style={styles.background}>
         <Image source={{ uri: "auth_background" }} style={styles.backgroundImage} resizeMode="cover" />
         <View pointerEvents="none" style={styles.backgroundShade} />
-        <View style={[styles.screen, { paddingTop: 58, paddingBottom: insets.bottom + 44 }]}>
+        <View style={[styles.screen, { paddingTop: authTopPadding, paddingBottom: insets.bottom + 44 }]}>
         <View style={styles.brand}>
           <Image source={{ uri: "auth_icon" }} style={styles.logo} resizeMode="contain" />
           <BrandName style={styles.brandName} solidColor="#FFFFFF" />
@@ -199,7 +200,14 @@ export default function LoginScreen() {
   );
 }
 
-const makeStyles = () => StyleSheet.create({
+const makeStyles = (height: number) => {
+  // Keep the full auth flow reachable on compact phones while preserving the
+  // spacious composition on taller displays. The ScrollView remains available
+  // as a fallback if the user has a larger font scale or the keyboard is open.
+  const brandTop = Math.max(28, Math.min(230, Math.round((height - 560) * 0.55)));
+  const compact = height < 820;
+
+  return StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.bg },
   background: { flex: 1, backgroundColor: colors.bg },
   backgroundImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
@@ -209,28 +217,28 @@ const makeStyles = () => StyleSheet.create({
     backgroundColor: "transparent",
     paddingHorizontal: 20,
   },
-  brand: { alignItems: "center", marginTop: 230, marginBottom: 8 },
+  brand: { alignItems: "center", marginTop: brandTop, marginBottom: compact ? 4 : 8 },
   logo: {
-    width: 64,
-    height: 76,
+    width: compact ? 56 : 64,
+    height: compact ? 66 : 76,
     marginBottom: 0,
   },
   brandName: {
     color: colors.text,
     ...typo.title,
-    fontSize: 24,
+    fontSize: compact ? 22 : 24,
   },
   brandSub: {
     color: colors.textDim,
     ...typo.sub,
-    marginTop: 4,
+    marginTop: compact ? 2 : 4,
   },
   form: { marginTop: 4 },
   formTitle: {
     color: colors.text,
     ...typo.heading,
     fontSize: 18,
-    marginBottom: 14,
+    marginBottom: compact ? 10 : 14,
   },
   hint2fa: {
     color: colors.textDim,
@@ -246,7 +254,7 @@ const makeStyles = () => StyleSheet.create({
   dividerRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 16,
+    marginVertical: compact ? 10 : 16,
   },
   divider: { flex: 1, height: 1, backgroundColor: colors.border },
   dividerText: {
@@ -259,4 +267,5 @@ const makeStyles = () => StyleSheet.create({
   secondaryRow: { flexDirection: "row", gap: 10, marginTop: 4 },
   secondaryHalf: { flex: 1 },
   telegramButtonContent: { flexDirection: "row", alignItems: "center", gap: 7 },
-});
+  });
+};
