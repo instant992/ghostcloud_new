@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -104,7 +104,8 @@ const popupStyles = StyleSheet.create({
  *  снизу панель выбора сервера, док из контурных иконок. */
 export default function AwgScreen() {
   useTheme();
-  const styles = makeStyles();
+  const { height } = useWindowDimensions();
+  const styles = makeStyles(height);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const {
@@ -429,8 +430,13 @@ export default function AwgScreen() {
   );
 }
 
-const makeStyles = () =>
-  StyleSheet.create({
+const makeStyles = (height: number) => {
+  const compact = height < 760;
+  const outerSize = compact ? 244 : 300;
+  const midSize = compact ? 218 : 268;
+  const circleSize = compact ? 192 : 236;
+
+  return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
     topRow: {
       flexDirection: "row",
@@ -465,28 +471,29 @@ const makeStyles = () =>
       flex: 1,
       alignItems: "center",
       justifyContent: "center",
+      minHeight: compact ? 280 : undefined,
     },
     // Свечение: вложенные контурные круги с убывающей прозрачностью
     glowOuter: {
-      width: 300,
-      height: 300,
-      borderRadius: 150,
+      width: outerSize,
+      height: outerSize,
+      borderRadius: outerSize / 2,
       borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
     glowMid: {
-      width: 268,
-      height: 268,
-      borderRadius: 134,
+      width: midSize,
+      height: midSize,
+      borderRadius: midSize / 2,
       borderWidth: 1,
       alignItems: "center",
       justifyContent: "center",
     },
     circle: {
-      width: 236,
-      height: 236,
-      borderRadius: 118,
+      width: circleSize,
+      height: circleSize,
+      borderRadius: circleSize / 2,
       borderWidth: 2,
       alignItems: "center",
       justifyContent: "center",
@@ -498,7 +505,7 @@ const makeStyles = () =>
       fontWeight: "600",
       letterSpacing: 0.3,
     },
-    status: { marginTop: 28, fontSize: 15, fontWeight: "500" },
+    status: { marginTop: compact ? 18 : 28, fontSize: 15, fontWeight: "500" },
     timer: { marginTop: 6, fontSize: 13, color: colors.textFaint, fontVariant: ["tabular-nums"] },
     bottomArea: {
       backgroundColor: "transparent",
@@ -591,3 +598,4 @@ const makeStyles = () =>
     },
     serverSub: { color: colors.textDim, fontSize: 12 },
   });
+};

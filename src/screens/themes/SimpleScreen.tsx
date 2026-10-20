@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -25,7 +25,8 @@ function formatTimer(total: number): string {
  *  Никакого выбора серверов: тап = автовыбор лучшего сервера и подключение. */
 export default function SimpleScreen() {
   useTheme();
-  const styles = makeStyles();
+  const { height } = useWindowDimensions();
+  const styles = makeStyles(height);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, subscriptionActive, me } = useApp();
@@ -209,7 +210,13 @@ export default function SimpleScreen() {
           </View>
         </View>
       ) : (
-        <>
+        <ScrollView
+          style={styles.mainScroll}
+          contentContainerStyle={[styles.mainScrollContent, { paddingBottom: insets.bottom + 24 }]}
+          bounces={false}
+          overScrollMode="never"
+          showsVerticalScrollIndicator={false}
+        >
       {/* Шапка */}
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
@@ -274,14 +281,20 @@ export default function SimpleScreen() {
           </View>
         )}
       </View>
-        </>
+        </ScrollView>
       )}
     </View>
   );
 }
 
-const makeStyles = () => StyleSheet.create({
+const makeStyles = (height: number) => {
+  const compact = height < 760;
+  const buttonSize = compact ? 184 : 230;
+
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  mainScroll: { flex: 1 },
+  mainScrollContent: { flexGrow: 1 },
   lockWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 },
   lockBox: {
     width: "100%",
@@ -326,11 +339,11 @@ const makeStyles = () => StyleSheet.create({
   appName: { color: BRAND_PURPLE, fontSize: 26, fontWeight: "800" },
   modeLabel: { color: colors.textDim, fontSize: 15, marginTop: 2 },
   gearBtn: { padding: 8 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+  center: { flexGrow: 1, minHeight: compact ? 320 : 430, alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingVertical: compact ? 18 : 28 },
   bigButton: {
-    width: 230,
-    height: 230,
-    borderRadius: 115,
+    width: buttonSize,
+    height: buttonSize,
+    borderRadius: buttonSize / 2,
     alignItems: "center",
     justifyContent: "center",
     elevation: 10,
@@ -341,9 +354,9 @@ const makeStyles = () => StyleSheet.create({
   },
   bigLabel: {
     color: colors.text,
-    fontSize: 34,
+    fontSize: compact ? 27 : 34,
     fontWeight: "800",
-    marginTop: 30,
+    marginTop: compact ? 18 : 30,
     letterSpacing: 1,
   },
   statusBox: {
@@ -363,4 +376,5 @@ const makeStyles = () => StyleSheet.create({
   },
   timerText: { color: colors.textDim, fontSize: 18, fontWeight: "600" },
   serverText: { color: colors.textFaint, fontSize: 16, flexShrink: 1 },
-});
+  });
+};
