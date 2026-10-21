@@ -254,7 +254,14 @@ export default function AwgScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <ScrollView style={{ maxHeight: 220, flexGrow: 0 }}><AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 8 }} /></ScrollView>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + (compact ? 24 : 12) }}
+        bounces={false}
+        overScrollMode="never"
+        showsVerticalScrollIndicator={compact}
+      >
+        <AnnouncementsArea style={{ marginHorizontal: 20, marginTop: 8 }} />
       {/* Сверху: дни подписки по центру, баланс справа — оба с «+» и тапом */}
       <View style={styles.topRow}>
         <Pressable
@@ -410,6 +417,7 @@ export default function AwgScreen() {
           </View>
         </Pressable>
       </View>
+      </ScrollView>
 
       <ServerSheet
         visible={sheetOpen}
