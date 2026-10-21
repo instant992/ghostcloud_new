@@ -37,6 +37,7 @@ import { ConnectionFilterModal } from "../../components/ConnectionFilterModal";
 import { BalanceSheet } from "../../components/BalanceSheet";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
+import { useResponsive } from "../../responsive";
 import * as stats from "../../stats";
 import {
 
@@ -73,7 +74,8 @@ function neu(radius: number, extra?: ViewStyle): ViewStyle {
  *  избранное, LTE OPEN и шторка профиля «Стандарт». */
 export default function HappScreen() {
   useTheme();
-  const styles = makeStyles();
+  const { compact } = useResponsive();
+  const styles = makeStyles(compact);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const {
@@ -965,7 +967,7 @@ function PromoDialog({ visible, onClose }: { visible: boolean; onClose: () => vo
   );
 }
 
-const makeStyles = () => {
+const makeStyles = (compact = false) => {
   const light = isLightPalette();
   return StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
@@ -984,18 +986,18 @@ const makeStyles = () => {
     fontWeight: "800",
     letterSpacing: -0.3,
   },
-  powerArea: { height: 250, alignItems: "center", justifyContent: "center" },
+  powerArea: { height: compact ? 214 : 250, alignItems: "center", justifyContent: "center" },
   pulseRing: {
     position: "absolute",
-    width: 214,
-    height: 214,
-    borderRadius: 107,
+    width: compact ? 186 : 214,
+    height: compact ? 186 : 214,
+    borderRadius: compact ? 93 : 107,
     borderWidth: 1,
   },
   circleMid: {
-    width: 164,
-    height: 164,
-    borderRadius: 82,
+    width: compact ? 144 : 164,
+    height: compact ? 144 : 164,
+    borderRadius: compact ? 72 : 82,
     backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: light ? "rgba(190,183,216,0.6)" : "rgba(190,183,216,0.28)",
@@ -1005,9 +1007,9 @@ const makeStyles = () => {
     shadowOffset: { width: 6, height: 6 },
   },
   circleInner: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: compact ? 98 : 112,
+    height: compact ? 98 : 112,
+    borderRadius: compact ? 49 : 56,
     backgroundColor: colors.bg,
     borderWidth: 1,
     borderColor: light ? "rgba(190,183,216,0.45)" : "rgba(190,183,216,0.22)",

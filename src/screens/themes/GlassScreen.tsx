@@ -30,6 +30,7 @@ import { BalanceSheet } from "../../components/BalanceSheet";
 import { showToast } from "../../components/Toast";
 import { ServerSheet } from "./ServerSheet";
 import { GlassCard, GlassScreenBackdrop, GLASS_SCROLL_HANDLERS } from "../../components/liquidGlass";
+import { useResponsive } from "../../responsive";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import { isBestServerAggregate } from "../../vpn/serverGrouping";
 import * as stats from "../../stats";
@@ -54,7 +55,8 @@ export { GlassCard } from "../../components/liquidGlass";
  *  стеклянные карточки и сфера питания — как в референсе Backdrop. */
 export default function GlassScreen() {
   useTheme();
-  const styles = makeStyles();
+  const { compact } = useResponsive();
+  const styles = makeStyles(compact);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const {
@@ -213,7 +215,7 @@ export default function GlassScreen() {
           paddingHorizontal: 20,
           paddingTop: insets.top + 12,
           // Плавающий док: контент не должен залезать под меню
-          paddingBottom: insets.bottom + 116,
+          paddingBottom: insets.bottom + (compact ? 96 : 116),
         }}
         showsVerticalScrollIndicator={false}
         onMomentumScrollEnd={GLASS_SCROLL_HANDLERS.onMomentumScrollEnd}
@@ -410,12 +412,12 @@ export default function GlassScreen() {
   );
 }
 
-const makeStyles = () => StyleSheet.create({
+const makeStyles = (compact = false) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: "transparent" },
   headerLogo: { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
     color: BRAND_PURPLE,
-    fontSize: 26,
+    fontSize: compact ? 22 : 26,
     fontWeight: "700",
     letterSpacing: -0.5,
     marginLeft: 8,

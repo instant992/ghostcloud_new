@@ -35,11 +35,13 @@ import { buildMapMarkers } from "../components/worldMap/markers";
 import { AUTO_SERVER_ID } from "../vpn/autoSelect";
 import { resolveConnectNode } from "../vpn/manager";
 import { isBestServerAggregate } from "../vpn/serverGrouping";
+import { useResponsive } from "../responsive";
 import { groupServerNodes, type ServerGroup } from "../vpn/serverGrouping";
 
 export default function HomeScreen() {
   useTheme();
-  const styles = makeStyles();
+  const { compact } = useResponsive();
+  const styles = makeStyles(compact);
   const insets = useSafeAreaInsets();
 
   const nav = useNavigation<any>();
@@ -245,8 +247,8 @@ export default function HomeScreen() {
       />
 
       <View style={styles.powerArea}>
-        <View style={{ width: 304, height: 220, alignItems: "center", justifyContent: "center" }}>
-          <View style={{ transform: [{ scale: 0.74 }] }}>
+        <View style={{ width: compact ? 260 : 304, height: compact ? 190 : 220, alignItems: "center", justifyContent: "center" }}>
+          <View style={{ transform: [{ scale: compact ? 0.64 : 0.74 }] }}>
           <PowerButton connected={connected} busy={busy} onToggle={toggle} />
           </View>
         </View>
@@ -638,7 +640,7 @@ function pluralDays(n: number): string {
   return "дней";
 }
 
-const makeStyles = () => StyleSheet.create({
+const makeStyles = (compact = false) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
@@ -673,7 +675,7 @@ const makeStyles = () => StyleSheet.create({
   miniRub: { color: colors.accent, fontSize: 13, fontWeight: "900" },
   miniValue: { color: colors.text, fontSize: 12.5, fontWeight: "800", lineHeight: 14 },
   miniLabel: { color: colors.textDim, fontSize: 9, marginTop: 1 },
-  powerArea: { flexGrow: 1, flexShrink: 1, minHeight: 220, maxHeight: 232, marginTop: 60, paddingVertical: 4, alignItems: "center", justifyContent: "center" },
+  powerArea: { flexGrow: 1, flexShrink: 1, minHeight: compact ? 180 : 220, maxHeight: compact ? 200 : 232, marginTop: compact ? 24 : 60, paddingVertical: 4, alignItems: "center", justifyContent: "center" },
   timer: { marginTop: 4, fontSize: 14, color: colors.textDim, letterSpacing: 2 },
   error: { marginTop: 8, fontSize: 12, color: colors.red, textAlign: "center", paddingHorizontal: 30 },
   serverIcon: {

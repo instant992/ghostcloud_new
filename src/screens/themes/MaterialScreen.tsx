@@ -18,6 +18,7 @@ import { formatBytes, splitNameFlag, pingColor, pingFailLabel } from "../../them
 import { transportLabel } from "../../utils/transportLabel";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import { ServerSheet } from "./ServerSheet";
+import { useResponsive } from "../../responsive";
 
 type Operation = "connect" | "disconnect" | "switch" | null;
 const errorMessage = (error: unknown, fallback: string) => {
@@ -30,6 +31,7 @@ const dayWord = (days: number) => days % 10 === 1 && days % 100 !== 11 ? "ден
 export default function MaterialScreen() {
   const theme = useTheme<MD3Theme>();
   const c = theme.colors;
+  const { compact } = useResponsive();
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const { loading, nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, me, subscriptionActive, reloadNodes, subscriptionUpdatedAt } = useApp();
@@ -195,8 +197,8 @@ export default function MaterialScreen() {
             {icon(vpnRunning ? "shield-checkmark-outline" : "shield-outline", vpnRunning ? c.onPrimaryContainer : c.onSurfaceVariant, 17)}
             <Text variant="labelLarge" style={{ color: vpnRunning ? c.onPrimaryContainer : c.onSurfaceVariant }}>{busy ? "Соединение" : vpnRunning ? "VPN включён" : "VPN выключен"}</Text>
           </View>
-          <View style={s.power}>
-            <View style={s.powerScaled}>
+          <View style={[s.power, compact && { height: 168 }]}>
+            <View style={[s.powerScaled, compact && { transform: [{ scale: 0.82 }] }]}>
               <PowerButton connected={vpnRunning} busy={powerDisabled} onToggle={toggle} />
             </View>
           </View>

@@ -28,6 +28,7 @@ import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { showToast } from "../../components/Toast";
 import { AUTO_SERVER_ID } from "../../vpn/autoSelect";
 import { isBestServerAggregate } from "../../vpn/serverGrouping";
+import { useResponsive } from "../../responsive";
 import * as stats from "../../stats";
 import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
 
@@ -35,7 +36,8 @@ import { useVpnTimerSeconds, formatElapsed } from "../../vpn/timer";
  *  док «островками», без стекла и блюра — как в Flutter-версии. */
 export default function MinimalistScreen() {
   useTheme();
-  const styles = makeStyles();
+  const { compact } = useResponsive();
+  const styles = makeStyles(compact);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const {
@@ -435,7 +437,7 @@ export default function MinimalistScreen() {
   );
 }
 
-const makeStyles = () => StyleSheet.create({
+const makeStyles = (compact = false) => StyleSheet.create({
   overviewPanel: { backgroundColor: colors.cardLight, borderColor: colors.border, borderWidth: 1, borderRadius: 22, padding: 16, marginTop: 6 },
   trafficSummary: { flexDirection: "row", alignItems: "center", gap: 14, minHeight: 60 },
   summaryMetric: { flex: 1 },
@@ -540,7 +542,7 @@ const makeStyles = () => StyleSheet.create({
   },
   lteBetaText: { color: colors.accentDeep, fontSize: 9, fontWeight: "700", letterSpacing: 0.5 },
   lteSub: { color: colors.textDim, fontSize: 11, marginTop: 1 },
-  powerArea: { alignItems: "center", paddingVertical: 16 },
+  powerArea: { alignItems: "center", paddingVertical: compact ? 10 : 16 },
   powerGlow: {
     borderRadius: 100,
     shadowRadius: 24,
@@ -548,9 +550,9 @@ const makeStyles = () => StyleSheet.create({
     elevation: 14,
   },
   powerBtn: {
-    width: 152,
-    height: 152,
-    borderRadius: 76,
+    width: compact ? 132 : 152,
+    height: compact ? 132 : 152,
+    borderRadius: compact ? 66 : 76,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,

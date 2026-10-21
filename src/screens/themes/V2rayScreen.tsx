@@ -33,6 +33,7 @@ import { BalanceSheet } from "../../components/BalanceSheet";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 import { SponsorHeart } from "../../components/Badges";
 import { showToast } from "../../components/Toast";
+import { useResponsive } from "../../responsive";
 
 function pluralDays(n: number): string {
   const m10 = n % 10;
@@ -55,7 +56,8 @@ function protoLabel(n: VpnNode): string {
 export default function V2rayScreen() {
   const theme = useTheme();
   const switchTheme = useThemeSwitcher();
-  const styles = makeStyles();
+  const { compact } = useResponsive();
+  const styles = makeStyles(compact);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const {
@@ -757,7 +759,7 @@ function ServerRow({
   );
 }
 
-const makeStyles = () => StyleSheet.create({
+const makeStyles = (compact = false) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   header: {
     backgroundColor: colors.bg,
@@ -770,9 +772,9 @@ const makeStyles = () => StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  appTitle: { color: BRAND_PURPLE, fontSize: 22, fontWeight: "800", marginLeft: 2 },
+  appTitle: { color: BRAND_PURPLE, fontSize: compact ? 19 : 22, fontWeight: "800", marginLeft: 2 },
   balanceBar: {
-    height: 38,
+    height: compact ? 34 : 38,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
@@ -784,17 +786,17 @@ const makeStyles = () => StyleSheet.create({
   balanceHint: { color: colors.textDim, fontSize: 12 },
   balanceDays: { fontSize: 13, fontWeight: "600", marginRight: 2 },
   tabItem: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: compact ? 11 : 14,
+    paddingVertical: compact ? 7 : 10,
     borderBottomWidth: 3,
     borderBottomColor: "transparent",
   },
   tabItemOn: { borderBottomColor: colors.accent },
-  tabLabel: { color: colors.textDim, fontWeight: "700", fontSize: 15 },
+  tabLabel: { color: colors.textDim, fontWeight: "700", fontSize: compact ? 13 : 15 },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    paddingVertical: compact ? 8 : 10,
     paddingRight: 8,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -816,10 +818,10 @@ const makeStyles = () => StyleSheet.create({
   fab: {
     position: "absolute",
     right: 16,
-    bottom: 76,
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    bottom: compact ? 68 : 76,
+    width: compact ? 56 : 64,
+    height: compact ? 56 : 64,
+    borderRadius: compact ? 14 : 16,
     alignItems: "center",
     justifyContent: "center",
     elevation: 4,
