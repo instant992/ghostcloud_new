@@ -39,6 +39,17 @@ export function setSetting(key: string, value: string) {
   } catch {}
 }
 
+export type CompactMode = "auto" | "normal" | "compact";
+
+export function getCompactMode(): CompactMode {
+  const value = getSetting("compact_ui", "auto");
+  return value === "normal" || value === "compact" ? value : "auto";
+}
+
+export function setCompactMode(value: CompactMode) {
+  setSetting("compact_ui", value);
+}
+
 const THEME_NAMES: ThemeName[] = [
   "default",
   "minimalist",

@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, Text, View
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useResponsive } from "../../responsive";
 import { useNavigation } from "@react-navigation/native";
 import { useApp } from "../../context";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
@@ -105,7 +106,8 @@ const popupStyles = StyleSheet.create({
 export default function AwgScreen() {
   useTheme();
   const { height } = useWindowDimensions();
-  const styles = makeStyles(height);
+  const { compact } = useResponsive();
+  const styles = makeStyles(height, compact);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const {
@@ -430,8 +432,8 @@ export default function AwgScreen() {
   );
 }
 
-const makeStyles = (height: number) => {
-  const compact = height < 760;
+const makeStyles = (height: number, compactOverride?: boolean) => {
+  const compact = compactOverride ?? height < 760;
   const outerSize = compact ? 244 : 300;
   const midSize = compact ? 218 : 268;
   const circleSize = compact ? 192 : 236;

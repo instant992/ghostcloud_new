@@ -10,7 +10,8 @@ import { SponsorHeart } from "../../components/Badges";
 import { showToast } from "../../components/Toast";
 import { useApp } from "../../context";
 import { colors, THEME_LABELS, THEME_ORDER, SIMPLE_UNLOCK_CODE, useTheme, useThemeSwitcher, type ThemeName } from "../../theme";
-import { getSetting, getThemeName, getThemeMode, setSetting } from "../../settings";
+import { getSetting, getThemeName, getThemeMode, setSetting, type CompactMode } from "../../settings";
+import { useResponsive } from "../../responsive";
 import { getLauncherIcon, setLauncherIcon } from "../../vpn/native";
 import { makeStyles } from "../settingsStyles";
 
@@ -28,6 +29,7 @@ export default function AppearanceScreen() {
   const styles = makeStyles();
   const switchTheme = useThemeSwitcher();
   const { me, isFoxcloud } = useApp();
+  const { mode: compactMode, compact, setMode: applyCompactMode } = useResponsive();
   const [style, setStyle] = useState<ThemeName>(getThemeName());
   const [mode, setMode] = useState(getThemeMode());
   const [themeOpen, setThemeOpen] = useState(false);
@@ -176,6 +178,33 @@ export default function AppearanceScreen() {
       <Screen style={topPad}>
         <Title>Внешний вид</Title>
 
+        <Card>
+          <Text style={styles.sectionTitle}>Размер интерфейса</Text>
+          <Text style={styles.themeRowSub}>
+            Авто подбирает компактный режим для маленьких экранов и крупного системного шрифта.
+          </Text>
+          <View style={[styles.modePill, { marginTop: 10 }]}>
+            {([
+              ["auto", "Авто"],
+              ["normal", "Обычный"],
+              ["compact", "Компактный"],
+            ] as Array<[CompactMode, string]>).map(([value, label]) => (
+              <PressableScale
+                key={value}
+                style={[styles.modeSeg, compactMode === value && styles.modeSegOn]}
+                onPress={() => applyCompactMode(value)}
+                accessibilityRole="radio"
+                accessibilityLabel={`Размер интерфейса: ${label}`}
+                accessibilityState={{ selected: compactMode === value }}
+              >
+                <Text style={[styles.modeSegText, compactMode === value && { color: "#fff" }]}>{label}</Text>
+              </PressableScale>
+            ))}
+          </View>
+          <Text style={styles.hint}>
+            Сейчас: {compact ? "компактный режим" : "обычный режим"}
+          </Text>
+        </Card>
         {/* FoxCloud (вход через Telegram): тема закреплена — режим темы
             (тёмная/авто/светлая), смена темы по времени и выбор стиля скрыты
             целиком, чтобы нельзя было уйти из FoxCloud или включить авто-смену. */}

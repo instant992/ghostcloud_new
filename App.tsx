@@ -9,6 +9,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { AppProvider, useApp } from "./src/context";
 import { colors, ThemeProvider, useTheme, useThemeSwitcher } from "./src/theme";
+import { ResponsiveProvider } from "./src/responsive";
 
 import LoginScreen from "./src/screens/auth/LoginScreen";
 import RegisterScreen from "./src/screens/auth/RegisterScreen";
@@ -880,18 +881,20 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <SafeAreaProvider>
-          <StatusBarFollower />
-          <AppProvider>
-            {IS_TV && <TvThemeLock />}
-            <ThemedContainer>
-              <UpdateLayout><Root /></UpdateLayout>
-            </ThemedContainer>
-            <ToastHost />
-            <SecurityAlertHost />
-            {!splashDone && <FoxSplash onDone={() => setSplashDone(true)} />}
-          </AppProvider>
-        </SafeAreaProvider>
+        <ResponsiveProvider>
+          <SafeAreaProvider>
+            <StatusBarFollower />
+            <AppProvider>
+              {IS_TV && <TvThemeLock />}
+              <ThemedContainer>
+                <UpdateLayout><Root /></UpdateLayout>
+              </ThemedContainer>
+              <ToastHost />
+              <SecurityAlertHost />
+              {!splashDone && <FoxSplash onDone={() => setSplashDone(true)} />}
+            </AppProvider>
+          </SafeAreaProvider>
+        </ResponsiveProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

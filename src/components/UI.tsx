@@ -18,6 +18,7 @@ import { PressableScale } from "./PressableScale";
 import { LiquidGlassSurface, useGlassBackdrop, GLASS_SCROLL_HANDLERS } from "./liquidGlass";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardScrollView, KeyboardFormContext } from "./KeyboardForm";
+import { useResponsive } from "../responsive";
 
 /** Контекст: экран находится во вкладках (таб-бар), а не под стековым хедером.
  *  Используется для корректных верхних отступов вместо магических чисел. */
@@ -63,6 +64,7 @@ export function Screen({
   style?: ViewStyle;
 }) {
   useTheme();
+  const { compact } = useResponsive();
   const inTabs = useInTabArea();
   const insets = useSafeAreaInsets();
   const styles = makeStyles();
@@ -71,7 +73,7 @@ export function Screen({
   // безопасный отступ вместо магических чисел (вне вкладок отступ задаёт экран).
   const safeTop = inTabs ? { paddingTop: insets.top + 12 } : null;
   // Во вкладках внизу плавающий таб-бар (~96) — контент не должен под него залезать.
-  const safeBottom = inTabs ? { paddingBottom: insets.bottom + 116 } : null;
+  const safeBottom = inTabs ? { paddingBottom: insets.bottom + (compact ? 96 : 116) } : null;
   if (scroll) {
     return (
       <KeyboardScrollView

@@ -11,6 +11,7 @@ import { tcpPing } from "../../vpn/native";
 import type { VpnNode } from "../../vpn/parse";
 import { colors, splitNameFlag, useTheme, SIMPLE_UNLOCK_CODE, BRAND_PURPLE } from "../../theme";
 import { showToast } from "../../components/Toast";
+import { useResponsive } from "../../responsive";
 import { AnnouncementsArea } from "../../components/AnnouncementsArea";
 
 function formatTimer(total: number): string {
@@ -26,7 +27,8 @@ function formatTimer(total: number): string {
 export default function SimpleScreen() {
   useTheme();
   const { height } = useWindowDimensions();
-  const styles = makeStyles(height);
+  const { compact } = useResponsive();
+  const styles = makeStyles(height, compact);
   const insets = useSafeAreaInsets();
   const nav = useNavigation<any>();
   const { nodes, selectedNodeId, selectNode, vpnRunning, setVpnRunning, subscriptionActive, me } = useApp();
@@ -287,8 +289,8 @@ export default function SimpleScreen() {
   );
 }
 
-const makeStyles = (height: number) => {
-  const compact = height < 760;
+const makeStyles = (height: number, compactOverride?: boolean) => {
+  const compact = compactOverride ?? height < 760;
   const buttonSize = compact ? 184 : 230;
 
   return StyleSheet.create({
